@@ -1,0 +1,8 @@
+{
+  "name": "vita+ - AI first",
+  "description": "A modern, mobile-optimized web application for GLP-1 based weight loss therapy, designed with a Gen Z aesthetic.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
