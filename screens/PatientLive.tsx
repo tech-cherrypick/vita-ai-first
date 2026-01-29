@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
+import { auth } from '../firebase';
 import { Patient, VitaLogo } from '../constants';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
@@ -27,12 +28,12 @@ declare global {
 // --- Component Types ---
 type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live';
 
-const CARE_MANAGER = { 
-    id: 'coordinator', 
-    name: 'Alex Ray', 
-    role: 'Care Manager', 
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop', 
-    color: 'text-brand-cyan' 
+const CARE_MANAGER = {
+    id: 'coordinator',
+    name: 'Alex Ray',
+    role: 'Care Manager',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop',
+    color: 'text-brand-cyan'
 };
 
 type WidgetType = 'vitals' | 'medical' | 'psych' | 'labs' | 'profile' | 'payment' | 'consultation';
@@ -46,9 +47,9 @@ interface Message {
     color?: string;
     isConnecting?: boolean;
     widget?: {
-      type: WidgetType;
-      isComplete: boolean;
-      data?: any;
+        type: WidgetType;
+        isComplete: boolean;
+        data?: any;
     };
 }
 
@@ -74,9 +75,9 @@ interface PatientLiveProps {
 const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdatePatient, onSignOut }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { 
-            sender: CARE_MANAGER.name, 
-            role: CARE_MANAGER.role, 
+        {
+            sender: CARE_MANAGER.name,
+            role: CARE_MANAGER.role,
             avatar: CARE_MANAGER.avatar,
             color: CARE_MANAGER.color,
             text: "Establishing secure connection...",
@@ -88,7 +89,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     const [scheduledLabDate, setScheduledLabDate] = useState<Date | null>(null);
     const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
     const [patientSex, setPatientSex] = useState<string>(''); // Lifted state for conditional logic
-    
+
     // Chat State
     const [chatSession, setChatSession] = useState<any>(null);
     const [isTyping, setIsTyping] = useState(false);
@@ -107,13 +108,19 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     // --- Initialize Chat ---
     useEffect(() => {
+        if (messages.length > 0) {
+            saveToCloudBucket('chat_history', { messages });
+        }
+    }, [messages]);
+
+    useEffect(() => {
         const initChat = async () => {
             try {
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
                 const chat = ai.chats.create({
                     model: 'gemini-3-flash-preview',
                     config: {
-                        systemInstruction: `You are Alex Ray, the Vita Care Manager. You are guiding ${patient.name} through the intake process.
+                        systemInstruction: `You are Alex Ray, the Vita Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
 
                         **TONE:** Professional, warm, efficient. Indian English nuance (use "Kindly", "Right then", "Please do the needful").
                         
@@ -139,7 +146,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         tools: [{ functionDeclarations: [triggerWidgetTool] }],
                     },
                 });
-                
+
                 setChatSession(chat);
 
                 // Kickoff
@@ -162,14 +169,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.lang = 'en-US';
-            
+
             recognition.onresult = (event: any) => {
                 const transcript = Array.from(event.results)
                     .map((result: any) => result[0].transcript)
                     .join('');
                 setInputValue(transcript);
             };
-            
+
             recognition.onend = () => setIsListening(false);
             recognitionRef.current = recognition;
         }
@@ -201,10 +208,10 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             recorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' }); // Gemini supports mp3/wav/aac/etc.
                 const audioUrl = URL.createObjectURL(audioBlob);
-                
+
                 // Add to UI
                 setMessages(prev => [...prev, { sender: 'You', audioUrl }]);
-                
+
                 // Send to Gemini
                 await sendAudioMessage(audioBlob);
             };
@@ -242,15 +249,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         if (parsed.tool_calls) {
                             calls = parsed.tool_calls.map((tc: any) => ({ name: tc.function.name, args: tc.function.parameters }));
                         } else if (parsed.function) {
-                             calls = [{ name: parsed.function.name, args: parsed.function.parameters }];
+                            calls = [{ name: parsed.function.name, args: parsed.function.parameters }];
                         } else if (parsed.name === 'triggerWidget') {
-                             calls = [{ name: parsed.name, args: parsed.parameters || parsed.args }];
+                            calls = [{ name: parsed.name, args: parsed.parameters || parsed.args }];
                         } else if (parsed.widget_type || parsed.widgetType) {
-                             calls = [{ name: 'triggerWidget', args: { widgetType: parsed.widget_type || parsed.widgetType } }];
+                            calls = [{ name: 'triggerWidget', args: { widgetType: parsed.widget_type || parsed.widgetType } }];
                         } else if (Array.isArray(parsed)) {
-                             calls = parsed.map((p: any) => ({ name: p.name || p.function?.name || 'triggerWidget', args: p.args || p.parameters || p.function?.parameters || p })).filter(c => c.args?.widgetType || c.args?.widget_type);
+                            calls = parsed.map((p: any) => ({ name: p.name || p.function?.name || 'triggerWidget', args: p.args || p.parameters || p.function?.parameters || p })).filter(c => c.args?.widgetType || c.args?.widget_type);
                         }
-                    } catch(e) { /* ignore */ }
+                    } catch (e) { /* ignore */ }
                 }
                 if (!calls && (text.includes('tool_calls') || text.includes('widget_type') || text.includes('widgetType'))) {
                     const looseMatch = text.match(/(\{[\s\S]*?(?:"widget_type"|"widgetType")[\s\S]*?\})/);
@@ -262,7 +269,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             } else if (parsed.widget_type || parsed.widgetType) {
                                 calls = [{ name: 'triggerWidget', args: { widgetType: parsed.widget_type || parsed.widgetType } }];
                             }
-                        } catch(e) { /* ignore */ }
+                        } catch (e) { /* ignore */ }
                     }
                 }
             } catch (e) { console.warn("Fallback Tool Parsing Failed:", e); }
@@ -284,12 +291,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             if (cleanText) {
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isConnecting);
-                    return [...filtered, { 
-                        sender: CARE_MANAGER.name, 
-                        role: CARE_MANAGER.role, 
-                        avatar: CARE_MANAGER.avatar, 
-                        color: CARE_MANAGER.color, 
-                        text: cleanText 
+                    return [...filtered, {
+                        sender: CARE_MANAGER.name,
+                        role: CARE_MANAGER.role,
+                        avatar: CARE_MANAGER.avatar,
+                        color: CARE_MANAGER.color,
+                        text: cleanText
                     }];
                 });
             }
@@ -343,10 +350,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         reader.onloadend = async () => {
             const base64data = (reader.result as string).split(',')[1];
             try {
-                const res = await chatSession.sendMessage({ message: [
-                    { text: "I have sent a voice message. Please listen and respond." },
-                    { inlineData: { mimeType: "audio/mp3", data: base64data } }
-                ]});
+                const res = await chatSession.sendMessage({
+                    message: [
+                        { text: "I have sent a voice message. Please listen and respond." },
+                        { inlineData: { mimeType: "audio/mp3", data: base64data } }
+                    ]
+                });
                 processResponse(res);
             } catch (err) {
                 console.error("Audio Send Error", err);
@@ -357,32 +366,40 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     // --- Cloud Bucket Sync ---
     const saveToCloudBucket = async (section: string, data: any) => {
-        const payload = {
-            patientId: patient.id,
-            patientName: patient.name,
-            section: section,
-            timestamp: new Date().toISOString(),
-            data: data
-        };
+        const user = auth.currentUser;
+        console.log("💾 Attempting sync for:", section, "User authenticated:", !!user);
 
-        console.log("☁️ Syncing to Cloud Bucket:", payload);
+        if (!user) {
+            console.warn("No authenticated user found. Skipping sync.");
+            return;
+        }
 
-        // NOTE: In a real deployment, set VITE_CLOUD_FUNCTION_URL in your .env file
-        // pointing to your Google Cloud Function trigger URL.
-        const CLOUD_ENDPOINT = (import.meta as any).env.VITE_CLOUD_FUNCTION_URL;
+        try {
+            const token = await user.getIdToken();
+            const payload = { section, data };
 
-        if (CLOUD_ENDPOINT) {
-            try {
-                await fetch(CLOUD_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            } catch (error) {
-                console.error("Cloud Sync Error:", error);
+            // Using our local backend sync endpoint
+            const CLOUD_ENDPOINT = 'http://localhost:5000/api/sync';
+
+            console.log("☁️ Sending to Backend:", CLOUD_ENDPOINT);
+
+            const response = await fetch(CLOUD_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Sync failed (${response.status}): ${errorText}`);
             }
-        } else {
-            console.debug("Cloud Function URL not set. Skipping sync.");
+
+            console.log("✅ Sync successful for section:", section);
+        } catch (error) {
+            console.error("❌ Cloud Sync Error:", error);
         }
     };
 
@@ -459,7 +476,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     return (
         <div className="fixed inset-0 z-50 bg-brand-bg flex flex-col font-sans overflow-hidden animate-fade-in">
-            <SideMenu 
+            <SideMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 onSignOut={onSignOut}
@@ -501,7 +518,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             {msg.avatar && <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />}
                             <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
                                 {msg.role && <span className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${msg.color}`}>{msg.role}</span>}
-                                
+
                                 {msg.text && (
                                     <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
                                         <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
@@ -511,7 +528,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                 {msg.audioUrl && (
                                     <div className="mt-2 bg-brand-purple text-white p-3 rounded-2xl rounded-tr-none flex items-center gap-3">
                                         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" /></svg>
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold uppercase tracking-wider opacity-80">Voice Note</span>
@@ -542,7 +559,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                                 {msg.widget.type === 'consultation' && (
                                                     <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
                                                         <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 7: Doctor Consultation</h3>
-                                                        <ConsultationScheduler 
+                                                        <ConsultationScheduler
                                                             onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
                                                             minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
                                                             buttonText="Confirm Consultation"
@@ -582,14 +599,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
                 <div className="max-w-2xl mx-auto flex items-end gap-2">
                     <form onSubmit={handleSendMessage} className="flex-1 bg-gray-50 rounded-2xl border border-gray-200 px-4 py-3 flex items-center focus-within:ring-2 focus-within:ring-brand-purple/20 transition-all overflow-hidden relative">
-                        <input 
-                            value={inputValue} 
-                            onChange={(e) => setInputValue(e.target.value)} 
-                            placeholder={isListening ? "Listening..." : "Type or speak..."} 
-                            className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400" 
+                        <input
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            placeholder={isListening ? "Listening..." : "Type or speak..."}
+                            className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400"
                         />
                         {/* Dictation Button */}
-                        <button 
+                        <button
                             type="button"
                             onClick={toggleDictation}
                             className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-50 text-red-500 animate-pulse' : 'text-gray-400 hover:bg-gray-200'}`}
@@ -602,7 +619,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     </form>
 
                     {/* Async Voice Message Button */}
-                    <button 
+                    <button
                         type="button"
                         onMouseDown={startRecording}
                         onMouseUp={stopRecording}
@@ -616,9 +633,9 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         </svg>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => handleSendMessage()}
-                        disabled={!inputValue.trim()} 
+                        disabled={!inputValue.trim()}
                         className="w-12 h-12 rounded-2xl bg-brand-text text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
@@ -632,10 +649,10 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 // --- Comprehensive Onboarding Widgets ---
 
 const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> = ({ onSubmit, initialData }) => {
-    const [d, setD] = useState(initialData || { 
+    const [d, setD] = useState(initialData || {
         height_ft: '5', height_in: '9', current_weight: '85', age: '', sex: '',
-        waist: '', neck: '', hip: '', 
-        bp_sys: '', bp_dia: '', fat_mass: '' 
+        waist: '', neck: '', hip: '',
+        bp_sys: '', bp_dia: '', fat_mass: ''
     });
     const [showGuide, setShowGuide] = useState(false);
 
@@ -672,11 +689,11 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Age</label>
-                            <input type="number" value={d.age} onChange={e => setD({...d, age: e.target.value})} placeholder="30" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.age} onChange={e => setD({ ...d, age: e.target.value })} placeholder="30" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Sex</label>
-                            <select value={d.sex} onChange={e => setD({...d, sex: e.target.value})} className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none h-[46px]">
+                            <select value={d.sex} onChange={e => setD({ ...d, sex: e.target.value })} className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none h-[46px]">
                                 <option value="" disabled>Select</option>
                                 <option value="Female">Female</option>
                                 <option value="Male">Male</option>
@@ -693,17 +710,17 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
                         <div className="col-span-2 sm:col-span-1">
                             <label className="text-xs font-bold text-gray-600 block mb-1">Height</label>
                             <div className="flex gap-2">
-                                <input type="number" value={d.height_ft} onChange={e => setD({...d, height_ft: e.target.value})} placeholder="Ft" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none min-w-0" />
-                                <input type="number" value={d.height_in} onChange={e => setD({...d, height_in: e.target.value})} placeholder="In" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none min-w-0" />
+                                <input type="number" value={d.height_ft} onChange={e => setD({ ...d, height_ft: e.target.value })} placeholder="Ft" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none min-w-0" />
+                                <input type="number" value={d.height_in} onChange={e => setD({ ...d, height_in: e.target.value })} placeholder="In" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none min-w-0" />
                             </div>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Weight (kg)</label>
-                            <input type="number" value={d.current_weight} onChange={e => setD({...d, current_weight: e.target.value})} placeholder="75" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.current_weight} onChange={e => setD({ ...d, current_weight: e.target.value })} placeholder="75" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Fat Mass % <span className="text-gray-400 font-normal">(Opt)</span></label>
-                            <input type="number" value={d.fat_mass} onChange={e => setD({...d, fat_mass: e.target.value})} placeholder="25" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.fat_mass} onChange={e => setD({ ...d, fat_mass: e.target.value })} placeholder="25" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                     </div>
                 </div>
@@ -714,15 +731,15 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
                     <div className="grid grid-cols-3 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Neck</label>
-                            <input type="number" value={d.neck} onChange={e => setD({...d, neck: e.target.value})} placeholder="15" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.neck} onChange={e => setD({ ...d, neck: e.target.value })} placeholder="15" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Waist</label>
-                            <input type="number" value={d.waist} onChange={e => setD({...d, waist: e.target.value})} placeholder="34" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.waist} onChange={e => setD({ ...d, waist: e.target.value })} placeholder="34" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-600 block mb-1">Hips</label>
-                            <input type="number" value={d.hip} onChange={e => setD({...d, hip: e.target.value})} placeholder="40" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.hip} onChange={e => setD({ ...d, hip: e.target.value })} placeholder="40" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                     </div>
                 </div>
@@ -733,9 +750,9 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
                     <div>
                         <label className="text-xs font-bold text-gray-600 block mb-1">Blood Pressure (mmHg)</label>
                         <div className="flex gap-2 items-center">
-                            <input type="number" value={d.bp_sys} onChange={e => setD({...d, bp_sys: e.target.value})} placeholder="Sys (120)" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.bp_sys} onChange={e => setD({ ...d, bp_sys: e.target.value })} placeholder="Sys (120)" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                             <span className="text-gray-400">/</span>
-                            <input type="number" value={d.bp_dia} onChange={e => setD({...d, bp_dia: e.target.value})} placeholder="Dia (80)" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                            <input type="number" value={d.bp_dia} onChange={e => setD({ ...d, bp_dia: e.target.value })} placeholder="Dia (80)" className="flex-1 bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                         </div>
                     </div>
                 </div>
@@ -747,8 +764,8 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
 };
 
 const MedicalOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any; patientSex?: string }> = ({ onSubmit, initialData, patientSex }) => {
-    const [step, setStep] = useState(0); 
-    const [d, setD] = useState(initialData || { 
+    const [step, setStep] = useState(0);
+    const [d, setD] = useState(initialData || {
         t2d: null, hypertension: null, pcos: null, sleep_apnea: null, cholesterol: null, fatty_liver: null, thyroid_issues: null, medications: '', other_conditions: '',
         family_obesity: null, family_diabetes: null, family_cardio: null, family_thyroid: null,
         contra_mtc: null, contra_men2: null, contra_pancreatitis: null, contra_pregnancy: null, contra_suicide: null
@@ -760,52 +777,58 @@ const MedicalOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialDat
         <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
             <span className="text-xs font-bold text-gray-600 pr-2">{label}</span>
             <div className="flex gap-2 shrink-0">
-                <button onClick={() => setD({...d, [field]: true})} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${d[field] === true ? 'bg-brand-purple text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>Yes</button>
-                <button onClick={() => setD({...d, [field]: false})} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${d[field] === false ? 'bg-brand-purple text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>No</button>
+                <button onClick={() => setD({ ...d, [field]: true })} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${d[field] === true ? 'bg-brand-purple text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>Yes</button>
+                <button onClick={() => setD({ ...d, [field]: false })} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${d[field] === false ? 'bg-brand-purple text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>No</button>
             </div>
         </div>
     );
 
     const stages = [
-        { title: "Metabolic DNA", content: (
-            <div className="space-y-1">
-                <Toggle label="Diagnosed with Type 2 Diabetes or Pre-diabetes?" field="t2d" />
-                <Toggle label="Managing High Blood Pressure with medication?" field="hypertension" />
-                <Toggle label="High Cholesterol or Statins use?" field="cholesterol" />
-                <Toggle label="Fatty Liver Disease (NAFLD/NASH)?" field="fatty_liver" />
-                <Toggle label="Thyroid Issues (Hypo/Hyper)?" field="thyroid_issues" />
-                {isFemale && <Toggle label="Diagnosed with PCOS or irregular periods?" field="pcos" />}
-                <Toggle label="Diagnosed with Sleep Apnea or use CPAP?" field="sleep_apnea" />
-                <div className="pt-4">
-                    <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest block mb-2">Daily Meds & Supplements</label>
-                    <textarea value={d.medications} onChange={e => setD({...d, medications: e.target.value})} placeholder="Current prescriptions..." className="w-full bg-gray-50 border rounded-xl p-3 text-sm min-h-[60px] outline-none focus:border-brand-purple resize-none" />
+        {
+            title: "Metabolic DNA", content: (
+                <div className="space-y-1">
+                    <Toggle label="Diagnosed with Type 2 Diabetes or Pre-diabetes?" field="t2d" />
+                    <Toggle label="Managing High Blood Pressure with medication?" field="hypertension" />
+                    <Toggle label="High Cholesterol or Statins use?" field="cholesterol" />
+                    <Toggle label="Fatty Liver Disease (NAFLD/NASH)?" field="fatty_liver" />
+                    <Toggle label="Thyroid Issues (Hypo/Hyper)?" field="thyroid_issues" />
+                    {isFemale && <Toggle label="Diagnosed with PCOS or irregular periods?" field="pcos" />}
+                    <Toggle label="Diagnosed with Sleep Apnea or use CPAP?" field="sleep_apnea" />
+                    <div className="pt-4">
+                        <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest block mb-2">Daily Meds & Supplements</label>
+                        <textarea value={d.medications} onChange={e => setD({ ...d, medications: e.target.value })} placeholder="Current prescriptions..." className="w-full bg-gray-50 border rounded-xl p-3 text-sm min-h-[60px] outline-none focus:border-brand-purple resize-none" />
+                    </div>
+                    <div className="pt-2">
+                        <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest block mb-2">Other Chronic Conditions</label>
+                        <textarea value={d.other_conditions} onChange={e => setD({ ...d, other_conditions: e.target.value })} placeholder="Autoimmune, Kidney, etc..." className="w-full bg-gray-50 border rounded-xl p-3 text-sm min-h-[60px] outline-none focus:border-brand-purple resize-none" />
+                    </div>
                 </div>
-                <div className="pt-2">
-                    <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest block mb-2">Other Chronic Conditions</label>
-                    <textarea value={d.other_conditions} onChange={e => setD({...d, other_conditions: e.target.value})} placeholder="Autoimmune, Kidney, etc..." className="w-full bg-gray-50 border rounded-xl p-3 text-sm min-h-[60px] outline-none focus:border-brand-purple resize-none" />
+            )
+        },
+        {
+            title: "Family Legacy", content: (
+                <div className="space-y-1">
+                    <Toggle label="Family Obesity (BMI > 30)?" field="family_obesity" />
+                    <Toggle label="Parent/Sibling with T2 Diabetes?" field="family_diabetes" />
+                    <Toggle label="Early Heart Attack? (Men < 55, Women < 60)" field="family_cardio" />
+                    <Toggle label="Thyroid Cancer History?" field="family_thyroid" />
                 </div>
-            </div>
-        )},
-        { title: "Family Legacy", content: (
-            <div className="space-y-1">
-                <Toggle label="Family Obesity (BMI > 30)?" field="family_obesity" />
-                <Toggle label="Parent/Sibling with T2 Diabetes?" field="family_diabetes" />
-                <Toggle label="Early Heart Attack? (Men < 55, Women < 60)" field="family_cardio" />
-                <Toggle label="Thyroid Cancer History?" field="family_thyroid" />
-            </div>
-        )},
-        { title: "GLP-1 Suitability", content: (
-            <div className="space-y-1">
-                <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-2">
-                    <p className="text-[10px] text-red-700 font-bold uppercase tracking-wide">Safety Contraindications</p>
+            )
+        },
+        {
+            title: "GLP-1 Suitability", content: (
+                <div className="space-y-1">
+                    <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-2">
+                        <p className="text-[10px] text-red-700 font-bold uppercase tracking-wide">Safety Contraindications</p>
+                    </div>
+                    <Toggle label="MTC or MEN 2 History?" field="contra_mtc" />
+                    <Toggle label="MEN 2 Syndrome?" field="contra_men2" />
+                    <Toggle label="Hospitalized for Pancreatitis?" field="contra_pancreatitis" />
+                    {isFemale && <Toggle label="Pregnant / Breastfeeding?" field="contra_pregnancy" />}
+                    <Toggle label="Suicidal Ideation?" field="contra_suicide" />
                 </div>
-                <Toggle label="MTC or MEN 2 History?" field="contra_mtc" />
-                <Toggle label="MEN 2 Syndrome?" field="contra_men2" />
-                <Toggle label="Hospitalized for Pancreatitis?" field="contra_pancreatitis" />
-                {isFemale && <Toggle label="Pregnant / Breastfeeding?" field="contra_pregnancy" />}
-                <Toggle label="Suicidal Ideation?" field="contra_suicide" />
-            </div>
-        )}
+            )
+        }
     ];
 
     return (
@@ -830,7 +853,7 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
     const [scores, setScores] = useState<Record<string, string>>(initialData || {});
 
     const phq9Questions = ["Little interest or pleasure", "Feeling down, depressed, hopeless", "Trouble falling/staying asleep", "Feeling tired or low energy", "Poor appetite or overeating", "Feeling bad about yourself", "Trouble concentrating", "Moving/speaking slowly", "Self-harm thoughts"];
-    
+
     const besQuestions = [
         { id: 1, options: ["I don't feel self-conscious about my weight or body size when I'm with others.", "I feel concerned about how I look to others, but it normally doesn't make me feel disappointed with myself.", "I do get self-conscious about my appearance and weight which makes me feel disappointed in myself.", "I feel very self-conscious about my weight and frequently, I feel like I'm just failing at everything."] },
         { id: 2, options: ["I don't have any difficulty eating slowly in the proper manner.", "Although I seem to devour foods, I don't end up feeling stuffed because of eating too much.", "At times, I tend to eat quickly and then, I feel uncomfortably full afterwards.", "I have the habit of bolting down my food, without really chewing it. When this happens I usually feel uncomfortably stuffed because I've eaten too much."] },
@@ -852,10 +875,10 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
 
     const handleAnswer = (val: string) => {
         const key = `${subStage}_${qIndex}`;
-        setScores({...scores, [key]: val});
+        setScores({ ...scores, [key]: val });
 
         const activeList = subStage === 'phq9' ? phq9Questions : subStage === 'bes' ? besQuestions : eat26Questions;
-        
+
         if (qIndex < activeList.length - 1) {
             setQIndex(qIndex + 1);
         } else {
@@ -866,11 +889,11 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
     };
 
     const currentQuestion = subStage === 'phq9' ? phq9Questions[qIndex] : subStage === 'bes' ? `Situation ${qIndex + 1}: Select the statement that fits best.` : eat26Questions[qIndex];
-    const options = subStage === 'phq9' 
+    const options = subStage === 'phq9'
         ? ['Not at all', 'Several days', 'More than half', 'Nearly every day']
         : subStage === 'eat26'
-        ? ['Always', 'Usually', 'Often', 'Sometimes', 'Rarely', 'Never']
-        : besQuestions[qIndex].options;
+            ? ['Always', 'Usually', 'Often', 'Sometimes', 'Rarely', 'Never']
+            : besQuestions[qIndex].options;
 
     return (
         <div className="bg-white p-5 sm:p-8 rounded-[32px] border border-gray-100 shadow-xl w-full max-w-full sm:max-w-md mx-auto">
@@ -940,10 +963,10 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-xl w-full">
             <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tighter">Phase 5: Your Profile</h3>
             <div className="space-y-4">
-                <input value={d.name} onChange={e => setD({...d, name: e.target.value})} placeholder="Full Name" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
-                <input value={d.email} onChange={e => setD({...d, email: e.target.value})} placeholder="Email" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
-                <input value={d.phone} onChange={e => setD({...d, phone: e.target.value})} placeholder="Phone" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
-                
+                <input value={d.name} onChange={e => setD({ ...d, name: e.target.value })} placeholder="Full Name" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                <input value={d.email} onChange={e => setD({ ...d, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+                <input value={d.phone} onChange={e => setD({ ...d, phone: e.target.value })} placeholder="Phone" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+
                 <div className="pt-2">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Address for Lab Visit</p>
                     <input value={d.labAddress.line1} onChange={e => updateLabAddress('line1', e.target.value)} placeholder="Street Address" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none mb-2" />
@@ -958,7 +981,7 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
                         <input type="checkbox" id="sameAddress" checked={useSameAddress} onChange={toggleSameAddress} className="w-4 h-4 text-brand-purple rounded border-gray-300 focus:ring-brand-purple" />
                         <label htmlFor="sameAddress" className="text-xs font-bold text-gray-500 uppercase tracking-wide cursor-pointer">Use same address for Shipping</label>
                     </div>
-                    
+
                     {!useSameAddress && (
                         <div className="animate-fade-in space-y-2">
                             <input value={d.shippingAddress.line1} onChange={e => updateShippingAddress('line1', e.target.value)} placeholder="Shipping Street Address" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
