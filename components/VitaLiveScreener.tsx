@@ -4,7 +4,7 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } f
 import WeightLossGraph from './WeightLossGraph';
 
 // --- Assets ---
-const NURSE_AVATAR_URL = "https://cdn.pixabay.com/photo/2024/02/20/11/03/ai-generated-8585220_1280.png"; 
+const NURSE_AVATAR_URL = "https://cdn.pixabay.com/photo/2024/02/20/11/03/ai-generated-8585220_1280.png";
 
 const STAGES = [
     { id: 'intro', label: 'Welcome' },
@@ -29,32 +29,32 @@ registerProcessor("recorder-worklet", RecorderProcessor);
 `;
 
 function decode(base64: string) {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
 }
 
 function encode(bytes: Uint8Array) {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
 }
 
 function floatTo16BitPCM(float32Array: Float32Array) {
-  const buffer = new ArrayBuffer(float32Array.length * 2);
-  const view = new DataView(buffer);
-  let offset = 0;
-  for (let i = 0; i < float32Array.length; i++, offset += 2) {
-    let s = Math.max(-1, Math.min(1, float32Array[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return buffer;
+    const buffer = new ArrayBuffer(float32Array.length * 2);
+    const view = new DataView(buffer);
+    let offset = 0;
+    for (let i = 0; i < float32Array.length; i++, offset += 2) {
+        let s = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return buffer;
 }
 
 // --- Tools ---
@@ -123,7 +123,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
     const [activeVisual, setActiveVisual] = useState<string>('welcome');
     const [highlightedField, setHighlightedField] = useState<string | null>(null);
     const [intakeData, setIntakeData] = useState<any>({ name: '', email: '', phone: '', weight: 0, heightFt: 0, heightIn: 0, riskLevel: 'Normal' });
-    const [selectedDateTime, setSelectedDateTime] = useState<{date: string, time: string}>({ date: '', time: '' });
+    const [selectedDateTime, setSelectedDateTime] = useState<{ date: string, time: string }>({ date: '', time: '' });
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -133,8 +133,8 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
     const intakeRef = useRef<any>({ name: '', email: '', phone: '', weight: 0, heightFt: 0, heightIn: 0, riskLevel: 'Normal' });
 
     const cleanupMedia = () => {
-        sourceNodesRef.current.forEach(n => { try { n.stop(); } catch(e) {} });
-        if (audioContextRef.current) audioContextRef.current.close().catch(() => {});
+        sourceNodesRef.current.forEach(n => { try { n.stop(); } catch (e) { } });
+        if (audioContextRef.current) audioContextRef.current.close().catch(() => { });
         if (sessionRef.current) sessionRef.current.close();
     };
 
@@ -143,19 +143,21 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             audioContextRef.current = new AudioContextClass({ sampleRate: 16000 });
             const analyser = audioContextRef.current.createAnalyser();
-            analyser.fftSize = 64; 
+            analyser.fftSize = 64;
             analyser.connect(audioContextRef.current.destination);
             analyserRef.current = analyser;
             await audioContextRef.current.audioWorklet.addModule(URL.createObjectURL(new Blob([workletCode], { type: "application/javascript" })));
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
             const sessionPromise = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
                     tools: [{ functionDeclarations: [setStageTool, updateIntakeTool, showVisualTool, highlightFieldTool] }],
-                    systemInstruction: `You are Vita, a specialist at Vita Health. 
+                    systemInstruction: {
+                        parts: [{
+                            text: `You are Vita, a specialist at Vita Health. 
                     
                     LANGUAGE: Indian Professional English.
                     TONE: Serious, thorough, lifestyle-oriented, professional, and warm. Always address the user as Sir/Ma'am.
@@ -178,7 +180,8 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                     4. breakthrough: Confirm eligibility. (showVisual: 'breakthrough')
                     5. weight_loss: Show potential outcome. (showVisual: 'weight_loss')
                     6. booking: Instruct the user to complete the unified form (Name, Email, Phone, and Calendar) displayed on the card to finish onboarding. (showVisual: 'booking')
-                    `
+                    ` }]
+                    }
                 },
                 callbacks: {
                     onopen: () => {
@@ -225,7 +228,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                         }
                         if (msg.toolCall) {
                             msg.toolCall.functionCalls.forEach(call => {
-                                if (call.name === 'setStage') { 
+                                if (call.name === 'setStage') {
                                     const idx = STAGES.findIndex(s => s.id === call.args.stage);
                                     if (idx !== -1) setCurrentStage(idx);
                                 }
@@ -267,7 +270,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
     const timeSlots = ["09:00 AM", "10:30 AM", "01:00 PM", "03:30 PM", "05:00 PM"];
     const dates = useMemo(() => {
         const d = [];
-        for(let i=1; i<=5; i++) {
+        for (let i = 1; i <= 5; i++) {
             const date = new Date();
             date.setDate(date.getDate() + i);
             d.push({
@@ -286,7 +289,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                     <div className="w-20 h-20 bg-brand-cyan/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-brand-cyan/30">
                         <div className="w-3 h-3 bg-brand-cyan rounded-full animate-ping"></div>
                     </div>
-                    <h2 className="text-4xl font-black text-white tracking-tighter uppercase mb-4 leading-none">Starting Your <br/>Journey</h2>
+                    <h2 className="text-4xl font-black text-white tracking-tighter uppercase mb-4 leading-none">Starting Your <br />Journey</h2>
                     <p className="text-white/40 text-[10px] uppercase font-black tracking-widest">Clinical Onboarding</p>
                 </div>
             );
@@ -321,7 +324,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                                 <p className="text-2xl font-black text-white">Detected</p>
                             </div>
                         </div>
-                        <p className="text-[10px] text-gray-400 text-center leading-relaxed">We're checking for silent metabolic markers <br/>unique to your heritage.</p>
+                        <p className="text-[10px] text-gray-400 text-center leading-relaxed">We're checking for silent metabolic markers <br />unique to your heritage.</p>
                     </div>
                 </CardWrapper>
             );
@@ -331,7 +334,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                         <div className="w-20 h-20 bg-brand-cyan rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_20px_#5EEAD4]">
                             <svg className="w-10 h-10 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                         </div>
-                        <h3 className="text-4xl font-black text-white tracking-tighter uppercase mb-4">Confirmed <br/>Success Path</h3>
+                        <h3 className="text-4xl font-black text-white tracking-tighter uppercase mb-4">Confirmed <br />Success Path</h3>
                         <p className="text-brand-cyan text-xs font-bold uppercase tracking-[0.2em]">Your profile matches our program</p>
                     </div>
                 </CardWrapper>
@@ -347,34 +350,34 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
             case 'booking': return (
                 <CardWrapper isSpeaking={speaking}>
                     <div className="w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 animate-slide-in-right overflow-y-auto max-h-[65vh] no-scrollbar">
-                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-8 leading-tight text-center">Secure Your <br/>Starting Line</h3>
-                        
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-8 leading-tight text-center">Secure Your <br />Starting Line</h3>
+
                         <div className="space-y-4 mb-10">
                             <div className="space-y-1">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ml-4 transition-colors ${highlightedField === 'name' ? 'text-brand-cyan' : 'text-white/40'}`}>Full Name</label>
-                                <input 
-                                    value={intakeData.name} 
-                                    onChange={e => setIntakeData({...intakeData, name: e.target.value})}
-                                    placeholder="Patient Name" 
-                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'name' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`} 
+                                <input
+                                    value={intakeData.name}
+                                    onChange={e => setIntakeData({ ...intakeData, name: e.target.value })}
+                                    placeholder="Patient Name"
+                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'name' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`}
                                 />
                             </div>
                             <div className="space-y-1">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ml-4 transition-colors ${highlightedField === 'email' ? 'text-brand-cyan' : 'text-white/40'}`}>Contact Link</label>
-                                <input 
-                                    value={intakeData.email} 
-                                    onChange={e => setIntakeData({...intakeData, email: e.target.value})}
-                                    placeholder="Email Address" 
-                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'email' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`} 
+                                <input
+                                    value={intakeData.email}
+                                    onChange={e => setIntakeData({ ...intakeData, email: e.target.value })}
+                                    placeholder="Email Address"
+                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'email' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`}
                                 />
                             </div>
                             <div className="space-y-1">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ml-4 transition-colors ${highlightedField === 'phone' ? 'text-brand-cyan' : 'text-white/40'}`}>Phone Number</label>
-                                <input 
-                                    value={intakeData.phone} 
-                                    onChange={e => setIntakeData({...intakeData, phone: e.target.value})}
-                                    placeholder="+91 00000 00000" 
-                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'phone' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`} 
+                                <input
+                                    value={intakeData.phone}
+                                    onChange={e => setIntakeData({ ...intakeData, phone: e.target.value })}
+                                    placeholder="+91 00000 00000"
+                                    className={`w-full bg-black/30 border rounded-2xl p-4 text-white text-sm outline-none transition-all ${highlightedField === 'phone' ? 'border-brand-cyan ring-1 ring-brand-cyan/40 bg-brand-cyan/5' : 'border-white/10'}`}
                                 />
                             </div>
                         </div>
@@ -383,9 +386,9 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                             <label className={`text-[9px] font-black uppercase tracking-widest ml-4 mb-3 block transition-colors ${highlightedField === 'date' ? 'text-brand-cyan' : 'text-white/40'}`}>Choose a Date</label>
                             <div className={`flex gap-2 overflow-x-auto no-scrollbar pb-2 rounded-xl transition-all ${highlightedField === 'date' ? 'ring-1 ring-brand-cyan/50 p-2 bg-brand-cyan/5' : ''}`}>
                                 {dates.map((d, i) => (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => setSelectedDateTime({...selectedDateTime, date: d.full})}
+                                    <button
+                                        key={i}
+                                        onClick={() => setSelectedDateTime({ ...selectedDateTime, date: d.full })}
                                         className={`flex-shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center border transition-all ${selectedDateTime.date === d.full ? 'bg-brand-cyan border-brand-cyan text-black font-black scale-105 shadow-lg' : 'bg-black/20 border-white/10 text-white/60 hover:border-white/30'}`}
                                     >
                                         <span className="text-[7px] uppercase font-bold">{d.full.split(' ')[0]}</span>
@@ -399,9 +402,9 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                             <label className={`text-[9px] font-black uppercase tracking-widest ml-4 mb-3 block transition-colors ${highlightedField === 'time' ? 'text-brand-cyan' : 'text-white/40'}`}>Choose a Time</label>
                             <div className={`grid grid-cols-2 gap-2 rounded-xl transition-all ${highlightedField === 'time' ? 'ring-1 ring-brand-cyan/50 p-2 bg-brand-cyan/5' : ''}`}>
                                 {timeSlots.map((t, i) => (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => setSelectedDateTime({...selectedDateTime, time: t})}
+                                    <button
+                                        key={i}
+                                        onClick={() => setSelectedDateTime({ ...selectedDateTime, time: t })}
                                         className={`py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedDateTime.time === t ? 'bg-white text-black border-white shadow-lg' : 'bg-black/20 border-white/10 text-white/40 hover:border-white/30'}`}
                                     >
                                         {t}
@@ -410,8 +413,8 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                             </div>
                         </div>
 
-                        <button 
-                            onClick={() => onComplete({ date: selectedDateTime.date, time: selectedDateTime.time, vitals: intakeData })} 
+                        <button
+                            onClick={() => onComplete({ date: selectedDateTime.date, time: selectedDateTime.time, vitals: intakeData })}
                             disabled={!selectedDateTime.date || !selectedDateTime.time || !intakeData.phone}
                             className="w-full py-5 bg-brand-cyan text-black font-black rounded-3xl uppercase tracking-[0.3em] text-[10px] shadow-[0_0_30px_rgba(94,234,212,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
                         >
@@ -428,21 +431,21 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
         <div className="fixed inset-0 z-50 bg-black text-white flex flex-col font-sans overflow-hidden">
             {!isSessionActive && (
                 <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl p-10 animate-fade-in">
-                     <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-brand-cyan to-brand-purple mb-12 shadow-[0_0_40px_rgba(94,234,212,0.2)]">
+                    <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-brand-cyan to-brand-purple mb-12 shadow-[0_0_40px_rgba(94,234,212,0.2)]">
                         <img src={NURSE_AVATAR_URL} className="w-full h-full rounded-full object-cover grayscale-[20%]" alt="Vita" />
-                     </div>
-                     <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-6 text-center">Your <br/>Health Path</h2>
-                     <button onClick={() => { setIsSessionActive(true); startSession(); }} className="w-full max-w-xs py-7 bg-brand-cyan text-black font-black rounded-[40px] text-[10px] uppercase tracking-[0.4em] transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(94,234,212,0.4)]">Begin Chat</button>
-                     <button onClick={onClose} className="mt-12 text-[9px] font-black uppercase text-gray-600 tracking-[0.5em] hover:text-white transition-colors">Abort</button>
+                    </div>
+                    <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-6 text-center">Your <br />Health Path</h2>
+                    <button onClick={() => { setIsSessionActive(true); startSession(); }} className="w-full max-w-xs py-7 bg-brand-cyan text-black font-black rounded-[40px] text-[10px] uppercase tracking-[0.4em] transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(94,234,212,0.4)]">Begin Chat</button>
+                    <button onClick={onClose} className="mt-12 text-[9px] font-black uppercase text-gray-600 tracking-[0.5em] hover:text-white transition-colors">Abort</button>
                 </div>
             )}
-            
+
             {/* Named Vertical Progress Rail */}
             <div className="absolute left-8 top-1/2 -translate-y-1/2 z-[55] flex flex-col items-center gap-6 py-8">
                 <div className="text-[7px] font-black uppercase tracking-[0.5em] text-brand-cyan/40 rotate-180 [writing-mode:vertical-lr] mb-4">Your Path</div>
                 <div className="w-[1px] h-64 bg-white/10 relative rounded-full">
-                    <div 
-                        className="absolute top-0 w-full bg-brand-cyan shadow-[0_0_15px_#5EEAD4] transition-all duration-1000 ease-out" 
+                    <div
+                        className="absolute top-0 w-full bg-brand-cyan shadow-[0_0_15px_#5EEAD4] transition-all duration-1000 ease-out"
                         style={{ height: `${((currentStage + 1) / STAGES.length) * 100}%` }}
                     />
                 </div>
@@ -460,7 +463,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                 </div>
                 <button onClick={() => { cleanupMedia(); onClose(); }} className="px-6 py-2.5 bg-red-600/10 text-red-500 border border-red-500/20 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Close</button>
             </div>
-            
+
             <div className="flex-1 relative flex items-center justify-center px-8 ml-16">
                 <div className="w-full max-w-md transform translate-y-[-5%]">
                     {renderContent()}
@@ -471,11 +474,11 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
             <div className="fixed bottom-10 right-10 z-[60] flex flex-col items-center gap-4 group">
                 <div className="flex gap-1.5 h-8 items-center mb-2">
                     {[...Array(8)].map((_, i) => (
-                        <div key={i} className="w-1 bg-brand-cyan rounded-full transition-all duration-100" 
-                             style={{ 
+                        <div key={i} className="w-1 bg-brand-cyan rounded-full transition-all duration-100"
+                            style={{
                                 height: `${Math.max(4, agentVolume * 80 * (Math.random() + 0.3))}px`,
                                 opacity: isAgentSpeaking ? 1 : 0.1
-                             }}
+                            }}
                         ></div>
                     ))}
                 </div>

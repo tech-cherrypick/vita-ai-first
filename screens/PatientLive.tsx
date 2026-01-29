@@ -85,9 +85,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
     ]);
     const [inputValue, setInputValue] = useState('');
-    const [onboardingProgress, setOnboardingProgress] = useState(0);
+    const [onboardingProgress, setOnboardingProgress] = useState(() => {
+        if (patient.status === 'Ongoing Treatment' || patient.status === 'Monitoring Loop') return 100;
+        const pMap: Record<string, number> = { 'Assessment Review': 20, 'Labs Ordered': 60, 'Ready for Consult': 90 };
+        return pMap[patient.status] || 0;
+    });
     const [scheduledLabDate, setScheduledLabDate] = useState<Date | null>(null);
-    const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+    const [isOnboardingComplete, setIsOnboardingComplete] = useState(() => {
+        return ['Ongoing Treatment', 'Monitoring Loop', 'Awaiting Shipment'].includes(patient.status);
+    });
     const [patientSex, setPatientSex] = useState<string>(''); // Lifted state for conditional logic
 
     // Chat State
@@ -108,14 +114,31 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     // --- Initialize Chat ---
     useEffect(() => {
-        if (messages.length > 0) {
-            saveToCloudBucket('chat_history', { messages });
-        }
-    }, [messages]);
+        const fetchHistory = async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                const token = await user.getIdToken();
+                const response = await fetch('http://localhost:5000/api/data', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const cloudData = await response.json();
+                    if (cloudData.chat_history && cloudData.chat_history.messages) {
+                        setMessages(cloudData.chat_history.messages);
+                        return true; // Found history
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch chat history:", err);
+            }
+            return false;
+        };
 
-    useEffect(() => {
         const initChat = async () => {
             try {
+                const hasHistory = await fetchHistory();
+
                 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
                 const chat = ai.chats.create({
                     model: 'gemini-3-flash-preview',
@@ -149,17 +172,31 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
                 setChatSession(chat);
 
-                // Kickoff
-                setIsTyping(true);
-                const res = await chat.sendMessage({ message: "SYSTEM: Session Start. Introduce yourself and start Step 1." });
-                processResponse(res);
+                if (!hasHistory) {
+                    // Kickoff for new user
+                    setIsTyping(true);
+                    const res = await chat.sendMessage({ message: "SYSTEM: Session Start. Introduce yourself and start Step 1." });
+                    processResponse(res);
+                } else {
+                    // For existing users, we inform the AI about current state
+                    const res = await chat.sendMessage({ message: `SYSTEM: Session Load. User is returning. Current progress is ${onboardingProgress}%. Check messages for context.` });
+                    // We don't necessarily need to process the response if we just want it to be ready
+                }
             } catch (e) {
                 console.error("Chat Init Error", e);
                 setMessages(prev => [...prev, { sender: 'System', text: 'Connection failed. Please refresh.' }]);
             }
         };
-        initChat();
+
+        if (patient) initChat();
     }, []);
+
+    // Sync messages to Cloud
+    useEffect(() => {
+        if (messages.length > 1) { // Only sync if more than the initial message
+            saveToCloudBucket('chat_history', { messages });
+        }
+    }, [messages]);
 
     // --- Voice Dictation Setup ---
     useEffect(() => {
@@ -429,6 +466,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
         setOnboardingProgress(Math.min(nextProgress, 100));
 
+        // Sync progress to profile
+        if (onUpdatePatient) {
+            const updates: any = {};
+            if (type === 'consultation' || nextProgress === 100) updates.status = 'Awaiting Shipment';
+            else if (type === 'vitals') updates.status = 'Assessment Review';
+            else if (type === 'labs') updates.status = 'Ready for Consult';
+            onUpdatePatient(patient.id, null, updates);
+        }
+
         // 5. Format system message
         let detailsString = "";
         if (type === 'vitals') {
@@ -458,7 +504,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         // 7. Parent Update
         if (onUpdatePatient) {
             if (type === 'vitals') onUpdatePatient(patient.id, null, { vitals: [{ label: 'Weight', value: data.current_weight, unit: 'kg', date: new Date().toLocaleDateString() }] });
-            if (type === 'profile') onUpdatePatient(patient.id, null, { name: data.name, email: data.email, phone: data.phone });
+            if (type === 'profile') onUpdatePatient(patient.id, null, {
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                shippingAddress: data.shippingAddress
+            });
         }
     };
 

@@ -8,16 +8,28 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Firebase Admin 
-// Using Application Default Credentials (ADC) from GCloud CLI
+const serviceAccountPath = './service-account.json';
+const fs = require('fs');
+
 try {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: 'vita-479105' // Your Firebase Project ID
-  });
-  console.log('✅ Firebase Admin Initialized using GCloud CLI');
+  if (fs.existsSync(serviceAccountPath)) {
+    admin.initializeApp({
+      credential: admin.credential.cert(require(serviceAccountPath)),
+      projectId: 'vita-479105'
+    });
+    console.log('✅ Firebase Admin Initialized using service-account.json');
+  } else {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: 'vita-479105'
+    });
+    console.log('✅ Firebase Admin Initialized using GCloud CLI (ADC)');
+  }
 } catch (error) {
   console.error('❌ Firebase Admin Init Error:', error.message);
-  console.log('⚠️ Ensure you have run: gcloud auth application-default login');
+  console.log('⚠️ To fix this, either:');
+  console.log('   1. Run: gcloud auth application-default login');
+  console.log('   2. Add backend/service-account.json from Firebase Console');
 }
 
 const db = admin.firestore();
@@ -40,7 +52,7 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// Sync Endpoint
+// Sync Endpoint (POST)
 app.post('/api/sync', verifyToken, async (req, res) => {
   const { section, data } = req.body;
   const uid = req.user.uid;
@@ -60,7 +72,25 @@ app.post('/api/sync', verifyToken, async (req, res) => {
     res.status(200).json({ status: 'success', message: `Synced ${section}` });
   } catch (error) {
     console.error('❌ Firestore Sync Error:', error.message);
-    if (error.stack) console.error(error.stack);
+    res.status(500).send(`Internal Server Error: ${error.message}`);
+  }
+});
+
+// Fetch All Data Endpoint (GET)
+app.get('/api/data', verifyToken, async (req, res) => {
+  const uid = req.user.uid;
+
+  try {
+    const snapshot = await db.collection('users').doc(uid).collection('data').get();
+    const data = {};
+    snapshot.forEach(doc => {
+      data[doc.id] = doc.data();
+    });
+    
+    console.log(`📥 Fetched data for user ${uid}`);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('❌ Firestore Fetch Error:', error.message);
     res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });

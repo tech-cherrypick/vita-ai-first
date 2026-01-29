@@ -23,9 +23,9 @@ const InfoRow: React.FC<{ label: string; value: string; isEditing?: boolean; onC
     <div>
         <p className="text-sm font-semibold text-brand-text-light mb-1">{label}</p>
         {isEditing && onChange ? (
-            <input 
-                type="text" 
-                value={value} 
+            <input
+                type="text"
+                value={value}
                 onChange={(e) => onChange(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition-all"
             />
@@ -42,7 +42,7 @@ interface MyProfileScreenProps {
 
 const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePatient }) => {
     const [isEditing, setIsEditing] = useState(false);
-    
+
     // Form State
     const [name, setName] = useState(patient.name);
     const [email, setEmail] = useState(patient.email);
@@ -51,6 +51,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
     const [city, setCity] = useState(patient.shippingAddress.city);
     const [state, setState] = useState(patient.shippingAddress.state);
     const [zip, setZip] = useState(patient.shippingAddress.zip);
+    const [dob, setDob] = useState(patient.dob || '');
     const [country, setCountry] = useState(patient.shippingAddress.country);
 
     // Sync state if patient prop updates from outside
@@ -63,6 +64,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
             setCity(patient.shippingAddress.city);
             setState(patient.shippingAddress.state);
             setZip(patient.shippingAddress.zip);
+            setDob(patient.dob || '');
             setCountry(patient.shippingAddress.country);
         }
     }, [patient, isEditing]);
@@ -72,6 +74,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
             name,
             email,
             phone,
+            dob,
             shippingAddress: {
                 line1: addressLine1,
                 city,
@@ -80,7 +83,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
                 country
             }
         };
-        
+
         // Pass null for event as we don't necessarily want a timeline entry for every profile edit
         onUpdatePatient(patient.id, null, updatedPatient);
         setIsEditing(false);
@@ -97,38 +100,43 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
 
             <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
                 <ProfileSection title="Personal Information">
-                    <InfoRow 
-                        label="Full Name" 
-                        value={name} 
-                        isEditing={isEditing} 
-                        onChange={setName} 
+                    <InfoRow
+                        label="Full Name"
+                        value={name}
+                        isEditing={isEditing}
+                        onChange={setName}
                     />
-                    <InfoRow label="Date of Birth" value="October 24, 1990" /> {/* Static for now */}
+                    <InfoRow
+                        label="Date of Birth"
+                        value={dob}
+                        isEditing={isEditing}
+                        onChange={setDob}
+                    />
                 </ProfileSection>
 
                 <ProfileSection title="Contact Details">
-                    <InfoRow 
-                        label="Email Address" 
-                        value={email} 
-                        isEditing={isEditing} 
-                        onChange={setEmail} 
+                    <InfoRow
+                        label="Email Address"
+                        value={email}
+                        isEditing={isEditing}
+                        onChange={setEmail}
                     />
-                    <InfoRow 
-                        label="Phone Number" 
-                        value={phone} 
-                        isEditing={isEditing} 
-                        onChange={setPhone} 
+                    <InfoRow
+                        label="Phone Number"
+                        value={phone}
+                        isEditing={isEditing}
+                        onChange={setPhone}
                     />
                 </ProfileSection>
 
                 <ProfileSection title="Shipping Address">
-                    <InfoRow 
-                        label="Address Line" 
-                        value={addressLine1} 
-                        isEditing={isEditing} 
-                        onChange={setAddressLine1} 
+                    <InfoRow
+                        label="Address Line"
+                        value={addressLine1}
+                        isEditing={isEditing}
+                        onChange={setAddressLine1}
                     />
-                    
+
                     {isEditing ? (
                         <div className="grid grid-cols-2 gap-4">
                             <InfoRow label="City" value={city} isEditing={true} onChange={setCity} />
@@ -143,17 +151,17 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
                         </>
                     )}
                 </ProfileSection>
-                
+
                 <div className="flex justify-end gap-3 pt-4">
                     {isEditing ? (
                         <>
-                            <button 
+                            <button
                                 onClick={handleCancel}
                                 className="px-6 py-3 text-base font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSave}
                                 className="px-6 py-3 text-base font-bold text-white bg-brand-purple rounded-lg hover:bg-brand-purple/90 transition-colors shadow-lg shadow-brand-purple/20"
                             >
@@ -161,7 +169,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
                             </button>
                         </>
                     ) : (
-                        <button 
+                        <button
                             onClick={() => setIsEditing(true)}
                             className="px-6 py-3 text-base font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors"
                         >

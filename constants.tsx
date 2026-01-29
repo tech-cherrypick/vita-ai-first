@@ -31,7 +31,7 @@ export const TimelineProtocolIcon = () => <svg xmlns="http://www.w3.org/2000/svg
 
 // --- Landing Page Icons ---
 export const BrainIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-brand-cyan mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
-export const GutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-brand-purple mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>; 
+export const GutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-brand-purple mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
 export const MetabolismIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-brand-pink mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 
 // How It Works Icons
@@ -57,7 +57,7 @@ export const safetyFeatures = [
     { title: 'CDSCO & FDA Approved', description: 'We only prescribe GLP-1 medications that are approved for chronic weight management in India.', icon: <FdaIcon /> },
     { title: 'Doctor Supervised', description: 'You are matched with a licensed endocrinologist or metabolic specialist for your entire journey.', icon: <DoctorIcon /> },
     { title: '24/7 Care Team', description: 'Questions? Side effects? Our Indian medical support team is available around the clock.', icon: <SupportIcon /> },
-    { title: 'Secure & Private', description: 'Your health data is encrypted and compliant with Indian Digital Health standards.', icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2.33325L3.5 7.00002V12.8334C3.5 19.32 7.96833 25.3283 14 26.8333C20.0317 25.3283 24.5 19.32 24.5 12.8334V7.00002L14 2.33325ZM11.6667 18.6666L8.16667 15.1666L9.81167 13.5216L11.6667 15.365L18.1883 8.84335L19.8333 10.5L11.6667 18.6666Z" stroke="#14B8A6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+    { title: 'Secure & Private', description: 'Your health data is encrypted and compliant with Indian Digital Health standards.', icon: <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2.33325L3.5 7.00002V12.8334C3.5 19.32 7.96833 25.3283 14 26.8333C20.0317 25.3283 24.5 19.32 24.5 12.8334V7.00002L14 2.33325ZM11.6667 18.6666L8.16667 15.1666L9.81167 13.5216L11.6667 15.365L18.1883 8.84335L19.8333 10.5L11.6667 18.6666Z" stroke="#14B8A6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> },
 ];
 
 export const howItWorksSteps = [
@@ -199,6 +199,7 @@ export interface Patient {
     id: number;
     name: string;
     age: number;
+    dob?: string;
     imageUrl: string;
     email: string;
     phone: string;
@@ -317,19 +318,19 @@ export const createNewPatient = (name: string, email: string, phone: string): Pa
     vitals: [],
     reports: [],
     timeline: [
-        { 
-            id: `t_${Date.now()}`, 
-            date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric'}), 
-            title: 'Account Created', 
-            description: 'Patient registered via Google Auth.', 
-            type: 'Assessment' 
+        {
+            id: `t_${Date.now()}`,
+            date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            title: 'Account Created',
+            description: 'Patient registered via Google Auth.',
+            type: 'Assessment'
         },
     ],
     currentPrescription: { name: 'Pending Assessment', dosage: '-', instructions: '-' },
     prescriptionHistory: [],
     weeklyLogs: [],
-    careTeam: { 
-        physician: 'Pending Assignment', 
+    careTeam: {
+        physician: 'Pending Assignment',
         coordinator: 'Alex Ray',
     },
 });
