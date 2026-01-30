@@ -2,8 +2,17 @@
 import React from 'react';
 import { ArrowRightIcon } from '../constants';
 
-const CallToAction: React.FC = () => {
-     const handleQuizClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+interface CTAProps {
+    onStart?: () => void;
+}
+
+const CallToAction: React.FC<CTAProps> = ({ onStart }) => {
+    const handleStartClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (onStart) {
+            e.preventDefault();
+            onStart();
+            return;
+        }
         e.preventDefault();
         const quizElement = document.getElementById('eligibility-quiz');
         if (quizElement) {
@@ -20,8 +29,8 @@ const CallToAction: React.FC = () => {
                         Join thousands who are already transforming their lives. Your glow up is literally one click away.
                     </p>
                     <div className="mt-10 flex justify-center">
-                         <a href="#eligibility-quiz"
-                            onClick={handleQuizClick}
+                        <a href="#eligibility-quiz"
+                            onClick={handleStartClick}
                             className="inline-flex items-center justify-center gap-2 px-8 py-4 text-lg font-bold text-brand-text bg-white rounded-full shadow-lg hover:scale-105 transition-transform duration-300">
                             Let's Go! 🚀
                         </a>

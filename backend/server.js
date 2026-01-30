@@ -52,6 +52,41 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+// Helper: Get user role
+const getUserRole = async (email) => {
+  if (email === 'tech@cherrypick.live') return 'admin';
+  
+  try {
+    const roleDoc = await db.collection('roles').doc(email).get();
+    if (roleDoc.exists) {
+      return roleDoc.data().role;
+    }
+  } catch (error) {
+    console.error('Error fetching role:', error.message);
+  }
+  return 'patient'; // Default role
+};
+
+// Admin Middleware
+const verifyAdmin = async (req, res, next) => {
+  if (req.user.email === 'tech@cherrypick.live') {
+    return next();
+  }
+  
+  const role = await getUserRole(req.user.email);
+  if (role === 'admin') {
+    next();
+  } else {
+    res.status(403).send('Forbidden: Admin access required');
+  }
+};
+
+// Get Current User Role (GET)
+app.get('/api/user/role', verifyToken, async (req, res) => {
+  const role = await getUserRole(req.user.email);
+  res.status(200).json({ role });
+});
+
 // Sync Endpoint (POST)
 app.post('/api/sync', verifyToken, async (req, res) => {
   const { section, data } = req.body;
@@ -92,6 +127,33 @@ app.get('/api/data', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Firestore Fetch Error:', error.message);
     res.status(500).send(`Internal Server Error: ${error.message}`);
+  }
+});
+
+// Admin: List all roles (GET)
+app.get('/api/admin/roles', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection('roles').get();
+    const roles = [];
+    snapshot.forEach(doc => {
+      roles.push({ email: doc.id, ...doc.data() });
+    });
+    res.status(200).json(roles);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+// Admin: Set role for an email (POST)
+app.post('/api/admin/set-role', verifyToken, verifyAdmin, async (req, res) => {
+  const { email, role } = req.body;
+  if (!email || !role) return res.status(400).send('Missing email or role');
+
+  try {
+    await db.collection('roles').doc(email).set({ role, updated_at: admin.firestore.FieldValue.serverTimestamp() });
+    res.status(200).json({ status: 'success' });
+  } catch (error) {
+    res.status(500).send(error.message);
   }
 });
 

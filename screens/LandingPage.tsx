@@ -13,15 +13,13 @@ import CallToAction from '../components/CallToAction';
 import Footer from '../components/Footer';
 
 interface LandingPageProps {
-  onPatientLogin: () => void;
-  onDoctorLogin: () => void;
-  onCaregiverLogin: () => void;
+  onLogin: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onPatientLogin, onDoctorLogin, onCaregiverLogin }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
   return (
     <>
-      <Header onPatientLogin={onPatientLogin} onDoctorLogin={onDoctorLogin} onCaregiverLogin={onCaregiverLogin} />
+      <Header onLogin={onLogin} />
       <main>
         <Hero />
         <EligibilityQuiz />
@@ -31,7 +29,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onPatientLogin, onDoctorLogin
         <Faq />
         <Stats />
         <Team />
-        <CallToAction />
+        <CallToAction onStart={onLogin} />
       </main>
       <Footer />
     </>

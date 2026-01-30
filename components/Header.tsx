@@ -3,12 +3,10 @@ import React from 'react';
 import { VitaLogo } from '../constants';
 
 interface HeaderProps {
-    onDoctorLogin: () => void;
-    onPatientLogin: () => void;
-    onCaregiverLogin: () => void;
+    onLogin: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onDoctorLogin, onPatientLogin, onCaregiverLogin }) => {
+const Header: React.FC<HeaderProps> = ({ onLogin }) => {
 
     return (
         <header className="sticky top-0 z-50 bg-brand-bg/80 backdrop-blur-lg">
@@ -17,24 +15,12 @@ const Header: React.FC<HeaderProps> = ({ onDoctorLogin, onPatientLogin, onCaregi
                     <div className="flex-shrink-0">
                         <VitaLogo />
                     </div>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 -mr-4 pr-4 sm:mr-0 sm:pr-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                         <button 
-                            onClick={onPatientLogin}
-                            className="flex-shrink-0 inline-block px-4 py-2 text-xs sm:text-sm font-semibold text-brand-text bg-white border border-gray-300 rounded-full hover:bg-gray-100 transition-colors duration-300 whitespace-nowrap"
+                    <div className="flex items-center">
+                        <button
+                            onClick={onLogin}
+                            className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white bg-brand-purple rounded-full hover:bg-brand-purple/90 transition-all duration-300 shadow-lg shadow-brand-purple/20 active:scale-95"
                         >
-                            Patient
-                        </button>
-                        <button 
-                            onClick={onCaregiverLogin}
-                            className="flex-shrink-0 inline-block px-4 py-2 text-xs sm:text-sm font-semibold text-brand-cyan rounded-full hover:bg-brand-cyan/10 transition-colors duration-300 whitespace-nowrap"
-                        >
-                            Care Manager
-                        </button>
-                         <button 
-                            onClick={onDoctorLogin}
-                            className="flex-shrink-0 inline-block px-4 py-2 text-xs sm:text-sm font-semibold text-brand-purple rounded-full hover:bg-brand-purple/10 transition-colors duration-300 whitespace-nowrap"
-                        >
-                            Doctor
+                            Login
                         </button>
                     </div>
                 </div>
