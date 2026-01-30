@@ -52,24 +52,33 @@ const verifyToken = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
+    console.log(`✅ Token verified for: ${decodedToken.email}`);
     next();
   } catch (error) {
-    console.error('Auth Error:', error.message);
+    console.error('❌ Auth Error:', error.message);
     res.status(401).send('Unauthorized: Invalid token');
   }
 };
 
 // Helper: Get user role
 const getUserRole = async (email) => {
-  if (email === 'tech@cherrypick.live') return 'admin';
+  console.log(`🔍 Checking role for: ${email}`);
+  if (email === 'tech@cherrypick.live') {
+    console.log('✨ Recognized Hardcoded Admin');
+    return 'admin';
+  }
   
   try {
     const roleDoc = await db.collection('roles').doc(email).get();
     if (roleDoc.exists) {
-      return roleDoc.data().role;
+      const role = roleDoc.data().role;
+      console.log(`📄 Found Firestore role: ${role}`);
+      return role;
+    } else {
+      console.log('❓ No role found in Firestore, defaulting to patient');
     }
   } catch (error) {
-    console.error('Error fetching role:', error.message);
+    console.error('❌ Error fetching role from Firestore:', error.message);
   }
   return 'patient'; // Default role
 };
@@ -87,6 +96,11 @@ const verifyAdmin = async (req, res, next) => {
     res.status(403).send('Forbidden: Admin access required');
   }
 };
+
+// Health Check & Verification
+app.get('/', (req, res) => {
+  res.status(200).send('🚀 Vita AI Backend is running!');
+});
 
 // Get Current User Role (GET)
 app.get('/api/user/role', verifyToken, async (req, res) => {

@@ -25,19 +25,24 @@ const App: React.FC = () => {
 
   const fetchUserRole = async (user: any) => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    console.log("🔍 Fetching role from:", `${API_BASE_URL}/api/user/role`);
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_BASE_URL}/api/user/role`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      console.log("📡 Role response status:", response.status);
       if (response.ok) {
         const { role } = await response.json();
         console.log("👤 Fetched User Role:", role);
         setUserType(role as UserRole);
         return role;
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Role fetch failed status:", response.status, errorText);
       }
     } catch (err) {
-      console.error("❌ Failed to fetch user role:", err);
+      console.error("❌ Failed to fetch user role (catch):", err);
     }
     return 'patient';
   };
