@@ -118,8 +118,9 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             const user = auth.currentUser;
             if (!user) return;
             try {
+                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
                 const token = await user.getIdToken();
-                const response = await fetch('http://localhost:5000/api/data', {
+                const response = await fetch(`${API_BASE_URL}/api/data`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (response.ok) {
@@ -412,11 +413,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
 
         try {
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
             const token = await user.getIdToken();
             const payload = { section, data };
 
             // Using our local backend sync endpoint
-            const CLOUD_ENDPOINT = 'http://localhost:5000/api/sync';
+            const CLOUD_ENDPOINT = `${API_BASE_URL}/api/sync`;
 
             console.log("☁️ Sending to Backend:", CLOUD_ENDPOINT);
 

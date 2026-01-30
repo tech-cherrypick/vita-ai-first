@@ -17,8 +17,9 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
 
     const fetchRoles = async () => {
         try {
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
             const token = await auth.currentUser?.getIdToken();
-            const response = await fetch('http://localhost:5000/api/admin/roles', {
+            const response = await fetch(`${API_BASE_URL}/api/admin/roles`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -40,8 +41,9 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
         setMessage('');
 
         try {
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
             const token = await auth.currentUser?.getIdToken();
-            const response = await fetch('http://localhost:5000/api/admin/set-role', {
+            const response = await fetch(`${API_BASE_URL}/api/admin/set-role`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
