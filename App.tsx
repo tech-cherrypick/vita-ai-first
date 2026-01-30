@@ -53,21 +53,30 @@ const App: React.FC = () => {
 
       if (response.ok) {
         const cloudData = await response.json();
-        const profile = cloudData.profile;
-        if (profile) {
-          const reconstructedPatient: Patient = {
-            ...createNewPatient(profile.name, profile.email, profile.phone),
-            ...profile,
-            id: profile.id || Date.now(),
-            vitals: cloudData.vitals ? [cloudData.vitals] : [],
-          };
-          setPatients([reconstructedPatient]);
-          setCurrentPatientId(reconstructedPatient.id);
-        } else {
-          const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '');
-          setPatients([fallbackPatient]);
-          setCurrentPatientId(fallbackPatient.id);
+        console.log("📥 Cloud data received:", Object.keys(cloudData));
+
+        const profile = cloudData.profile || {};
+
+        const reconstructedPatient: Patient = {
+          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || ''),
+          ...profile,
+          age: profile.age || 0,
+          // Merge other sections if they exist
+          timeline: cloudData.timeline?.events || [],
+          vitals: cloudData.vitals?.list || [],
+          weeklyLogs: cloudData.weeklyLogs?.entries || [],
+          dailyLogs: cloudData.dailyLogs || {},
+          carePlan: cloudData.carePlan || undefined,
+          id: profile.id || Date.now(),
+        };
+
+        // If timeline from DB is empty, use the one from createNewPatient
+        if (reconstructedPatient.timeline.length === 0) {
+          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone).timeline;
         }
+
+        setPatients([reconstructedPatient]);
+        setCurrentPatientId(reconstructedPatient.id);
       } else {
         const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '');
         setPatients([fallbackPatient]);
@@ -191,13 +200,37 @@ const App: React.FC = () => {
     setPatients(newPatients);
 
     savePatientToCloud('profile', {
+      id: updatedPatient.id,
       name: updatedPatient.name,
       email: updatedPatient.email,
       phone: updatedPatient.phone,
+      age: updatedPatient.age,
       shippingAddress: updatedPatient.shippingAddress,
       status: updatedPatient.status,
-      nextAction: updatedPatient.nextAction
+      nextAction: updatedPatient.nextAction,
+      careTeam: updatedPatient.careTeam,
+      goal: updatedPatient.goal
     });
+
+    if (newEvent) {
+      savePatientToCloud('timeline', { events: updatedPatient.timeline });
+    }
+
+    if (updates.vitals) {
+      savePatientToCloud('vitals', { list: updatedPatient.vitals });
+    }
+
+    if (updates.weeklyLogs) {
+      savePatientToCloud('weeklyLogs', { entries: updatedPatient.weeklyLogs });
+    }
+
+    if (updates.dailyLogs) {
+      savePatientToCloud('dailyLogs', updatedPatient.dailyLogs);
+    }
+
+    if (updates.carePlan) {
+      savePatientToCloud('carePlan', updatedPatient.carePlan);
+    }
   };
 
   const handleCompleteCareCoordinatorTask = (taskId: string) => {

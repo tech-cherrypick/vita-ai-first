@@ -12,7 +12,14 @@ const serviceAccountPath = './service-account.json';
 const fs = require('fs');
 
 try {
-  if (fs.existsSync(serviceAccountPath)) {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: 'vita-479105'
+    });
+    console.log('✅ Firebase Admin Initialized using FIREBASE_SERVICE_ACCOUNT_JSON env var');
+  } else if (fs.existsSync(serviceAccountPath)) {
     admin.initializeApp({
       credential: admin.credential.cert(require(serviceAccountPath)),
       projectId: 'vita-479105'

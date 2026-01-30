@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import ConsultationScheduler from './ConsultationScheduler';
-import { Patient, WorkoutRoutine, DailyLog, TimelineEvent } from '../../constants';
+import { Patient, WorkoutRoutine, DailyLog, TimelineEvent, WeekLogEntry } from '../../constants';
 
 interface TreatmentTimelineProps {
     patient?: Patient;
@@ -15,10 +15,12 @@ interface WeekLogProps {
     onToggle: () => void;
     isLastWeek: boolean;
     onScheduleFollowUp: () => void;
+    currentLog?: WeekLogEntry;
+    onSave: (data: { weight: number; sideEffects: string; notes: string }) => void;
 }
 
-const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean }> = ({ children, onClick, className="", disabled=false }) => (
-    <button 
+const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean }> = ({ children, onClick, className = "", disabled = false }) => (
+    <button
         onClick={onClick}
         disabled={disabled}
         className={`inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-bold text-white bg-gradient-to-r from-brand-purple via-brand-pink to-brand-cyan bg-[length:200%_auto] rounded-lg transition-all duration-300 hover:scale-105 shadow-md shadow-brand-purple/20 animate-gradient-x ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -40,7 +42,7 @@ const WorkoutModal: React.FC<{ routine: WorkoutRoutine; onClose: () => void }> =
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
             <div className="bg-white w-full max-w-md max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden relative flex flex-col animate-slide-in-up">
-                
+
                 {/* Header */}
                 <div className="p-6 bg-gradient-to-r from-brand-purple/5 to-brand-cyan/5 border-b border-gray-100">
                     <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -104,7 +106,7 @@ const WorkoutModal: React.FC<{ routine: WorkoutRoutine; onClose: () => void }> =
 
 const CoachInsightBanner: React.FC<{ insight: string; completedTasks: number; totalTasks: number }> = ({ insight, completedTasks, totalTasks }) => {
     const isGoodDay = totalTasks > 0 && completedTasks / totalTasks > 0.5;
-    
+
     return (
         <div className="bg-gradient-to-r from-brand-purple/5 to-brand-cyan/5 border border-brand-purple/20 p-4 rounded-xl flex items-center gap-4 mb-6">
             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-xl">
@@ -118,13 +120,13 @@ const CoachInsightBanner: React.FC<{ insight: string; completedTasks: number; to
     );
 };
 
-const TaskCard: React.FC<{ 
-    title: string; 
-    icon: React.ReactNode; 
-    isCompleted: boolean; 
-    onToggle: () => void; 
+const TaskCard: React.FC<{
+    title: string;
+    icon: React.ReactNode;
+    isCompleted: boolean;
+    onToggle: () => void;
     subtitle?: string;
-    actionControl?: React.ReactNode 
+    actionControl?: React.ReactNode
 }> = ({ title, icon, isCompleted, onToggle, subtitle, actionControl }) => (
     <div className={`p-4 rounded-xl border transition-all duration-300 ${isCompleted ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 hover:shadow-md'}`}>
         <div className="flex items-center justify-between">
@@ -138,7 +140,7 @@ const TaskCard: React.FC<{
                 </div>
             </div>
             {actionControl ? actionControl : (
-                <button 
+                <button
                     onClick={onToggle}
                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400 hover:bg-gray-300'}`}
                 >
@@ -162,13 +164,13 @@ const getDailyInsight = (patient: Patient, date: Date): string => {
         `"The only bad workout is the one that didn't happen." Even a 10-minute walk helps GLP-1 efficacy.`,
         `Be patient with your body. Sustainable metabolic change takes time, but you're on the right path.`,
         `Visualize your goal of ${patient.goal}. Small daily wins like today's tracking make it reality.`,
-        
+
         // Nutrition/Hydration
         `Protein check! Aiming for ${proteinGoal}g today helps preserve lean muscle mass while you lose fat.`,
         `Hydration tip: Drinking ${waterGoal}L of water helps mitigate common GLP-1 side effects like nausea.`,
         `Fiber is your friend. It helps with digestion and keeps you fuller for longer alongside your medication.`,
         `Eating slowly allows your GLP-1 medication to signal fullness effectively. Take your time with meals today.`,
-        
+
         // Health/Medical
         `Did you know? GLP-1s also improve cardiovascular markers. You're doing great for your heart health.`,
         `Sleep affects hunger hormones too. Prioritize 7-8 hours tonight to support your metabolic reset.`,
@@ -227,7 +229,7 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
             ...patient.dailyLogs,
             [dateKey]: newLog
         };
-        
+
         // Persist to parent/database without creating a timeline event (null event)
         onUpdatePatient(patient.id, null, { dailyLogs: updatedDailyLogs });
     };
@@ -242,7 +244,7 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
     const isMedicationDay = selectedDate.getDay() === carePlan.medicationSchedule.dayOfWeek;
     const proteinGoal = carePlan.nutrition.proteinGrams;
     const waterGoal = Math.round(carePlan.nutrition.waterLitres * 4); // Approx glasses (250ml)
-    
+
     // Determine the workout for today/general routine
     const workoutRoutine = carePlan.fitness.protocol?.routines[0];
 
@@ -265,8 +267,8 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                     const isSelected = date.toDateString() === selectedDate.toDateString();
                     const isToday = date.toDateString() === today.toDateString();
                     return (
-                        <button 
-                            key={idx} 
+                        <button
+                            key={idx}
                             onClick={() => setSelectedDate(date)}
                             className={`flex flex-col items-center justify-center w-12 h-14 rounded-xl transition-all min-w-[3rem] ${isSelected ? 'bg-brand-text text-white shadow-lg scale-105' : 'hover:bg-gray-50 text-gray-500'}`}
                         >
@@ -282,8 +284,8 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
             <div className="space-y-4">
                 {/* Medication Task - Only on specific days */}
                 {isMedicationDay && (
-                    <TaskCard 
-                        title="Medication Due" 
+                    <TaskCard
+                        title="Medication Due"
                         subtitle={`${patient.currentPrescription.name} - ${patient.currentPrescription.dosage}`}
                         icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>}
                         isCompleted={activeLog.medicationTaken}
@@ -292,17 +294,17 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                 )}
 
                 {/* Nutrition - Protein */}
-                <TaskCard 
-                    title="Protein Goal" 
+                <TaskCard
+                    title="Protein Goal"
                     subtitle={`${activeLog.proteinIntake}g / ${proteinGoal}g`}
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
                     isCompleted={activeLog.proteinIntake >= proteinGoal}
-                    onToggle={() => {}}
+                    onToggle={() => { }}
                     actionControl={
                         <div className="flex items-center gap-3">
                             <button onClick={() => updateLog('proteinIntake', Math.max(0, activeLog.proteinIntake - 10))} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">-</button>
                             <div className="w-24 bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div className="bg-brand-purple h-full transition-all duration-300" style={{ width: `${Math.min(100, (activeLog.proteinIntake/proteinGoal)*100)}%` }}></div>
+                                <div className="bg-brand-purple h-full transition-all duration-300" style={{ width: `${Math.min(100, (activeLog.proteinIntake / proteinGoal) * 100)}%` }}></div>
                             </div>
                             <button onClick={() => updateLog('proteinIntake', activeLog.proteinIntake + 10)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">+</button>
                         </div>
@@ -310,19 +312,19 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                 />
 
                 {/* Hydration */}
-                <TaskCard 
-                    title="Hydration" 
+                <TaskCard
+                    title="Hydration"
                     subtitle={`${activeLog.waterIntake} / ${waterGoal} glasses`}
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>}
                     isCompleted={activeLog.waterIntake >= waterGoal}
-                    onToggle={() => {}}
+                    onToggle={() => { }}
                     actionControl={
                         <div className="flex items-center gap-2">
                             <button onClick={() => updateLog('waterIntake', Math.max(0, activeLog.waterIntake - 1))} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 text-gray-600 font-bold">-</button>
                             <div className="flex gap-1">
-                                {[...Array(5)].map((_, i) => ( 
-                                    <div 
-                                        key={i} 
+                                {[...Array(5)].map((_, i) => (
+                                    <div
+                                        key={i}
                                         className={`w-6 h-8 rounded-b-lg rounded-t-sm border border-brand-cyan/30 transition-all duration-300 ${i < activeLog.waterIntake ? 'bg-brand-cyan shadow-sm' : 'bg-brand-cyan/5'}`}
                                     ></div>
                                 ))}
@@ -332,9 +334,9 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                         </div>
                     }
                 />
-                
+
                 {/* Fitness - MuscleProtect Workout */}
-                <TaskCard 
+                <TaskCard
                     title={workoutRoutine?.title || carePlan.fitness.type}
                     subtitle={workoutRoutine ? `${workoutRoutine.durationMin} min • ${carePlan.fitness.protocol?.name}` : "Daily Movement"}
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
@@ -343,14 +345,14 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                     actionControl={
                         <div className="flex items-center gap-2">
                             {workoutRoutine && (
-                                <button 
+                                <button
                                     onClick={() => setIsWorkoutModalOpen(true)}
                                     className="px-3 py-1.5 text-xs font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors"
                                 >
                                     View Routine
                                 </button>
                             )}
-                            <button 
+                            <button
                                 onClick={() => updateLog('fitnessCompleted', !activeLog.fitnessCompleted)}
                                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${activeLog.fitnessCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400 hover:bg-gray-300'}`}
                             >
@@ -362,7 +364,7 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
 
                 {/* Mind & Body - Meditation / Breathing */}
                 {carePlan.mindbody.map((task, idx) => (
-                    <TaskCard 
+                    <TaskCard
                         key={idx}
                         title={task}
                         subtitle="Recommended for stress management"
@@ -370,7 +372,7 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
                         isCompleted={activeLog.mindsetCompleted.includes(task)}
                         onToggle={() => {
                             const current = activeLog.mindsetCompleted;
-                            const updated = current.includes(task) 
+                            const updated = current.includes(task)
                                 ? current.filter(t => t !== task)
                                 : [...current, task];
                             updateLog('mindsetCompleted', updated);
@@ -390,7 +392,27 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, 
 
 // --- Weekly Progress Sub-Components ---
 
-const WeekLog: React.FC<WeekLogProps> = ({ weekNumber, isActive, isCompleted, onToggle, isLastWeek, onScheduleFollowUp }) => {
+const WeekLog: React.FC<WeekLogProps> = ({ weekNumber, isActive, isCompleted, onToggle, isLastWeek, onScheduleFollowUp, currentLog, onSave }) => {
+    const [weight, setWeight] = useState(currentLog?.weight || '');
+    const [sideEffects, setSideEffects] = useState(currentLog?.sideEffects || '');
+    const [notes, setNotes] = useState(currentLog?.notes || '');
+
+    useEffect(() => {
+        if (currentLog) {
+            setWeight(currentLog.weight);
+            setSideEffects(currentLog.sideEffects || '');
+            setNotes(currentLog.notes || '');
+        }
+    }, [currentLog]);
+
+    const handleSave = () => {
+        onSave({
+            weight: Number(weight),
+            sideEffects,
+            notes
+        });
+    };
+
     return (
         <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
             <button onClick={onToggle} className="w-full flex justify-between items-center p-4 text-left">
@@ -409,18 +431,44 @@ const WeekLog: React.FC<WeekLogProps> = ({ weekNumber, isActive, isCompleted, on
                 <div className="p-6 border-t border-gray-200 animate-fade-in">
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor={`weight-${weekNumber}`} className="block text-sm font-semibold text-brand-text mb-1">Log Your Weight (kg)</label>
-                            <input type="number" id={`weight-${weekNumber}`} className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" placeholder="e.g., 80" />
+                            <label htmlFor={`weight-${weekNumber}`} className="block text-sm font-semibold text-brand-text mb-1">Log Your Weight (lbs)</label>
+                            <input
+                                type="number"
+                                id={`weight-${weekNumber}`}
+                                value={weight}
+                                onChange={(e) => setWeight(e.target.value)}
+                                className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
+                                placeholder="e.g., 180"
+                            />
                         </div>
                         <div>
                             <label htmlFor={`side-effects-${weekNumber}`} className="block text-sm font-semibold text-brand-text mb-1">Any Side Effects?</label>
-                            <textarea id={`side-effects-${weekNumber}`} rows={2} className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" placeholder="e.g., Mild nausea for a day after injection."></textarea>
+                            <textarea
+                                id={`side-effects-${weekNumber}`}
+                                value={sideEffects}
+                                onChange={(e) => setSideEffects(e.target.value)}
+                                rows={2}
+                                className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
+                                placeholder="e.g., Mild nausea for a day after injection."
+                            ></textarea>
                         </div>
-                         <div>
+                        <div>
                             <label htmlFor={`notes-${weekNumber}`} className="block text-sm font-semibold text-brand-text mb-1">Notes for Your Doctor</label>
-                            <textarea id={`notes-${weekNumber}`} rows={2} className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" placeholder="e.g., Feeling great this week, cravings are much lower."></textarea>
+                            <textarea
+                                id={`notes-${weekNumber}`}
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                rows={2}
+                                className="block w-full rounded-lg border border-gray-300 bg-white text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
+                                placeholder="e.g., Feeling great this week, cravings are much lower."
+                            ></textarea>
                         </div>
-                        <button className="w-full px-4 py-2 font-semibold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20">Save Log</button>
+                        <button
+                            onClick={handleSave}
+                            className="w-full px-4 py-2 font-semibold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors"
+                        >
+                            Save Log
+                        </button>
                     </div>
                     {isLastWeek && (
                         <div className="mt-6 p-4 bg-white rounded-lg border border-brand-purple/30 text-center">
@@ -466,26 +514,26 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
         const currentCycleCount = cycles.length;
         const expectedNextWeek = currentCycleCount * 4 + 1;
 
-        if(activeWeek < expectedNextWeek) {
+        if (activeWeek < expectedNextWeek) {
             const nextMonth = new Date();
             nextMonth.setMonth(new Date().getMonth() + cycles.length);
             const newCycle: Cycle = {
                 id: cycles.length + 1,
                 month: nextMonth.toLocaleString('default', { month: 'long', year: 'numeric' }),
             };
-            
+
             setCycles(prevCycles => {
                 const newCycles = [...prevCycles, newCycle];
                 setActiveWeek(1 + (prevCycles.length * 4));
                 return newCycles;
             });
         }
-        
+
         setTimeout(() => {
             setIsSchedulingFollowUp(false);
         }, 3500);
     };
-    
+
     // Default patient data fallback if not provided (for standalone testing)
     const activePatient = patient || {
         name: 'Patient',
@@ -496,6 +544,7 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
             fitness: { weeklyGoal: 0, type: '', protocol: { name: '', description: '', routines: [] } },
             mindbody: []
         },
+        weeklyLogs: [],
         dailyLogs: {}
     } as any;
 
@@ -503,16 +552,16 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
         <div>
             <div className="flex flex-col items-center mb-8">
                 <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tighter text-brand-text text-center">Treatment Dashboard</h2>
-                
+
                 {/* View Switcher */}
                 <div className="flex bg-gray-100 p-1 rounded-xl mt-6">
-                    <button 
+                    <button
                         onClick={() => setView('daily')}
                         className={`px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${view === 'daily' ? 'bg-white text-brand-purple shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         Daily Coach
                     </button>
-                    <button 
+                    <button
                         onClick={() => setView('weekly')}
                         className={`px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${view === 'weekly' ? 'bg-white text-brand-purple shadow-md' : 'text-gray-500 hover:text-gray-700'}`}
                     >
@@ -520,7 +569,7 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
                     </button>
                 </div>
             </div>
-            
+
             {view === 'daily' ? (
                 <DailyTracker patient={activePatient} onUpdatePatient={onUpdatePatient} />
             ) : (
@@ -529,7 +578,7 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
                         <div className="mb-8 p-5 bg-white rounded-2xl border border-gray-200 shadow-lg animate-fade-in transition-all">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                     <div className="w-12 h-12 bg-brand-purple/10 rounded-lg flex items-center justify-center">
+                                    <div className="w-12 h-12 bg-brand-purple/10 rounded-lg flex items-center justify-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     </div>
                                     <div>
@@ -550,19 +599,38 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
                     <div className="space-y-6">
                         {cycles.map((cycle, cycleIndex) => (
                             <div key={cycle.id} className="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
-                                 <h3 className="text-xl font-bold text-brand-text mb-4 px-2">{cycle.month} Cycle</h3>
-                                 <div className="space-y-3">
+                                <h3 className="text-xl font-bold text-brand-text mb-4 px-2">{cycle.month} Cycle</h3>
+                                <div className="space-y-3">
                                     {[1, 2, 3, 4].map(week => {
                                         const overallWeekNumber = week + (cycleIndex * 4);
+                                        const weekLog = activePatient.weeklyLogs.find((l: any) => l.week === overallWeekNumber);
+
                                         return (
-                                            <WeekLog 
+                                            <WeekLog
                                                 key={overallWeekNumber}
                                                 weekNumber={overallWeekNumber}
                                                 isActive={activeWeek === overallWeekNumber}
-                                                isCompleted={activeWeek > overallWeekNumber}
+                                                isCompleted={activeWeek > overallWeekNumber || !!weekLog}
                                                 onToggle={() => handleToggleWeek(overallWeekNumber)}
                                                 isLastWeek={week === 4 && cycleIndex === cycles.length - 1 && !followUpConfirmed}
                                                 onScheduleFollowUp={handleScheduleFollowUpClick}
+                                                currentLog={weekLog}
+                                                onSave={(data) => {
+                                                    const updatedLogs = [...activePatient.weeklyLogs];
+                                                    const existingIndex = updatedLogs.findIndex((l: any) => l.week === overallWeekNumber);
+
+                                                    if (existingIndex !== -1) {
+                                                        updatedLogs[existingIndex] = { ...updatedLogs[existingIndex], ...data };
+                                                    } else {
+                                                        updatedLogs.push({ week: overallWeekNumber, ...data });
+                                                    }
+
+                                                    onUpdatePatient?.(activePatient.id, null, { weeklyLogs: updatedLogs });
+                                                    // Auto-advance if it's the current week
+                                                    if (activeWeek === overallWeekNumber) {
+                                                        setActiveWeek(overallWeekNumber + 1);
+                                                    }
+                                                }}
                                             />
                                         );
                                     })}
@@ -576,22 +644,22 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
             {isSchedulingFollowUp && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md relative animate-slide-in-up">
-                        
+
                         {!followUpConfirmed || (followUpConfirmed && isSchedulingFollowUp) && (
-                             <button 
-                                onClick={() => setIsSchedulingFollowUp(false)} 
+                            <button
+                                onClick={() => setIsSchedulingFollowUp(false)}
                                 className="absolute top-3 right-3 p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
                                 aria-label="Close scheduler"
                             >
                                 <CloseIcon />
                             </button>
                         )}
-                        
+
                         {followUpConfirmed && !isSchedulingFollowUp ? (
-                             <div className="text-center">
+                            <div className="text-center">
                                 <ConfirmationCheckIcon />
                                 <h2 className="text-2xl font-bold text-brand-text">Follow-up Booked!</h2>
-                                <p className="mt-2 text-brand-text-light">Your appointment is confirmed for <br/><span className="font-semibold text-brand-purple">{followUpConfirmed}</span>.</p>
+                                <p className="mt-2 text-brand-text-light">Your appointment is confirmed for <br /><span className="font-semibold text-brand-purple">{followUpConfirmed}</span>.</p>
                                 <p className="mt-4 text-sm text-brand-text-light">Your next treatment cycle is now available on your dashboard.</p>
                             </div>
                         ) : (
@@ -600,7 +668,7 @@ const TreatmentTimeline: React.FC<TreatmentTimelineProps> = ({ patient, onUpdate
                                 <p className="text-center text-brand-text-light mb-6">
                                     Book a time to chat with your care team about your progress.
                                 </p>
-                                <ConsultationScheduler 
+                                <ConsultationScheduler
                                     onSchedule={handleFollowUpScheduled}
                                     minBookingNoticeDays={2}
                                     buttonText="Confirm Follow-up Call"

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRightIcon } from '../../constants';
 
 interface DigitalIntakeProps {
-    onComplete: () => void;
+    onComplete: (data: any) => void;
     onProgress?: (progress: number) => void;
     initialSection?: IntakeSection;
 }
@@ -23,83 +23,83 @@ const phq9Questions = [
 ];
 
 const besQuestions = [
-    { 
-        id: 1, 
+    {
+        id: 1,
         label: "Appearance Insecurity",
         options: [
             { score: 0, text: "I don't feel self-conscious about my weight or body size when I'm with others." },
             { score: 0, text: "I feel concerned about how I look to others, but it normally doesn't make me feel disappointed with myself." },
             { score: 1, text: "I do get self-conscious about my appearance and weight which makes me feel disappointed in myself." },
             { score: 3, text: "I feel very self-conscious about my weight and frequently, I feel like I'm just failing at everything." }
-        ] 
+        ]
     },
-    { 
-        id: 2, 
+    {
+        id: 2,
         label: "Eating Speed",
         options: [
             { score: 0, text: "I don't have any difficulty eating slowly in the proper manner." },
             { score: 1, text: "Although I seem to devour foods, I don't end up feeling stuffed because of eating too much." },
             { score: 2, text: "At times, I tend to eat quickly and then, I feel uncomfortably full afterwards." },
             { score: 3, text: "I have the habit of bolting down my food, without really chewing it. When this happens I usually feel uncomfortably stuffed because I've eaten too much." }
-        ] 
+        ]
     },
-    { 
-        id: 3, 
+    {
+        id: 3,
         label: "Control over Urges",
         options: [
             { score: 0, text: "I feel capable to control my eating urges when I want to." },
             { score: 1, text: "I feel like I have failed to control my eating more than the average person." },
             { score: 3, text: "I feel utterly helpless when it comes to controlling my eating urges." },
             { score: 3, text: "Because I feel so helpless about controlling my eating I have become very desperate about trying to get in control." }
-        ] 
+        ]
     },
-    { 
-        id: 4, 
+    {
+        id: 4,
         label: "Emotional Eating (Boredom)",
         options: [
             { score: 0, text: "I don't have the habit of eating when I'm bored." },
             { score: 0, text: "I sometimes eat when I'm bored, but often I'm able to get busy and get my mind off food." },
             { score: 0, text: "I have a regular habit of eating when I'm bored, but occasionally, I can use some other activity to get my mind off it." },
             { score: 2, text: "I have a strong habit of eating when I'm bored. Nothing seems to help me break the habit." }
-        ] 
+        ]
     },
-    { 
-        id: 5, 
+    {
+        id: 5,
         label: "Physical vs Mental Hunger",
         options: [
             { score: 0, text: "I'm usually physically hungry when I eat something." },
             { score: 1, text: "Occasionally, I eat something on impulse even though I'm not really hungry." },
             { score: 2, text: "I have the regular habit of eating foods, that I might not really enjoy, to satisfy a hungry feeling even though physically, I don't need the food." },
             { score: 3, text: "Even though I'm not physically hungry, I get a hungry feeling in my mouth that only seems to be satisfied when I eat a food." }
-        ] 
+        ]
     },
-    { 
-        id: 6, 
+    {
+        id: 6,
         label: "Post-Eating Guilt",
         options: [
             { score: 0, text: "I don't feel any guilt or self-hate after I overeat." },
             { score: 1, text: "After I overeat, occasionally I feel guilt or self-hate." },
             { score: 3, text: "Almost all the time I experience strong guilt or self-hate after I overeat." }
-        ] 
+        ]
     },
-    { 
-        id: 7, 
+    {
+        id: 7,
         label: "Dietary Compliance",
         options: [
             { score: 0, text: "I don't lose total control of my eating when dieting even after periods when I overeat." },
             { score: 2, text: "Sometimes when I eat a \"forbidden food\" on a diet, I feel like I blew it and eat even more." },
             { score: 3, text: "Frequently, I have the habit of saying to myself, \"I've blown it now, why not go all the way\" when I overeat on a diet." }
-        ] 
+        ]
     },
-    { 
-        id: 8, 
+    {
+        id: 8,
         label: "Satiety Awareness",
         options: [
             { score: 0, text: "I rarely eat so much food that I feel uncomfortably stuffed afterwards." },
             { score: 1, text: "Usually about once a month, I eat such a quantity of food, I end up feeling very stuffed." },
             { score: 2, text: "I have regular periods during the month when I eat large amounts of food, either at mealtime or at snacks." },
             { score: 3, text: "I eat so much food that I regularly feel quite uncomfortable after eating." }
-        ] 
+        ]
     }
 ];
 
@@ -177,7 +177,7 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         if (onProgress) onProgress(100);
         setIsSubmitting(true);
         setTimeout(() => {
-            onComplete();
+            onComplete(formData);
         }, 2000);
     };
 
@@ -190,10 +190,10 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         return (
             <div className="mb-6 animate-fade-in">
                 <label className="block text-sm font-bold text-gray-700 mb-2">{label}</label>
-                
+
                 {type === 'text' && (
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all"
                         placeholder="Type here..."
                         onChange={(e) => handleChange(key, e.target.value)}
@@ -202,14 +202,14 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                 )}
 
                 {type === 'textarea' && (
-                    <textarea 
+                    <textarea
                         className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all min-h-[100px]"
                         placeholder="Please describe..."
                         onChange={(e) => handleChange(key, e.target.value)}
                         value={formData[key] || ''}
                     />
                 )}
-                
+
                 {type === 'yesno' && (
                     <div className="flex gap-4">
                         {['Yes', 'No'].map(opt => (
@@ -223,9 +223,9 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                         ))}
                     </div>
                 )}
-                
+
                 {type === 'select' && options && (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {options.map(opt => (
                             <button
                                 key={opt}
@@ -263,15 +263,15 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                     <div><h4 className="font-bold">Psychometrics</h4><p className="text-xs text-gray-500">PHQ-9, BES, EAT-26</p></div>
                 </div>
             </div>
-            <button 
+            <button
                 onClick={handleNextStep}
                 className="mt-10 px-8 py-4 text-lg font-bold text-white bg-brand-purple rounded-full shadow-lg hover:bg-brand-purple/90 transition-transform hover:scale-105"
             >
                 Start Assessment
             </button>
             <div className="mt-6">
-                <button 
-                    onClick={onComplete}
+                <button
+                    onClick={() => onComplete({})}
                     className="text-brand-purple/60 hover:text-brand-purple text-sm font-medium transition-colors cursor-pointer"
                 >
                     Allow me to demo all the sections without filling in the information
@@ -284,32 +284,49 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         <div className="max-w-xl mx-auto animate-fade-in">
             <h3 className="text-2xl font-bold text-brand-text mb-2 text-center">Vitals & Measurements</h3>
             <p className="text-gray-500 mb-8 text-center">Let's establish your baseline metrics.</p>
-            
+
             <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
-                
+
+                {/* Age */}
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Your Age</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            value={formData.age || ''}
+                            onChange={(e) => handleChange('age', e.target.value)}
+                            className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                            placeholder="32"
+                        />
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                            <span className="text-gray-500 font-semibold">years</span>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Height */}
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Height</label>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="relative">
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 value={formData.height_ft || ''}
                                 onChange={(e) => handleChange('height_ft', e.target.value)}
-                                className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                                placeholder="5" 
+                                className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                                placeholder="5"
                             />
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
                                 <span className="text-gray-500 font-semibold">ft</span>
                             </div>
                         </div>
                         <div className="relative">
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 value={formData.height_in || ''}
                                 onChange={(e) => handleChange('height_in', e.target.value)}
-                                className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                                placeholder="8" 
+                                className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                                placeholder="8"
                             />
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
                                 <span className="text-gray-500 font-semibold">in</span>
@@ -322,12 +339,12 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Current Weight</label>
                     <div className="relative">
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             value={formData.current_weight || ''}
                             onChange={(e) => handleChange('current_weight', e.target.value)}
-                            className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                            placeholder="75" 
+                            className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                            placeholder="75"
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
                             <span className="text-gray-500 font-semibold">kg</span>
@@ -339,12 +356,12 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Waist Circumference <span className="font-normal text-gray-400 text-xs ml-1">(at belly button)</span></label>
                     <div className="relative">
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             value={formData.waist || ''}
                             onChange={(e) => handleChange('waist', e.target.value)}
-                            className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                            placeholder="32" 
+                            className="block w-full rounded-xl border border-gray-300 bg-gray-50 text-gray-900 py-4 px-4 text-lg focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                            placeholder="32"
                         />
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
                             <span className="text-gray-500 font-semibold">in</span>
@@ -357,12 +374,12 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Resting Heart Rate <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
                         <div className="relative">
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 value={formData.heart_rate || ''}
                                 onChange={(e) => handleChange('heart_rate', e.target.value)}
-                                className="block w-full rounded-xl border border-gray-300 bg-white text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                                placeholder="72" 
+                                className="block w-full rounded-xl border border-gray-300 bg-white text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                                placeholder="72"
                             />
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
                                 <span className="text-gray-400 text-xs">bpm</span>
@@ -373,18 +390,18 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                     {/* BP */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Blood Pressure <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             value={formData.bp || ''}
                             onChange={(e) => handleChange('bp', e.target.value)}
-                            className="block w-full rounded-xl border border-gray-300 bg-white text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none" 
-                            placeholder="120/80" 
+                            className="block w-full rounded-xl border border-gray-300 bg-white text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all outline-none"
+                            placeholder="120/80"
                         />
                     </div>
                 </div>
 
             </div>
-            
+
             <div className="flex justify-between mt-8 pt-6">
                 <button onClick={handlePrevStep} className="px-6 py-3 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">Back</button>
                 <button onClick={handleNextStep} className="flex items-center gap-2 px-8 py-3 bg-brand-text text-white rounded-xl font-bold hover:bg-gray-800 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">Next <ArrowRightIcon /></button>
@@ -396,7 +413,7 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         <div className="max-w-2xl mx-auto animate-fade-in">
             <h3 className="text-2xl font-bold text-brand-text mb-2">Objectives</h3>
             <p className="text-gray-500 mb-6">What does success look like to you?</p>
-            
+
             <div className="space-y-2">
                 {renderQuestion("Goal Weight (kg)", "goal_weight", "text")}
                 {renderQuestion("Primary Motivation", "motivation", "select", ["Health / Longevity", "Appearance / Confidence", "Energy / Mobility", "Doctor Recommendation"])}
@@ -415,7 +432,7 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         <div className="max-w-2xl mx-auto animate-fade-in">
             <h3 className="text-2xl font-bold text-brand-text mb-2">Medical History</h3>
             <p className="text-gray-500 mb-6">Your health background helps us ensure safety.</p>
-            
+
             <div className="space-y-2">
                 {renderQuestion("Have you ever been professionally diagnosed with Type 2 Diabetes or Pre-diabetes?", "t2d", "yesno")}
                 {renderQuestion("Do you manage High Blood Pressure with medication?", "hypertension", "yesno")}
@@ -436,7 +453,7 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
         <div className="max-w-2xl mx-auto animate-fade-in">
             <h3 className="text-2xl font-bold text-brand-text mb-2">Family History</h3>
             <p className="text-gray-500 mb-6">Understanding your genetic predispositions.</p>
-            
+
             <div className="space-y-2">
                 {renderQuestion("Do any immediate family members struggle with severe obesity?", "family_obesity", "yesno")}
                 {renderQuestion("Does any immediate family member (parent/sibling) have Type 2 Diabetes?", "family_diabetes", "yesno")}
@@ -457,7 +474,7 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
             <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6">
                 <p className="text-sm text-red-800 font-medium">These questions are critical for your safety with GLP-1 medications.</p>
             </div>
-            
+
             <div className="space-y-2">
                 {renderQuestion("Personal or family history of Medullary Thyroid Carcinoma (MTC)?", "contra_mtc", "yesno")}
                 {renderQuestion("Do you have Multiple Endocrine Neoplasia syndrome type 2 (MEN 2)?", "contra_men2", "yesno")}
@@ -479,18 +496,18 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                 <h3 className="text-xl font-bold text-brand-text">PHQ-9: Mood Assessment</h3>
                 <p className="text-sm text-gray-500 mb-4">Over the last 2 weeks, how often have you been bothered by any of the following problems?</p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-                    <div 
-                        className="bg-brand-purple h-2 rounded-full transition-all duration-300" 
+                    <div
+                        className="bg-brand-purple h-2 rounded-full transition-all duration-300"
                         style={{ width: `${((currentQuestionIndex) / phq9Questions.length) * 100}%` }}
                     ></div>
                 </div>
             </div>
-            
+
             <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
                 <p className="text-lg font-medium text-gray-900 mb-6">{phq9Questions[currentQuestionIndex]}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {['Not at all (0 days)', 'Several days (2-6 days)', 'More than half (7-11 days)', 'Nearly every day (12-14 days)'].map((option) => (
-                        <button 
+                        <button
                             key={option}
                             onClick={() => {
                                 if (currentQuestionIndex < phq9Questions.length - 1) {
@@ -506,21 +523,21 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                     ))}
                 </div>
             </div>
-            
+
             <div className="text-center">
-                 <button onClick={handlePrevStep} className="text-gray-400 hover:text-gray-600 text-sm font-semibold">Skip back to history</button>
+                <button onClick={handlePrevStep} className="text-gray-400 hover:text-gray-600 text-sm font-semibold">Skip back to history</button>
             </div>
         </div>
     );
 
     const renderBes = () => (
-         <div className="max-w-3xl mx-auto animate-fade-in">
+        <div className="max-w-3xl mx-auto animate-fade-in">
             <div className="mb-6">
                 <h3 className="text-xl font-bold text-brand-text">Binge Eating Scale (BES)</h3>
-                 <p className="text-sm text-gray-500 mb-4">Select the statement that best describes you.</p>
-                 <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-                    <div 
-                        className="bg-brand-purple h-2 rounded-full transition-all duration-300" 
+                <p className="text-sm text-gray-500 mb-4">Select the statement that best describes you.</p>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+                    <div
+                        className="bg-brand-purple h-2 rounded-full transition-all duration-300"
                         style={{ width: `${((currentQuestionIndex) / besQuestions.length) * 100}%` }}
                     ></div>
                 </div>
@@ -531,8 +548,8 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
                     {besQuestions[currentQuestionIndex].label}
                 </p>
                 <div className="space-y-3">
-                     {besQuestions[currentQuestionIndex].options.map((option, idx) => (
-                        <button 
+                    {besQuestions[currentQuestionIndex].options.map((option, idx) => (
+                        <button
                             key={idx}
                             onClick={() => {
                                 if (currentQuestionIndex < besQuestions.length - 1) {
@@ -550,25 +567,25 @@ const DigitalIntake: React.FC<DigitalIntakeProps> = ({ onComplete, onProgress, i
             </div>
         </div>
     );
-    
+
     const renderEat26 = () => (
-         <div className="max-w-2xl mx-auto animate-fade-in">
-             <div className="mb-6">
+        <div className="max-w-2xl mx-auto animate-fade-in">
+            <div className="mb-6">
                 <h3 className="text-xl font-bold text-brand-text">EAT-26 Screening</h3>
                 <p className="text-sm text-gray-500 mb-4">Select the frequency that applies to you.</p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-                    <div 
-                        className="bg-brand-purple h-2 rounded-full transition-all duration-300" 
+                    <div
+                        className="bg-brand-purple h-2 rounded-full transition-all duration-300"
                         style={{ width: `${((currentQuestionIndex) / eat26Questions.length) * 100}%` }}
                     ></div>
                 </div>
             </div>
-            
-             <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
+
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8">
                 <p className="text-lg font-medium text-gray-900 mb-6">{eat26Questions[currentQuestionIndex]}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {['Always', 'Usually', 'Often', 'Sometimes', 'Rarely', 'Never'].map((option) => (
-                        <button 
+                        <button
                             key={option}
                             onClick={() => {
                                 if (currentQuestionIndex < eat26Questions.length - 1) {
