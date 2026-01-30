@@ -24,9 +24,10 @@ const App: React.FC = () => {
   const [currentPatientId, setCurrentPatientId] = useState<number | null>(null);
 
   const fetchUserRole = async (user: any) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:5000/api/user/role', {
+      const response = await fetch(`${API_BASE_URL}/api/user/role`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -45,9 +46,10 @@ const App: React.FC = () => {
     console.log("☁️ fetchFromCloud starting for:", user.email);
     setIsLoading(true);
 
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:5000/api/data', {
+      const response = await fetch(`${API_BASE_URL}/api/data`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -95,9 +97,10 @@ const App: React.FC = () => {
   const savePatientToCloud = async (section: string, data: any) => {
     const user = auth.currentUser;
     if (!user) return;
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     try {
       const token = await user.getIdToken();
-      await fetch('http://localhost:5000/api/sync', {
+      await fetch(`${API_BASE_URL}/api/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -26,12 +26,16 @@ const UnifiedLoginPage: React.FC<UnifiedLoginPageProps> = ({ onSignIn }) => {
             onSignIn(result.user);
         } catch (error: any) {
             console.error("Auth Error:", error.code, error.message);
+            const errorMessage = `Authentication failed: ${error.message} (${error.code})`;
+
             if (error.code === 'auth/popup-blocked') {
                 alert("The login popup was blocked. Please enable popups for this site.");
             } else if (error.code === 'auth/network-request-failed') {
                 alert("Network error. Please check your internet connection.");
+            } else if (error.code === 'auth/unauthorized-domain') {
+                alert(`${errorMessage}. Please ensure this domain is whitelisted in your Firebase Console (Authentication > Settings > Authorized domains).`);
             } else {
-                alert("Authentication failed. Please check if you are visiting via http://localhost:5173");
+                alert(`${errorMessage}. Please check your Firebase configuration and deployment settings.`);
             }
             setIsLoading(false);
         }
