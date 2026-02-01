@@ -5,6 +5,7 @@ import { VitaLogo } from '../../constants';
 interface UserHeaderProps {
     onOpenMenu: () => void;
     onGoHome: () => void;
+    userName: string;
 }
 
 const HamburgerIcon = () => (
@@ -14,7 +15,7 @@ const HamburgerIcon = () => (
 );
 
 
-const UserHeader: React.FC<UserHeaderProps> = ({ onOpenMenu, onGoHome }) => {
+const UserHeader: React.FC<UserHeaderProps> = ({ onOpenMenu, onGoHome, userName }) => {
     return (
         <header className="bg-brand-bg/80 backdrop-blur-lg sticky top-0 z-40">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,13 +23,18 @@ const UserHeader: React.FC<UserHeaderProps> = ({ onOpenMenu, onGoHome }) => {
                     <button onClick={onGoHome} aria-label="Go to dashboard">
                         <VitaLogo />
                     </button>
-                    <button 
-                        onClick={onOpenMenu}
-                        className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                        aria-label="Open menu"
-                    >
-                       <HamburgerIcon />
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <span className="hidden sm:inline-block text-sm font-semibold text-gray-700">
+                            Hi, {userName}
+                        </span>
+                        <button
+                            onClick={onOpenMenu}
+                            className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+                            aria-label="Open menu"
+                        >
+                            <HamburgerIcon />
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>

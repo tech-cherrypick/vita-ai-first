@@ -27,6 +27,7 @@ interface UserDashboardProps {
     onSignOut: () => void;
     patient: Patient;
     onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    userName: string;
 }
 
 const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
@@ -206,7 +207,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
 };
 
 
-const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient }) => {
+const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, userName }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
@@ -500,7 +501,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
 
     return (
         <div className="min-h-screen bg-brand-bg">
-            <UserHeader onOpenMenu={() => setIsMenuOpen(true)} onGoHome={() => { setCurrentView('dashboard'); setFocusMode('none'); }} />
+            <UserHeader onOpenMenu={() => setIsMenuOpen(true)} onGoHome={() => { setCurrentView('dashboard'); setFocusMode('none'); }} userName={userName} />
             <SideMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}

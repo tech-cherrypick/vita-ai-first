@@ -99,6 +99,40 @@ const App: React.FC = () => {
     }
   };
 
+  const fetchDoctorPatients = async (user: any) => {
+    console.log("👨‍⚕️ fetchDoctorPatients starting");
+    setIsLoading(true);
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_BASE_URL}/api/doctor/patients`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const patientsList = await response.json();
+        console.log("📋 Fetched patients list:", patientsList.length);
+
+        // Map basic data to Patient type if needed, or assume backend returns compatible structure
+        // Need to ensure Structure matches Patient Interface.
+        // Be safe: merge with createNewPatient defaults just in case.
+        const mappedPatients = patientsList.map((p: any) => ({
+          ...createNewPatient(p.name || 'Unknown', p.email || '', ''),
+          ...p, // Override with backend data
+          id: p.id || Date.now(), // Ensure ID
+        }));
+
+        setPatients(mappedPatients);
+      } else {
+        console.error("❌ Failed to fetch patients list");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching doctor patients:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const savePatientToCloud = async (section: string, data: any) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -153,6 +187,9 @@ const App: React.FC = () => {
           const role = await fetchUserRole(user);
           if (role === 'patient') {
             await fetchFromCloud(user);
+          } else if (role === 'doctor' || role === 'careCoordinator') { // Also fetch for care coordinator? Logic check.
+            // Fetch all patients for doctor/care coordinator
+            await fetchDoctorPatients(user);
           } else {
             setIsLoading(false);
           }
@@ -275,7 +312,10 @@ const App: React.FC = () => {
       case 'admin':
         return <AdminDashboard onSignOut={handleSignOut} />;
       case 'doctor':
-        return <DoctorDashboard onSignOut={handleSignOut} allPatients={patients} onUpdatePatient={handleUpdatePatient} />;
+
+        const rawName = firebaseUser?.displayName || "Mitchell";
+        const docName = rawName.startsWith("Dr.") ? rawName : `Dr. ${rawName}`;
+        return <DoctorDashboard onSignOut={handleSignOut} allPatients={patients} onUpdatePatient={handleUpdatePatient} userName={docName} />;
       case 'careCoordinator':
       case 'trainer':
       case 'nutritionist':
@@ -286,12 +326,14 @@ const App: React.FC = () => {
             onUpdatePatient={handleUpdatePatient}
             tasks={careCoordinatorTasks}
             onCompleteTask={handleCompleteCareCoordinatorTask}
+            userName={firebaseUser?.displayName || "Care Manager"}
           />
         );
       case 'patient':
       default:
         if (!currentPatient) return <div>User profile not found.</div>;
-        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} />;
+        if (!currentPatient) return <div>User profile not found.</div>;
+        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} userName={firebaseUser?.displayName || currentPatient.name || "User"} />;
     }
   };
 

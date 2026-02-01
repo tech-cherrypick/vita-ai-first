@@ -17,9 +17,10 @@ interface CareCoordinatorDashboardProps {
     onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
     tasks: CareCoordinatorTask[];
     onCompleteTask: (taskId: string) => void;
+    userName: string;
 }
 
-const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask }) => {
+const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask, userName }) => {
     const [view, setView] = useState<CareCoordinatorView>('triage');
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -32,7 +33,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
             console.error(`Patient with ID ${patientId} not found.`);
         }
     };
-    
+
     const handleBackToList = () => {
         setSelectedPatient(null);
     };
@@ -42,7 +43,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         if (thread) {
             setActiveThreadId(thread.id);
             setView('messages');
-            setSelectedPatient(null); 
+            setSelectedPatient(null);
         } else {
             console.warn(`No message thread found for patient ID: ${patientId}`);
             setActiveThreadId(null);
@@ -67,14 +68,14 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         if (selectedPatient) {
             // Filter tasks for the selected patient
             const patientTasks = tasks.filter(t => t.patientId === selectedPatient.id);
-            
-            return <CareCoordinatorPatientDetailView 
-                patient={selectedPatient} 
+
+            return <CareCoordinatorPatientDetailView
+                patient={selectedPatient}
                 tasks={patientTasks}
-                onBack={handleBackToList} 
-                onUpdatePatient={handleUpdatePatientWrapper} 
+                onBack={handleBackToList}
+                onUpdatePatient={handleUpdatePatientWrapper}
                 onCompleteTask={handleTaskCompletion}
-                onSendMessage={handleSendMessage} 
+                onSendMessage={handleSendMessage}
             />;
         }
 
@@ -91,7 +92,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <CareCoordinatorHeader onSignOut={onSignOut} currentView={view} setView={setView} />
+            <CareCoordinatorHeader onSignOut={onSignOut} currentView={view} setView={setView} userName={userName} />
             <main className="py-12">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     {renderContent()}

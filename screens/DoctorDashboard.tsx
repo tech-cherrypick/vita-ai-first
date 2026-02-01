@@ -14,9 +14,10 @@ interface DoctorDashboardProps {
     onSignOut: () => void;
     allPatients: Patient[];
     onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    userName: string;
 }
 
-const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient }) => {
+const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, userName }) => {
     // Store ID instead of object to prevent stale data
     const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
     const [view, setView] = useState<DoctorView>('patients');
@@ -45,7 +46,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
             setView('messages');
         }
     };
-    
+
     const renderContent = () => {
         switch (view) {
             case 'schedule':
@@ -70,10 +71,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                 );
         }
     };
-    
+
     return (
         <div className="min-h-screen bg-gray-50">
-            <DoctorHeader onSignOut={onSignOut} currentView={view} setView={setView} />
+            <DoctorHeader onSignOut={onSignOut} currentView={view} setView={setView} userName={userName} />
             <main className="py-12">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     {renderContent()}

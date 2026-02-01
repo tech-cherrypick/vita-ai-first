@@ -1,181 +1,59 @@
 const express = require('express');
 const cors = require('cors');
-const admin = require('firebase-admin');
 require('dotenv').config();
+const { initializeFirebase } = require('./config/firebaseAdmin');
+
+// Initialize Firebase
+initializeFirebase();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase Admin 
-const serviceAccountPath = './service-account.json';
-const fs = require('fs');
+// Routes
+const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const doctorRoutes = require('./routes/doctorRoutes');
 
-try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using FIREBASE_SERVICE_ACCOUNT_JSON env var');
-  } else if (fs.existsSync(serviceAccountPath)) {
-    admin.initializeApp({
-      credential: admin.credential.cert(require(serviceAccountPath)),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using service-account.json');
-  } else {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using GCloud CLI (ADC)');
-  }
-} catch (error) {
-  console.error('❌ Firebase Admin Init Error:', error.message);
-  console.log('⚠️ To fix this, either:');
-  console.log('   1. Run: gcloud auth application-default login');
-  console.log('   2. Add backend/service-account.json from Firebase Console');
-}
+// Use Routes - Note: structure adjusted to match original paths where possible, or logical grouping
+// Original: /api/user/role -> mapped to userRoutes
+// Original: /api/sync -> mapped to userRoutes (conceptually 'user data')
+// Original: /api/data -> mapped to userRoutes
 
-const db = admin.firestore();
+// We can map them specifically to keep API structure:
+app.use('/api/user', userRoutes); // serves /api/user/role
+app.use('/api', userRoutes);      // serves /api/sync, /api/data (Note: sync and data are in root /api in original?)
+// Wait, original: /api/sync and /api/data. 
+// If I mount userRoutes at /api/user, it becomes /api/user/sync. 
+// To preserve /api/sync, I need to mount at /api or adjust userRoutes.
+// Let's adjust userRoutes to just handle specific paths if we want to preserve exact URL structure, 
+// OR we can change frontend. Changing frontend effectively is better long term but might break things now.
+// Let's look at userRoutes again.
+// router.get('/role') -> /api/user/role (if mounted at /api/user)
+// router.post('/sync') -> /api/user/sync (if mounted at /api/user)
 
-// Auth Middleware
-const verifyToken = async (req, res, next) => {
-  const idToken = req.headers.authorization?.split('Bearer ')[1];
-  
-  if (!idToken) {
-    return res.status(401).send('Unauthorized: No token provided');
-  }
+// To keep original paths:
+// /api/user/role -> Mount a router for /api/user
+// /api/sync -> Mount a router for /api
+// /api/data -> Mount a router for /api
 
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.user = decodedToken;
-    console.log(`✅ Token verified for: ${decodedToken.email}`);
-    next();
-  } catch (error) {
-    console.error('❌ Auth Error:', error.message);
-    res.status(401).send('Unauthorized: Invalid token');
-  }
-};
+// Use specific mounts for now to match exactly or create composite routers.
+// Easiest: Mount everything under /api and define full paths in routes? 
+// Or better, just breaking changes:
+// Let's try to match:
+app.use('/api/user', userRoutes); // serves /api/user/role
+app.use('/api', userRoutes); // serves /api/sync (from router.post('/sync')) and /api/data
 
-// Helper: Get user role
-const getUserRole = async (email) => {
-  console.log(`🔍 Checking role for: ${email}`);
-  if (email === 'tech@cherrypick.live') {
-    console.log('✨ Recognized Hardcoded Admin');
-    return 'admin';
-  }
-  
-  try {
-    const roleDoc = await db.collection('roles').doc(email).get();
-    if (roleDoc.exists) {
-      const role = roleDoc.data().role;
-      console.log(`📄 Found Firestore role: ${role}`);
-      return role;
-    } else {
-      console.log('❓ No role found in Firestore, defaulting to patient');
-    }
-  } catch (error) {
-    console.error('❌ Error fetching role from Firestore:', error.message);
-  }
-  return 'patient'; // Default role
-};
+// Admin
+// Original: /api/admin/roles -> adminRoutes
+app.use('/api/admin', adminRoutes);
 
-// Admin Middleware
-const verifyAdmin = async (req, res, next) => {
-  if (req.user.email === 'tech@cherrypick.live') {
-    return next();
-  }
-  
-  const role = await getUserRole(req.user.email);
-  if (role === 'admin') {
-    next();
-  } else {
-    res.status(403).send('Forbidden: Admin access required');
-  }
-};
+// Doctor
+app.use('/api/doctor', doctorRoutes);
 
-// Health Check & Verification
+// Health Check
 app.get('/', (req, res) => {
   res.status(200).send('🚀 Vita AI Backend is running!');
-});
-
-// Get Current User Role (GET)
-app.get('/api/user/role', verifyToken, async (req, res) => {
-  const role = await getUserRole(req.user.email);
-  res.status(200).json({ role });
-});
-
-// Sync Endpoint (POST)
-app.post('/api/sync', verifyToken, async (req, res) => {
-  const { section, data } = req.body;
-  const uid = req.user.uid;
-
-  if (!section || !data) {
-    return res.status(400).send('Missing section or data');
-  }
-
-  try {
-    const docRef = db.collection('users').doc(uid).collection('data').doc(section);
-    await docRef.set({
-      ...data,
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    console.log(`📡 Synced ${section} for user ${uid}`);
-    res.status(200).json({ status: 'success', message: `Synced ${section}` });
-  } catch (error) {
-    console.error('❌ Firestore Sync Error:', error.message);
-    res.status(500).send(`Internal Server Error: ${error.message}`);
-  }
-});
-
-// Fetch All Data Endpoint (GET)
-app.get('/api/data', verifyToken, async (req, res) => {
-  const uid = req.user.uid;
-
-  try {
-    const snapshot = await db.collection('users').doc(uid).collection('data').get();
-    const data = {};
-    snapshot.forEach(doc => {
-      data[doc.id] = doc.data();
-    });
-    
-    console.log(`📥 Fetched data for user ${uid}`);
-    res.status(200).json(data);
-  } catch (error) {
-    console.error('❌ Firestore Fetch Error:', error.message);
-    res.status(500).send(`Internal Server Error: ${error.message}`);
-  }
-});
-
-// Admin: List all roles (GET)
-app.get('/api/admin/roles', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const snapshot = await db.collection('roles').get();
-    const roles = [];
-    snapshot.forEach(doc => {
-      roles.push({ email: doc.id, ...doc.data() });
-    });
-    res.status(200).json(roles);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-// Admin: Set role for an email (POST)
-app.post('/api/admin/set-role', verifyToken, verifyAdmin, async (req, res) => {
-  const { email, role } = req.body;
-  if (!email || !role) return res.status(400).send('Missing email or role');
-
-  try {
-    await db.collection('roles').doc(email).set({ role, updated_at: admin.firestore.FieldValue.serverTimestamp() });
-    res.status(200).json({ status: 'success' });
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
 });
 
 const PORT = process.env.PORT || 5000;
