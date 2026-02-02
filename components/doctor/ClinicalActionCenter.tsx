@@ -11,7 +11,7 @@ type RxModificationType = 'replace' | 'add' | 'adjust' | 'onetime';
 // Icons
 const NoteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
 const RxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
-const LabIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>; 
+const LabIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
 const ConsultIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
 const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>;
@@ -39,11 +39,11 @@ interface TimelineItemProps {
 
 const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle, isLast }) => {
     const style = getEventStyles(event.type, event.title);
-    
+
     return (
         <div className="flex gap-4 relative">
             <div className="flex flex-col items-center">
-                <button 
+                <button
                     onClick={onToggle}
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm transition-transform hover:scale-105 ${style.bg} ${style.text}`}
                 >
@@ -52,7 +52,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                 {!isLast && <div className="w-0.5 h-full bg-gray-200 absolute top-10 -z-0"></div>}
             </div>
             <div className="pb-8 flex-1 pt-1 min-w-0">
-                <div 
+                <div
                     className="flex justify-between items-start cursor-pointer group"
                     onClick={onToggle}
                 >
@@ -64,7 +64,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                         {isExpanded ? <ChevronUp /> : <ChevronDown />}
                     </button>
                 </div>
-                
+
                 {/* Collapsed Preview */}
                 {!isExpanded && (
                     <p className="text-sm text-gray-600 mt-1 truncate cursor-pointer" onClick={onToggle}>{event.description}</p>
@@ -74,7 +74,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                 {isExpanded && (
                     <div className="mt-3 bg-gray-50 p-4 rounded-xl border border-gray-100 animate-fade-in text-sm text-gray-700 space-y-3">
                         <p className="font-medium whitespace-pre-wrap">{event.description}</p>
-                        
+
                         {/* Composite Event Renderers */}
                         {event.context?.rx && (
                             <div className="bg-white p-3 rounded-lg border border-gray-200 border-l-4 border-l-green-500">
@@ -117,13 +117,152 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                             </div>
                         )}
                         {event.documentId && (
-                             <button className="text-xs font-bold text-brand-purple hover:underline flex items-center gap-1 mt-2">
+                            <button className="text-xs font-bold text-brand-purple hover:underline flex items-center gap-1 mt-2">
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                 View Document ({event.documentId})
                             </button>
                         )}
                     </div>
                 )}
+            </div>
+        </div>
+    );
+};
+
+// --- Tracking Components ---
+
+const LabTracker: React.FC<{ patient: Patient }> = ({ patient }) => {
+    // Priority 1: Check dedicated labs subcollection
+    const labsData = patient.labs;
+    const hasLabsData = labsData && Object.keys(labsData).length > 0;
+
+    // Priority 2: Check timeline for lab events
+    const labEvents = patient.timeline.filter(e =>
+        e.type === 'Labs' ||
+        e.context?.labs ||
+        (e.title && /Lab|Test|Panel|Diagnostics/i.test(e.title)) ||
+        (e.description && /ordered|booked|scheduled/i.test(e.description) && /lab|test|panel/i.test(e.description))
+    );
+    labEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestTimelineOrder = labEvents.length > 0 ? labEvents[0] : null;
+
+    // Use labs subcollection data if available, otherwise fall back to timeline
+    const orderDate = hasLabsData && labsData.date
+        ? new Date(labsData.date)
+        : (latestTimelineOrder ? new Date(latestTimelineOrder.date) : null);
+
+    const orderedBy = hasLabsData ? labsData.doctorName : latestTimelineOrder?.doctor;
+
+    if (!orderDate) return null;
+
+    // 2. Check for Collection
+    const collectionEvent = patient.timeline.find(e =>
+        new Date(e.date) >= orderDate &&
+        (
+            (e.type === 'Status' && e.title.includes('Collected')) ||
+            (e.type === 'Upload') ||
+            (e.context?.vitals) ||
+            (/collected|sample|blood|drawn/i.test(e.title || '') || /collected|sample|blood|drawn/i.test(e.description || ''))
+        )
+    );
+    const vitalCollection = patient.vitals.find(v => new Date(v.date) >= orderDate);
+    const isCollected = !!collectionEvent || !!vitalCollection;
+    const collectionDate = collectionEvent?.date || vitalCollection?.date;
+
+    // 3. Check for Report
+    const report = patient.reports.find(r => new Date(r.date) >= orderDate);
+    const reportEvent = patient.timeline.find(e =>
+        new Date(e.date) >= orderDate &&
+        (/report|result|analysis/i.test(e.title || '') || /report|result/i.test(e.description || ''))
+    );
+    const isReportReady = !!report || !!reportEvent;
+    const reportDate = report?.date || reportEvent?.date;
+
+    const steps = [
+        { label: 'Ordered', date: orderDate.toLocaleDateString(), status: 'completed' },
+        { label: 'Collected', date: collectionDate || '-', status: isCollected ? 'completed' : 'pending' },
+        { label: 'Report Ready', date: reportDate || '-', status: isReportReady ? 'completed' : 'pending' }
+    ];
+
+    return (
+        <div className="bg-white border-b border-gray-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+                <LabIcon />
+                <h4 className="text-xs font-bold text-gray-500 uppercase">Lab Status</h4>
+                {orderedBy && <span className="text-[10px] text-gray-400 ml-auto">by {orderedBy}</span>}
+            </div>
+            <div className="flex items-center justify-between relative">
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-100 -z-0"></div>
+                {steps.map((step, i) => (
+                    <div key={i} className="relative z-10 flex flex-col items-center bg-white px-2">
+                        <div className={`w-3 h-3 rounded-full mb-2 ${step.status === 'completed' ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-200'}`}></div>
+                        <span className={`text-[10px] font-bold ${step.status === 'completed' ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
+                        <span className="text-[10px] text-gray-400">{step.status === 'completed' ? step.date : ''}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ConsultTracker: React.FC<{ patient: Patient }> = ({ patient }) => {
+    // Priority 1: Check dedicated consultation subcollection
+    const consultData = patient.consultation;
+    const hasConsultData = consultData && Object.keys(consultData).length > 0;
+
+    // Priority 2: Check timeline for consultation events
+    const consultEvents = patient.timeline.filter(e =>
+        e.type === 'Consultation' ||
+        e.context?.consult ||
+        (/consult|appointment|video|call/i.test(e.title || '')) ||
+        (e.description && /scheduled|booked|request/i.test(e.description) && /consult|appointment|dr|video/i.test(e.description))
+    );
+    consultEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestTimelineConsult = consultEvents.length > 0 ? consultEvents[0] : null;
+
+    // Use consultation subcollection data if available, otherwise fall back to timeline
+    const bookDate = hasConsultData && consultData.date
+        ? new Date(consultData.date)
+        : (latestTimelineConsult ? new Date(latestTimelineConsult.date) : null);
+
+    const bookedBy = hasConsultData ? consultData.doctorName : latestTimelineConsult?.doctor;
+    const consultTime = hasConsultData ? consultData.time : null;
+
+    if (!bookDate) return null;
+
+    // 2. Check for Completion
+    const completionEvent = patient.timeline.find(e =>
+        new Date(e.date) >= bookDate &&
+        e.id !== latestTimelineConsult?.id &&
+        (
+            (e.type === 'Note' || e.type === 'Protocol') && e.doctor
+            || (/completed|done|finished|summary/i.test(e.title || '') && /consult|visit|call/i.test(e.title || ''))
+            || (/completed|conducted/i.test(e.description || ''))
+        )
+    );
+    const isCompleted = !!completionEvent;
+
+    const steps = [
+        { label: 'Booked', date: bookDate.toLocaleDateString() + (consultTime ? ` ${consultTime}` : ''), status: 'completed' },
+        { label: 'Completed', date: completionEvent?.date || '-', status: isCompleted ? 'completed' : 'pending' }
+    ];
+
+    return (
+        <div className="bg-white border-b border-gray-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+                <ConsultIcon />
+                <h4 className="text-xs font-bold text-gray-500 uppercase">Consultation Status</h4>
+                {bookedBy && <span className="text-[10px] text-gray-400 ml-auto">by {bookedBy}</span>}
+            </div>
+            <div className="flex items-center justify-between relative max-w-[60%]">
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-100 -z-0"></div>
+                {steps.map((step, i) => (
+                    <div key={i} className="relative z-10 flex flex-col items-center bg-white px-2">
+                        <div className={`w-3 h-3 rounded-full mb-2 ${step.status === 'completed' ? 'bg-purple-500 ring-4 ring-purple-100' : 'bg-gray-200'}`}></div>
+                        <span className={`text-[10px] font-bold ${step.status === 'completed' ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
+                        <span className="text-[10px] text-gray-400">{step.status === 'completed' ? step.date : ''}</span>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -140,13 +279,13 @@ const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, on
     const [pathwayDetails, setPathwayDetails] = useState(
         patient.pathway && patient.pathway.includes(' - ') ? patient.pathway.split(' - ')[1] : ''
     );
-    
+
     // --- Composite Form State ---
     const [noteContent, setNoteContent] = useState('');
-    
+
     const [includeRx, setIncludeRx] = useState(false);
     const [rxActionType, setRxActionType] = useState<RxModificationType>('replace');
-    const [rxName, setRxName] = useState(patient.currentPrescription.name); 
+    const [rxName, setRxName] = useState(patient.currentPrescription.name);
     const [rxDose, setRxDose] = useState(patient.currentPrescription.dosage);
     const [rxInstructions, setRxInstructions] = useState(patient.currentPrescription.instructions);
 
@@ -161,17 +300,17 @@ const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, on
     };
 
     const handlePathwaySave = () => {
-        const finalPathwayString = pathwayDetails.trim() 
+        const finalPathwayString = pathwayDetails.trim()
             ? `${currentPathway} - ${pathwayDetails}`
             : currentPathway;
-        
+
         onUpdatePatient(patient.id, {
             type: 'Protocol',
             title: 'Clinical Pathway Updated',
             description: `Protocol updated to: ${finalPathwayString}`,
             doctor: patient.careTeam.physician
         }, { pathway: finalPathwayString });
-        
+
         setIsEditingPathway(false);
         setSuccessMessage('Pathway updated.');
         setTimeout(() => setSuccessMessage(null), 3000);
@@ -210,7 +349,7 @@ Notes:
     const submitCompositeAction = () => {
         // Validation: Must have note OR at least one action selected
         const hasAction = includeRx || includeLabs || includeConsult;
-        
+
         if (!noteContent.trim() && !hasAction) {
             alert("Please enter a clinical note or select an action to submit.");
             return;
@@ -218,7 +357,7 @@ Notes:
 
         setIsLoading(true);
         let updates: Partial<Patient> = {};
-        
+
         // Build Composite Context
         const context: any = {};
         let statusUpdate: PatientStatus = 'Ongoing Treatment';
@@ -231,7 +370,7 @@ Notes:
                 dosage: rxDose,
                 instructions: rxInstructions
             };
-            
+
             statusUpdate = 'Awaiting Shipment';
 
             // Apply updates to patient object
@@ -281,7 +420,7 @@ Notes:
             onUpdatePatient(patient.id, event, updates);
             setIsLoading(false);
             setSuccessMessage('Clinical plan updated successfully.');
-            
+
             // Reset Form
             setNoteContent('');
             setIncludeRx(false);
@@ -292,7 +431,7 @@ Notes:
             // But if they just updated it, maybe they want to see it. 
             // Let's reset to current valid state (which is the new state)
             // Ideally we'd re-read props, but for now just leave them as they are or reset to empty
-            
+
             setTimeout(() => setSuccessMessage(null), 3000);
         }, 1000);
     };
@@ -301,8 +440,8 @@ Notes:
     const timeline = [...patient.timeline].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col h-[800px]">
-            
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col h-[850px]">
+
             {/* 1. Header: Clinical Pathway */}
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-5 text-white shrink-0 z-20">
                 <div className="flex justify-between items-start">
@@ -310,8 +449,8 @@ Notes:
                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Treatment Protocol</h2>
                         {isEditingPathway ? (
                             <div className="mt-2 space-y-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm animate-fade-in">
-                                <select 
-                                    value={currentPathway} 
+                                <select
+                                    value={currentPathway}
                                     onChange={(e) => setCurrentPathway(e.target.value)}
                                     className="w-full text-sm p-2 rounded bg-white text-gray-900 border border-gray-200 outline-none"
                                 >
@@ -351,14 +490,24 @@ Notes:
                 </div>
             </div>
 
+            {/* 1.5 Tracking Widgets (New Section) */}
+            <div className="flex border-b border-gray-200">
+                <div className="w-1/2 border-r border-gray-100">
+                    <LabTracker patient={patient} />
+                </div>
+                <div className="w-1/2">
+                    <ConsultTracker patient={patient} />
+                </div>
+            </div>
+
             {/* 2. Unified Clinical Action Form */}
             <div className="bg-gray-50 border-b border-gray-200 shrink-0 z-10 shadow-sm relative p-5">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-brand-purple"></span> Clinical Update
                 </h3>
-                
+
                 {/* Note Area */}
-                <textarea 
+                <textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
                     placeholder="Enter clinical assessment, plan details, or observation..."
@@ -368,19 +517,19 @@ Notes:
 
                 {/* Toggles */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                    <button 
+                    <button
                         onClick={() => setIncludeRx(!includeRx)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeRx ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:border-green-300'}`}
                     >
                         {includeRx ? '✓' : '+'} Prescription
                     </button>
-                    <button 
+                    <button
                         onClick={() => setIncludeLabs(!includeLabs)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeLabs ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'}`}
                     >
                         {includeLabs ? '✓' : '+'} Labs
                     </button>
-                    <button 
+                    <button
                         onClick={() => setIncludeConsult(!includeConsult)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeConsult ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-purple-300'}`}
                     >
@@ -390,7 +539,7 @@ Notes:
 
                 {/* Conditional Inputs */}
                 <div className="space-y-3">
-                    
+
                     {/* Rx Form */}
                     {includeRx && (
                         <div className="p-4 bg-white rounded-xl border border-green-100 shadow-sm animate-fade-in">
@@ -408,23 +557,23 @@ Notes:
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3 mb-3">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={rxName}
                                     onChange={(e) => setRxName(e.target.value)}
                                     placeholder="Medication Name"
                                     className="p-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-green-400"
                                 />
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={rxDose}
                                     onChange={(e) => setRxDose(e.target.value)}
                                     placeholder="Dosage"
                                     className="p-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-green-400"
                                 />
                             </div>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={rxInstructions}
                                 onChange={(e) => setRxInstructions(e.target.value)}
                                 placeholder="Instructions"
@@ -437,8 +586,8 @@ Notes:
                     {includeLabs && (
                         <div className="p-4 bg-white rounded-xl border border-blue-100 shadow-sm animate-fade-in">
                             <h4 className="text-xs font-bold text-blue-700 uppercase mb-2">Order Diagnostics</h4>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={labsInput}
                                 onChange={(e) => setLabsInput(e.target.value)}
                                 placeholder="List required labs (e.g. Lipid Panel, HbA1c)..."
@@ -451,7 +600,7 @@ Notes:
                     {includeConsult && (
                         <div className="p-4 bg-white rounded-xl border border-purple-100 shadow-sm animate-fade-in flex items-center gap-3">
                             <h4 className="text-xs font-bold text-purple-700 uppercase">Request Follow-up:</h4>
-                            <select 
+                            <select
                                 value={consultTime}
                                 onChange={(e) => setConsultTime(e.target.value)}
                                 className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-400"
@@ -466,9 +615,9 @@ Notes:
                 </div>
 
                 <div className="mt-4">
-                    <button 
-                        onClick={submitCompositeAction} 
-                        disabled={isLoading} 
+                    <button
+                        onClick={submitCompositeAction}
+                        disabled={isLoading}
                         className="w-full bg-brand-purple text-white py-3 rounded-xl font-bold shadow-lg shadow-brand-purple/20 hover:bg-brand-purple/90 transition-all disabled:opacity-50"
                     >
                         {isLoading ? 'Processing...' : 'Submit Clinical Plan'}
@@ -485,12 +634,12 @@ Notes:
                     <div className="text-center text-gray-400 mt-10">No history available.</div>
                 ) : (
                     timeline.map((event, idx) => (
-                        <TimelineItem 
-                            key={event.id} 
-                            event={event} 
-                            isExpanded={expandedEventId === event.id} 
-                            onToggle={() => handleToggleEvent(event.id)} 
-                            isLast={idx === timeline.length - 1} 
+                        <TimelineItem
+                            key={event.id}
+                            event={event}
+                            isExpanded={expandedEventId === event.id}
+                            onToggle={() => handleToggleEvent(event.id)}
+                            isLast={idx === timeline.length - 1}
                         />
                     ))
                 )}

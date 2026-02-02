@@ -26,17 +26,17 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Back to Patient List
             </button>
-            
+
             <header className="mb-8">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-5">
-                         <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
-                         <div>
+                        <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
+                        <div>
                             <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
                             <p className="text-gray-600 mt-1">{patient.age} years old • Goal: {patient.goal}</p>
-                         </div>
+                        </div>
                     </div>
-                     <button 
+                    <button
                         onClick={() => onSendMessage(patient.id)}
                         className="px-4 py-2 text-sm font-semibold text-white bg-brand-purple rounded-lg hover:opacity-90 shadow-sm">
                         Send Message
@@ -48,6 +48,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
             <div className="mb-8">
                 <ClinicalActionCenter patient={patient} onUpdatePatient={onUpdatePatient} />
             </div>
+
 
             {/* Scorecard Section with Update capability */}
             <PatientScorecard patient={patient} onUpdatePatient={onUpdatePatient} />

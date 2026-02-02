@@ -133,20 +133,39 @@ const App: React.FC = () => {
     }
   };
 
-  const savePatientToCloud = async (section: string, data: any) => {
+  const savePatientToCloud = async (section: string, data: any, targetPatientId?: number) => {
     const user = auth.currentUser;
     if (!user) return;
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     try {
       const token = await user.getIdToken();
-      await fetch(`${API_BASE_URL}/api/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ section, data })
-      });
+
+      // If doctor updating a specific patient
+      if (userType === 'doctor' && targetPatientId) {
+        await fetch(`${API_BASE_URL}/api/doctor/update-patient`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            patientId: targetPatientId,
+            section,
+            data
+          })
+        });
+        console.log(`👨‍⚕️ Saved ${section} for patient ${targetPatientId}`);
+      } else {
+        // Standard self-sync for patient
+        await fetch(`${API_BASE_URL}/api/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ section, data })
+        });
+      }
     } catch (err) {
       console.error("Failed to sync to cloud:", err);
     }
@@ -254,27 +273,29 @@ const App: React.FC = () => {
       status: updatedPatient.status,
       nextAction: updatedPatient.nextAction,
       careTeam: updatedPatient.careTeam,
-      goal: updatedPatient.goal
-    });
+      goal: updatedPatient.goal,
+      pathway: updatedPatient.pathway,
+      currentPrescription: updatedPatient.currentPrescription
+    }, updatedPatient.id);
 
     if (newEvent) {
-      savePatientToCloud('timeline', { events: updatedPatient.timeline });
+      savePatientToCloud('timeline', { events: updatedPatient.timeline }, updatedPatient.id);
     }
 
     if (updates.vitals) {
-      savePatientToCloud('vitals', { list: updatedPatient.vitals });
+      savePatientToCloud('vitals', { list: updatedPatient.vitals }, updatedPatient.id);
     }
 
     if (updates.weeklyLogs) {
-      savePatientToCloud('weeklyLogs', { entries: updatedPatient.weeklyLogs });
+      savePatientToCloud('weeklyLogs', { entries: updatedPatient.weeklyLogs }, updatedPatient.id);
     }
 
     if (updates.dailyLogs) {
-      savePatientToCloud('dailyLogs', updatedPatient.dailyLogs);
+      savePatientToCloud('dailyLogs', updatedPatient.dailyLogs, updatedPatient.id);
     }
 
     if (updates.carePlan) {
-      savePatientToCloud('carePlan', updatedPatient.carePlan);
+      savePatientToCloud('carePlan', updatedPatient.carePlan, updatedPatient.id);
     }
   };
 

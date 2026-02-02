@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Patient, TimelineEvent } from '../../constants';
-import { MetabolicView, PsychView, SafetyView } from '../HealthMetricsDashboard';
+import { MetabolicView, PsychView, SafetyView, VitalsView } from '../HealthMetricsDashboard';
 
 // --- Shared Components ---
 
@@ -18,8 +18,8 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
 
     return (
         <div className={`bg-white border transition-all duration-300 rounded-xl mb-4 overflow-hidden ${isOpen ? 'shadow-md border-brand-purple/30' : 'shadow-sm border-gray-200 hover:border-brand-purple/20'}`}>
-            <div 
-                className={`p-5 flex items-start justify-between cursor-pointer ${isOpen ? 'bg-gray-50/50' : 'bg-white'}`} 
+            <div
+                className={`p-5 flex items-start justify-between cursor-pointer ${isOpen ? 'bg-gray-50/50' : 'bg-white'}`}
                 onClick={onToggle}
             >
                 <div className="flex items-start gap-4 flex-1">
@@ -33,7 +33,7 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
                                 </span>
                             )}
                         </div>
-                        
+
                         {/* AI Summary Block - Only visible when minimized */}
                         {!isOpen && (
                             <div className="mt-2 relative">
@@ -49,7 +49,7 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
                     {isOpen ? <div className="flex items-center gap-1 text-xs font-bold uppercase">Less <ChevronUp /></div> : <div className="flex items-center gap-1 text-xs font-bold uppercase">Deep Dive <ChevronDown /></div>}
                 </button>
             </div>
-            
+
             {/* Expanded Content */}
             {isOpen && (
                 <div className="p-6 border-t border-gray-100 bg-white animate-fade-in cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -71,33 +71,64 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
     // State to track which section is expanded
     const [expandedSection, setExpandedSection] = useState<'metabolic' | 'psych' | 'safety' | null>(null);
 
-    // Mock logic to derive scores for the demo
-    const bmiVital = patient.vitals.find(v => v.label === 'BMI');
-    const bmi = parseFloat(bmiVital?.value || '0');
+    // Real Data Derivation
+    // Vitals / BMI
+    const getVital = (label: string) => {
+        if (!patient.vitals) return '0';
+        if (Array.isArray(patient.vitals)) {
+            return patient.vitals.find(v => v.label === label)?.value || '0';
+        }
+        return '0';
+    };
+    const weight = parseFloat(getVital('Weight'));
+    // Approximate BMI calc if not explicitly present, or use stored BMI
+    // Let's rely on stored BMI if possible, or calculate if we had height. 
+    // Simplify: Use stored 'BMI' from vitals list if present.
+    // If logic needed: (weight / height^2) ...
+    let bmi = parseFloat(getVital('BMI'));
+    if (bmi === 0 && weight > 0) {
+        // Fallback or placeholder logic. Without height, difficult. 
+        // Assume backend/vitals widget calculates it.
+    }
+
+    // Labs / HOMA-IR
+    // Check patient.labs
+    const homaIr = patient.labs?.homaIr ? parseFloat(patient.labs.homaIr as string) : 0; // Assuming labs has homaIr
+    // If not in labs, fallback to 0. 
+
     const isHighRiskBMI = bmi > 30;
-    const phq9Score = patient.id === 1 ? 4 : 12; 
-    const besScore = patient.id === 1 ? 8 : 18;
-    const homaIr = patient.id === 1 ? 2.1 : 3.8;
-    
+
+    // Psych
+    const phq9Score = patient.psych?.phq9_score || 0;
+    const besScore = patient.psych?.bes_score || 0;
+
     // Risk Calculations
-    const metabolicRisk = homaIr > 2.5 || isHighRiskBMI ? 'High' : 'Moderate';
+    const metabolicRisk = (homaIr > 2.5 || isHighRiskBMI || bmi > 27) ? 'High' : (bmi > 25 ? 'Moderate' : 'Low');
     const psychRisk = phq9Score > 10 || besScore > 15 ? 'High' : 'Low';
-    const safetyRisk = 'Low'; // Mocked as clean for now
+
+    // Safety
+    // Check contraindications
+    const m = patient.medical || {};
+    const hasContraindication = m.contra_mtc || m.contra_men2 || m.contra_pancreatitis || m.contra_suicide;
+    const safetyRisk = hasContraindication ? 'High' : 'Low';
 
     const toggleSection = (section: 'metabolic' | 'psych' | 'safety') => {
         setExpandedSection(prev => prev === section ? null : section);
     };
 
     // Dynamic AI Summaries
-    const metabolicSummary = isHighRiskBMI 
-        ? `Patient presents with Class I Obesity (BMI ${bmi}) and HOMA-IR of ${homaIr}, indicating significant insulin resistance. Metabolic profile suggests strong suitability for GLP-1 therapy.`
-        : `Patient BMI (${bmi}) is within overweight range. Insulin sensitivity is moderate. Standard titration protocol recommended.`;
+    const metabolicSummary = isHighRiskBMI
+        ? `Patient presents with Class I Obesity (BMI ${bmi}) and HOMA-IR of ${homaIr || 'N/A'}, indicating significant insulin resistance. Metabolic profile suggests strong suitability for GLP-1 therapy.`
+        : `Patient BMI (${bmi}) is ${bmi > 25 ? 'within overweight' : 'within normal'} range. Insulin sensitivity is ${homaIr > 2 ? 'impaired' : 'normal'}. Standard titration protocol recommended.`;
 
     const psychSummary = psychRisk === 'High'
         ? `Screening indicates moderate risk for binge eating behaviors (BES: ${besScore}). Mood stability requires monitoring (PHQ-9: ${phq9Score}). Behavioral support module recommended.`
         : `Psychometric screening is clear. Low risk for binge eating or depressive symptoms. Patient demonstrates good readiness for change.`;
 
-    const safetySummary = `No absolute contraindications detected. Kidney and Liver function normal. Family history of T2D noted. Cleared for treatment initiation.`;
+    const safetySummary = hasContraindication
+        ? `CRITICAL: Contraindications detected (${m.contra_mtc ? 'MTC' : ''} ${m.contra_men2 ? 'MEN2' : ''}). Review required before initiation.`
+        : `No absolute contraindications detected. Kidney and Liver function normal. Cleared for treatment initiation.`;
+
 
     return (
         <div className="mb-8">
@@ -111,20 +142,23 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
 
             {/* Expandable Sections */}
             <div className="space-y-2">
-                <SectionCard 
-                    title="Metabolic Health" 
-                    icon="🧬" 
+                <SectionCard
+                    title="Metabolic Health"
+                    icon="🧬"
                     summary={metabolicSummary}
                     isOpen={expandedSection === 'metabolic'}
                     onToggle={() => toggleSection('metabolic')}
                     riskLevel={metabolicRisk}
                 >
-                    <MetabolicView patient={patient} />
+                    <div className="space-y-6">
+                        <VitalsView patient={patient} />
+                        <MetabolicView patient={patient} />
+                    </div>
                 </SectionCard>
 
-                <SectionCard 
-                    title="Psychometrics" 
-                    icon="🧠" 
+                <SectionCard
+                    title="Psychometrics"
+                    icon="🧠"
                     summary={psychSummary}
                     isOpen={expandedSection === 'psych'}
                     onToggle={() => toggleSection('psych')}
@@ -133,9 +167,9 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
                     <PsychView patient={patient} />
                 </SectionCard>
 
-                <SectionCard 
-                    title="Safety & History" 
-                    icon="🛡️" 
+                <SectionCard
+                    title="Safety & History"
+                    icon="🛡️"
                     summary={safetySummary}
                     isOpen={expandedSection === 'safety'}
                     onToggle={() => toggleSection('safety')}

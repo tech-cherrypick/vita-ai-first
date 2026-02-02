@@ -106,6 +106,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
+    const initRun = useRef(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +126,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 });
                 if (response.ok) {
                     const cloudData = await response.json();
-                    if (cloudData.chat_history && cloudData.chat_history.messages) {
+                    if (cloudData.chat_history && Array.isArray(cloudData.chat_history.messages) && cloudData.chat_history.messages.length > 0) {
                         setMessages(cloudData.chat_history.messages);
                         return true; // Found history
                     }
@@ -136,9 +137,13 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             return false;
         };
 
+        let ignore = false;
+
         const initChat = async () => {
+            if (ignore) return;
             try {
                 const hasHistory = await fetchHistory();
+                if (ignore) return;
 
                 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
                 const chat = ai.chats.create({
@@ -177,7 +182,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     // Kickoff for new user
                     setIsTyping(true);
                     const res = await chat.sendMessage({ message: "SYSTEM: Session Start. Introduce yourself and start Step 1." });
-                    processResponse(res);
+                    if (!ignore) processResponse(res);
                 } else {
                     // For existing users, we inform the AI about current state
                     const res = await chat.sendMessage({ message: `SYSTEM: Session Load. User is returning. Current progress is ${onboardingProgress}%. Check messages for context.` });
@@ -189,8 +194,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             }
         };
 
-        if (patient) initChat();
-    }, []);
+        if (patient) {
+            initChat();
+        }
+
+        return () => {
+            ignore = true;
+        };
+    }, [patient.id]);
 
     // Sync messages to Cloud
     useEffect(() => {
@@ -499,8 +510,51 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         if (chatSession) {
             setIsTyping(true);
             const statusText = `SYSTEM: Captured ${type} data ${detailsString}. Widget complete. Proceed to next step.`;
-            const res = await chatSession.sendMessage({ message: statusText });
-            processResponse(res);
+            try {
+                const res = await chatSession.sendMessage({ message: statusText });
+                processResponse(res);
+            } catch (error) {
+                console.error("AI Ack Failed:", error);
+                setIsTyping(false);
+                // Fallback: If AI fails, forcefully trigger next step
+                const wType = type as WidgetType;
+                const widgetOrder: WidgetType[] = ['vitals', 'medical', 'psych', 'labs', 'profile', 'payment', 'consultation'];
+                const currentIndex = widgetOrder.indexOf(wType);
+                if (currentIndex !== -1 && currentIndex < widgetOrder.length - 1) {
+                    const nextWidget = widgetOrder[currentIndex + 1];
+                    console.log("Error Fallback triggering next widget:", nextWidget);
+                    setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            sender: CARE_MANAGER.name,
+                            role: CARE_MANAGER.role,
+                            avatar: CARE_MANAGER.avatar,
+                            color: CARE_MANAGER.color,
+                            text: "System: Connection unstable. Proceeding to next step manually.",
+                            widget: { type: nextWidget, isComplete: false }
+                        }]);
+                    }, 1000);
+                }
+            }
+        } else {
+            console.warn("⚠️ Chat Session lost. Attempting to recover or manual progress.");
+            // Determine next widget manually based on map
+            const wType = type as WidgetType;
+            const widgetOrder: WidgetType[] = ['vitals', 'medical', 'psych', 'labs', 'profile', 'payment', 'consultation'];
+            const currentIndex = widgetOrder.indexOf(wType);
+            if (currentIndex !== -1 && currentIndex < widgetOrder.length - 1) {
+                const nextWidget = widgetOrder[currentIndex + 1];
+                console.log("Fallback triggering next widget:", nextWidget);
+                setTimeout(() => {
+                    setMessages(prev => [...prev, {
+                        sender: CARE_MANAGER.name,
+                        role: CARE_MANAGER.role,
+                        avatar: CARE_MANAGER.avatar,
+                        color: CARE_MANAGER.color,
+                        text: "Data recorded. Let's move to the next section.",
+                        widget: { type: nextWidget, isComplete: false }
+                    }]);
+                }, 1000);
+            }
         }
 
         // 7. Parent Update

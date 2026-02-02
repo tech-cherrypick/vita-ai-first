@@ -167,7 +167,7 @@ export interface TimelineEvent {
     date: string;
     title: string;
     description: string;
-    type: 'Assessment' | 'Labs' | 'Consultation' | 'Shipment' | 'Protocol' | 'Note';
+    type: 'Status' | 'Upload' | 'Message' | 'Alert' | 'Note' | 'Labs' | 'Consultation' | 'Protocol' | 'Shipment';
     doctor?: string;
     documentId?: string;
     context?: any;
@@ -241,6 +241,11 @@ export interface Patient {
         };
         mindbody: string[];
     };
+    psych?: Record<string, string>;
+    medical?: Record<string, any>;
+    clinic?: any;
+    consultation?: any;
+    labs?: any;
 }
 
 export interface PrescriptionLog {

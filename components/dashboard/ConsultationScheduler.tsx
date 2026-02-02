@@ -10,8 +10,8 @@ interface ConsultationSchedulerProps {
     buttonText?: string;
 }
 
-const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, type?: "button" | "submit", className?: string, disabled?: boolean }> = ({ children, onClick, type="button", className="", disabled=false }) => (
-    <button 
+const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, type?: "button" | "submit", className?: string, disabled?: boolean }> = ({ children, onClick, type = "button", className = "", disabled = false }) => (
+    <button
         type={type}
         onClick={onClick}
         disabled={disabled}
@@ -65,11 +65,11 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
             return newDate;
         });
     };
-    
+
     const isUnavailable = (date: Date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // 1. Check basic booking notice
         const minBookingDate = new Date(today);
         minBookingDate.setDate(today.getDate() + minBookingNoticeDays);
@@ -78,7 +78,7 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
         // 2. Check strict minDate (e.g. Labs + 5 days)
         if (minDate) {
             const strictMin = new Date(minDate);
-            strictMin.setHours(0,0,0,0);
+            strictMin.setHours(0, 0, 0, 0);
             if (date < strictMin) return true;
         }
 
@@ -100,7 +100,7 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
                     Note: Appointments must be at least 5 days after your lab test ({minDate.toLocaleDateString()}) to ensure results are ready.
                 </p>
             )}
-            
+
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <div className="flex items-center justify-between mb-2">
                     <button type="button" onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200" aria-label="Previous month">&lt;</button>
@@ -108,12 +108,12 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
                     <button type="button" onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200" aria-label="Next month">&gt;</button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => <div key={day} className="font-semibold text-gray-500">{day}</div>)}
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => <div key={i} className="font-semibold text-gray-500">{day}</div>)}
                     {calendarDays.map((day, index) => (
                         <div key={index} className="flex items-center justify-center">
-                             {day ? (
-                                <button 
-                                    type="button" 
+                            {day ? (
+                                <button
+                                    type="button"
                                     onClick={() => setSelectedDate(day)}
                                     disabled={isUnavailable(day)}
                                     className={`w-8 h-8 rounded-full transition-colors ${selectedDate?.toDateString() === day.toDateString() ? 'bg-brand-purple text-white' : 'hover:bg-gray-200'} ${isUnavailable(day) ? 'text-gray-300 cursor-not-allowed' : ''}`}
@@ -127,12 +127,12 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
                     ))}
                 </div>
             </div>
-            
+
             {selectedDate && (
                 <div className="grid grid-cols-3 gap-2 animate-fade-in">
                     {timeSlots.map(time => (
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             key={time}
                             onClick={() => setSelectedTime(time)}
                             className={`p-2 rounded-lg text-sm border transition-colors ${selectedTime === time ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white border-gray-300 hover:bg-gray-100'}`}
@@ -144,7 +144,7 @@ const ConsultationScheduler: React.FC<ConsultationSchedulerProps> = ({ onSchedul
             )}
 
             <GradientButton onClick={handleConfirm} disabled={isButtonDisabled || !selectedDate || !selectedTime}>
-                {buttonText} <ArrowRightIcon/>
+                {buttonText} <ArrowRightIcon />
             </GradientButton>
         </div>
     );
