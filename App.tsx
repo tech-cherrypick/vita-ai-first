@@ -15,13 +15,19 @@ const App: React.FC = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userType, setUserType] = useState<UserRole>('patient');
+  const [userType, setUserType] = useState<UserRole>(() => {
+    return (localStorage.getItem('vita_user_type') as UserRole) || 'patient';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vita_user_type', userType);
+  }, [userType]);
   const [showLogin, setShowLogin] = useState(false);
 
   // Initialize state
   const [patients, setPatients] = useState<Patient[]>([]);
   const [careCoordinatorTasks, setCareCoordinatorTasks] = useState<CareCoordinatorTask[]>([]);
-  const [currentPatientId, setCurrentPatientId] = useState<number | null>(null);
+  const [currentPatientId, setCurrentPatientId] = useState<string | number | null>(null);
 
   const fetchUserRole = async (user: any) => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -133,31 +139,34 @@ const App: React.FC = () => {
     }
   };
 
-  const savePatientToCloud = async (section: string, data: any, targetPatientId?: number) => {
+  const savePatientToCloud = async (section: string, data: any, targetPatientId?: string | number) => {
     const user = auth.currentUser;
     if (!user) return;
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
     try {
       const token = await user.getIdToken();
 
-      // If doctor updating a specific patient
-      if (userType === 'doctor' && targetPatientId) {
-        await fetch(`${API_BASE_URL}/api/doctor/update-patient`, {
+      // If doctor or care coordinator updating a specific patient
+      if ((userType === 'doctor' || userType === 'careCoordinator') && targetPatientId) {
+        console.log(`📡 [Coordinator Sync] ${section} for patient ${targetPatientId} (Type: ${typeof targetPatientId}) -> /api/doctor/update-patient`);
+        const response = await fetch(`${API_BASE_URL}/api/doctor/update-patient`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            patientId: targetPatientId,
+            patientId: String(targetPatientId), // Force string UID
             section,
             data
           })
         });
-        console.log(`👨‍⚕️ Saved ${section} for patient ${targetPatientId}`);
+        const resData = await response.json().catch(() => ({}));
+        console.log(`📥 [Coordinator Sync] Response (${response.status}):`, resData);
       } else {
         // Standard self-sync for patient
-        await fetch(`${API_BASE_URL}/api/sync`, {
+        console.log(`📡 [Patient Sync] ${section} -> /api/sync`);
+        const response = await fetch(`${API_BASE_URL}/api/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -165,6 +174,8 @@ const App: React.FC = () => {
           },
           body: JSON.stringify({ section, data })
         });
+        const resData = await response.json().catch(() => ({}));
+        console.log(`📥 [Patient Sync] Response (${response.status}):`, resData);
       }
     } catch (err) {
       console.error("Failed to sync to cloud:", err);
@@ -204,10 +215,10 @@ const App: React.FC = () => {
 
         try {
           const role = await fetchUserRole(user);
+          setUserType(role as any);
           if (role === 'patient') {
             await fetchFromCloud(user);
-          } else if (role === 'doctor' || role === 'careCoordinator') { // Also fetch for care coordinator? Logic check.
-            // Fetch all patients for doctor/care coordinator
+          } else if (role === 'doctor' || role === 'careCoordinator') {
             await fetchDoctorPatients(user);
           } else {
             setIsLoading(false);
@@ -234,15 +245,22 @@ const App: React.FC = () => {
   const currentPatient = patients.find(p => p.id === currentPatientId) || patients[0] || null;
 
   const handleUpdatePatient = (
-    patientId: number,
+    patientId: string | number,
     newEvent: Omit<TimelineEvent, 'id' | 'date'> | null,
     updates: Partial<Patient> = {}
   ) => {
-    const patientIndex = patients.findIndex(p => p.id === patientId);
-    if (patientIndex === -1) return;
+    const patientIndex = patients.findIndex(p => String(p.id) === String(patientId));
+    console.log(`🔄 handleUpdatePatient: id=${patientId}, index=${patientIndex}, userType=${userType}`);
+
+    if (patientIndex === -1) {
+      console.warn(`⚠️ Patient with ID ${patientId} not found in state!`);
+      return;
+    }
 
     const currentP = patients[patientIndex];
+    console.log(`📝 Applying updates to ${currentP.name}:`, updates);
     let newTimeline = currentP.timeline;
+    let newHistory = currentP.patient_history || [];
 
     if (newEvent) {
       const newTimelineEvent: TimelineEvent = {
@@ -251,12 +269,16 @@ const App: React.FC = () => {
         date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       };
       newTimeline = [newTimelineEvent, ...currentP.timeline];
+      newHistory = [newTimelineEvent, ...newHistory];
     }
 
     const updatedPatient = {
       ...currentP,
       ...updates,
-      timeline: newTimeline
+      tracking: updates.tracking ? { ...currentP.tracking, ...updates.tracking } : currentP.tracking,
+      clinic: updates.clinic ? { ...currentP.clinic, ...updates.clinic } : currentP.clinic,
+      timeline: newTimeline,
+      patient_history: newHistory
     };
 
     const newPatients = [...patients];
@@ -275,7 +297,7 @@ const App: React.FC = () => {
       careTeam: updatedPatient.careTeam,
       goal: updatedPatient.goal,
       pathway: updatedPatient.pathway,
-      currentPrescription: updatedPatient.currentPrescription
+      // Removed currentPrescription to avoid duplication in profile; it now lives in 'clinic' subcollection
     }, updatedPatient.id);
 
     if (newEvent) {
@@ -297,6 +319,20 @@ const App: React.FC = () => {
     if (updates.carePlan) {
       savePatientToCloud('carePlan', updatedPatient.carePlan, updatedPatient.id);
     }
+
+    // New Data Persistence
+    if (updates.reports) {
+      // User requested 'medical' doc for reports
+      savePatientToCloud('medical', { reports: updatedPatient.reports }, updatedPatient.id);
+    }
+
+    if (updates.tracking) {
+      savePatientToCloud('tracking', updatedPatient.tracking, updatedPatient.id);
+    }
+
+    if (updates.clinic) {
+      savePatientToCloud('clinic', updatedPatient.clinic, updatedPatient.id);
+    }
   };
 
   const handleCompleteCareCoordinatorTask = (taskId: string) => {
@@ -305,6 +341,7 @@ const App: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
+      localStorage.removeItem('vita_user_type');
       await signOut(auth);
       setShowLogin(false);
     } catch (error) {

@@ -2,11 +2,11 @@
 import React from 'react';
 import { Patient, TimelineEvent } from '../../constants';
 import MedicalReports from './MedicalReports';
-import PatientActions from './PatientActions';
 import PatientProgressTracker from './PatientProgressTracker';
 import PatientScorecard from './PatientScorecard';
 import ClinicalActionCenter from './ClinicalActionCenter';
 import DoctorChatAssistant from './DoctorChatAssistant';
+import ConsultationTimeline from './ConsultationTimeline';
 
 
 interface PatientDetailViewProps {
@@ -44,24 +44,35 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
                 </div>
             </header>
 
-            {/* Replaced separate managers with unified Action Center - Moved to top as requested */}
+            {/* 1. Unified Action Center - Top */}
             <div className="mb-8">
                 <ClinicalActionCenter patient={patient} onUpdatePatient={onUpdatePatient} />
             </div>
 
-
-            {/* Scorecard Section with Update capability */}
+            {/* 2. Scorecard Section (Full Width) */}
             <PatientScorecard patient={patient} onUpdatePatient={onUpdatePatient} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                <div className="lg:col-span-2 space-y-8">
-                    {/* ConsultationTimeline removed as requested */}
-                    <PatientProgressTracker logs={patient.weeklyLogs} />
+            {/* 3. Split View: History & Reports */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mb-8">
+                {/* Left: Patient Timeline (Contains Process Tracker) */}
+                <div className="lg:col-span-2">
+                    <ConsultationTimeline
+                        patient={patient}
+                        timeline={patient.timeline || []}
+                        history={patient.patient_history || []}
+                        status={patient.status}
+                    />
                 </div>
-                <div className="space-y-8 lg:sticky lg:top-28">
-                    <PatientActions patient={patient} onUpdatePatient={onUpdatePatient} />
-                    <MedicalReports reports={patient.reports} />
+
+                {/* Right: Medical Reports */}
+                <div className="space-y-8">
+                    <MedicalReports reports={patient.reports} patientId={patient.id} onUpdatePatient={onUpdatePatient} />
                 </div>
+            </div>
+
+            {/* 4. Progress Tracker (Bottom) */}
+            <div className="mb-8">
+                <PatientProgressTracker logs={patient.weeklyLogs} />
             </div>
         </div>
     );

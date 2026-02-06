@@ -1,206 +1,288 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Patient, TimelineEvent, CareCoordinatorTask } from '../../constants';
 
 interface CareCoordinationCenterProps {
     patient: Patient;
     tasks: CareCoordinatorTask[];
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
     onCompleteTask: (taskId: string) => void;
+    userName: string;
 }
-
-// --- 2D Icons ---
-const NoteIcon2D = () => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-yellow-400">
-        <path d="M14.06 9.02L14.98 9.94L5.92 19H5V18.08L14.06 9.02ZM17.66 3C17.41 3 17.15 3.1 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C18.17 3.09 17.92 3 17.66 3ZM14.06 6.19L3 17.25V21H6.75L17.81 9.94L14.06 6.19Z" />
-    </svg>
-);
-
-const LabsIcon2D = () => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-red-400">
-        <path d="M12 22C16.4183 22 20 18.4183 20 14C20 8 12 2 12 2C12 2 4 8 4 14C4 18.4183 7.58172 22 12 22Z" />
-    </svg>
-);
-
-const ConsultIcon2D = () => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-gray-400">
-        <path d="M19 4H18V2H16V4H8V2H6V4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4ZM19 20H5V10H19V20ZM19 8H5V6H19V8ZM9 14H7V12H9V14ZM13 14H11V12H13V14ZM17 14H15V12H17V14ZM9 18H7V16H9V18ZM13 18H11V16H13V18ZM17 18H15V16H17V18Z" />
-    </svg>
-);
-
-const FlagIcon2D = () => (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-red-500">
-        <path d="M14.4 6L14 4H5V21H7V14H12.6L13 16H20V6H14.4Z" />
-    </svg>
-);
 
 const SendIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>;
+const CheckIcon = () => <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>;
+const PlusIcon = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
 
-// --- Active Task Card (Focus) ---
-interface ActiveTaskCardProps {
-    task: CareCoordinatorTask;
-    isLoading: boolean;
-    onAction: (data?: any) => void;
-}
+// --- Protocol Definitions ---
 
-const ActiveTaskCard: React.FC<ActiveTaskCardProps> = ({ 
-    task, 
-    isLoading, 
-    onAction
-}) => {
-    const [note, setNote] = useState('');
+const ONBOARDING_STEPS = [
+    {
+        id: 'intake',
+        label: 'Intake',
+        description: 'Survey completion and lab setup.',
+        statuses: ['Assessment Review', 'Action Required'],
+        actions: [
+            { id: 'complete_intake', label: 'Mark Intake as Completed', targetStatus: 'Assessment Review', targetSection: 'profile' }
+        ]
+    }
+];
 
-    const renderContent = () => {
-        if (task.type === 'Medication Shipment') {
-            return (
-                <div className="mt-3">
-                    <div className="bg-brand-purple/5 p-3 rounded-lg border border-brand-purple/10 mb-3">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span className="font-bold text-brand-purple uppercase">Prescription</span>
-                            <span className="text-gray-500">#{task.id.slice(-4)}</span>
-                        </div>
-                        <p className="font-bold text-gray-900 text-sm">{task.context?.prescription?.name || 'Medication'}</p>
-                        <p className="text-xs text-gray-500">{task.context?.prescription?.dosage}</p>
-                    </div>
-                    <button 
-                        onClick={() => onAction()} 
-                        disabled={isLoading}
-                        className="w-full py-2.5 bg-brand-cyan text-white text-sm font-bold rounded-lg shadow-md shadow-brand-cyan/20 hover:bg-brand-cyan/90 transition-all flex justify-center items-center gap-2"
-                    >
-                        {isLoading ? 'Processing...' : 'Confirm Shipment'}
-                    </button>
-                </div>
-            );
-        }
-
-        if (task.type === 'New Message' || task.type === 'Follow-up Request') {
-            return (
-                <div className="mt-3">
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-900 mb-3">
-                        "{task.details}"
-                    </div>
-                    <div className="flex gap-2">
-                        <input 
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder="Type reply..."
-                            className="flex-1 text-sm p-2 border border-gray-200 rounded-lg outline-none focus:border-brand-purple"
-                        />
-                        <button 
-                            onClick={() => onAction({ reply: note })}
-                            disabled={isLoading || !note.trim()}
-                            className="px-3 bg-brand-purple text-white rounded-lg hover:bg-brand-purple/90"
-                        >
-                            <SendIcon />
-                        </button>
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <div className="mt-3">
-                <p className="text-xs text-gray-600 mb-3">{task.details}</p>
-                <button 
-                    onClick={() => onAction()}
-                    disabled={isLoading}
-                    className="w-full py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-gray-800"
-                >
-                    Mark Complete
-                </button>
-            </div>
-        );
-    };
-
-    return (
-        <div className="flex gap-4 relative animate-fade-in">
-            <div className="flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-white border-2 border-brand-purple flex items-center justify-center shrink-0 z-10 shadow-md">
-                    <div className="w-2 h-2 rounded-full bg-brand-purple animate-pulse"></div>
-                </div>
-            </div>
-            <div className="flex-1">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 relative top-[-4px]">
-                    <div className="flex justify-between items-start">
-                        <h4 className="text-sm font-bold text-brand-purple uppercase tracking-wider">{task.type}</h4>
-                        <span className="text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-100">{task.priority}</span>
-                    </div>
-                    {renderContent()}
-                </div>
-            </div>
-        </div>
-    );
-};
+const MAINTENANCE_LOOP = [
+    {
+        id: 'metabolic',
+        label: 'Metabolic',
+        description: 'Lab analysis and clinical review preparation.',
+        statuses: ['Labs Ordered', 'Awaiting Lab Confirmation', 'Awaiting Lab Results', 'Additional Testing Required'],
+        actions: [
+            { id: 'ongoing_labs', label: 'Mark Labs as Ongoing', targetStatus: 'ongoing', targetSection: 'labs' },
+            { id: 'complete_labs', label: 'Mark Labs as Completed', targetStatus: 'completed', targetSection: 'labs' }
+        ]
+    },
+    {
+        id: 'clinical',
+        label: 'Clinical',
+        description: 'Doctor consultation and prescription authorization.',
+        statuses: ['Ready for Consult', 'Consultation Scheduled', 'Follow-up Required'],
+        actions: [
+            { id: 'ongoing_consult', label: 'Mark Consultation as Ongoing', targetStatus: 'ongoing', targetSection: 'consultation' },
+            { id: 'complete_consult', label: 'Mark Consultation as Completed', targetStatus: 'completed', targetSection: 'consultation' }
+        ]
+    },
+    {
+        id: 'pharmacy',
+        label: 'Pharmacy',
+        description: 'Medication fulfillment.',
+        statuses: ['Awaiting Shipment'],
+        actions: [
+            { id: 'ship_drugs', label: 'Mark Medication as Shipped', targetStatus: 'Shipped', targetSection: 'shipment' },
+            { id: 'deliver_drugs', label: 'Mark Medication as Delivered', targetStatus: 'Delivered', targetSection: 'shipment' }
+        ]
+    },
+    {
+        id: 'care_loop',
+        label: 'Care Loop',
+        description: 'Ongoing retention and monitoring.',
+        statuses: ['Ongoing Treatment', 'Monitoring Loop'],
+        actions: [
+            { id: 'setup_care_call', label: 'Log Monthly Follow-up Call', targetStatus: 'completed', targetSection: 'care_loop' }
+        ]
+    }
+];
 
 // --- Main Component ---
 
-const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient, tasks, onUpdatePatient, onCompleteTask }) => {
+const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient, tasks, onUpdatePatient, onCompleteTask, userName }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [activeAction, setActiveAction] = useState<'labs' | 'consult' | 'note' | 'flag'>('note');
     const [actionNote, setActionNote] = useState('');
+    const [actionCategory, setActionCategory] = useState<string>('Note');
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+    const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
 
-    // Set initial active task
-    useEffect(() => {
-        if (tasks.length > 0 && !activeTaskId) {
-            // Default to high priority or first
-            const highPri = tasks.find(t => t.priority === 'High');
-            setActiveTaskId(highPri ? highPri.id : tasks[0].id);
-        } else if (tasks.length > 0 && activeTaskId && !tasks.find(t => t.id === activeTaskId)) {
-            // If active task was removed, reset
-            setActiveTaskId(tasks[0].id);
-        } else if (tasks.length === 0) {
-            setActiveTaskId(null);
+    // 1. Determine Cycle Count (Default to 1 if not set)
+    const currentCycle = patient.currentCycle || 1;
+    const hasPrescription = !!patient.clinic?.prescription;
+
+    // 2. Dynamically construct the full protocol based on cycles
+    const protocolSteps = useMemo(() => {
+        const steps = [];
+
+        // Add Onboarding (Only happens once at the start)
+        ONBOARDING_STEPS.forEach((step, idx) => {
+            steps.push({
+                ...step,
+                uniqueId: `onboard_${step.id}`,
+                label: `1.${idx + 1} ${step.label}`,
+                isCycle: false,
+                // Onboarding statuses only apply if we are in cycle 1 (or 0)
+                activeStatuses: currentCycle === 1 ? step.statuses : []
+            });
+        });
+
+        // Add Cycles
+        for (let i = 1; i <= currentCycle; i++) {
+            MAINTENANCE_LOOP.forEach((step, idx) => {
+                steps.push({
+                    ...step,
+                    uniqueId: `cycle${i}_${step.id}`,
+                    label: `Cycle ${i}: ${step.label}`, // e.g. "Cycle 1: Clinical", "Cycle 2: Pharmacy"
+                    isCycle: true,
+                    cycleNum: i,
+                    // Statuses only match for the CURRENT cycle
+                    activeStatuses: i === currentCycle ? step.statuses : []
+                });
+            });
         }
-    }, [tasks, activeTaskId]);
+        return steps;
+    }, [currentCycle]);
 
-    const activeTask = tasks.find(t => t.id === activeTaskId);
+    // 3. Determine Active Step Index
+    // We look for the FIRST step that matches the current patient status.
+    // If patient is in a later cycle, previous cycle steps don't match because their 'activeStatuses' is empty.
+    let activeStepIndex = protocolSteps.findIndex(step => step.activeStatuses.includes(patient.status));
 
-    const handleActiveTaskAction = (data?: any) => {
-        if (!activeTask) return;
+    // Fallback: If no status matches (e.g. status is weird), default to the last step of the current cycle
+    if (activeStepIndex === -1) {
+        // Default to the last step added (likely Care Loop of current cycle)
+        activeStepIndex = protocolSteps.length - 1;
+    }
+
+    // Filter ad-hoc alerts (High priority or messages) from standard flow tasks
+    const alertTasks = tasks.filter(t => t.priority === 'High' || t.types.includes('New Message'));
+
+    const handleTaskAction = (task: CareCoordinatorTask, note?: string) => {
         setIsLoading(true);
         let event: Omit<TimelineEvent, 'id' | 'date'>;
         let updates: Partial<Patient> = {};
 
-        if (activeTask.type === 'Medication Shipment') {
-            event = { type: 'Shipment', title: 'Medication Shipped', description: 'Order processed by Care Coordinator.' };
-            updates = { status: 'Ongoing Treatment', nextAction: 'Monitoring Check-in' };
-        } else if (activeTask.type === 'New Message') {
-            event = { type: 'Note', title: 'Message Replied', description: `Coordinator reply: ${data?.reply}` };
+        if (task.types.includes('Medication Shipment')) {
+            event = { type: 'Shipment', title: 'Medication Shipped', description: 'Order processed by Care Coordinator.', doctor: userName };
+            updates = {
+                status: 'Ongoing Treatment',
+                nextAction: 'Monitoring Check-in',
+                tracking: {
+                    ...patient.tracking,
+                    shipment: { status: 'Shipped', date: new Date().toISOString(), courier: 'FedEx' }
+                }
+            };
+        } else if (task.types.includes('New Message')) {
+            event = { type: 'Note', title: 'Message Replied', description: `Coordinator reply: ${note || 'Resolved'}`, doctor: userName };
             updates = { status: 'Ongoing Treatment' };
+        } else if (task.types.includes('Lab Coordination')) {
+            event = { type: 'Note', title: 'Lab Coordination', description: 'Patient contacted regarding labs.', doctor: userName };
+            updates = {
+                tracking: {
+                    ...patient.tracking,
+                    labs: { status: 'Coordinated', date: new Date().toISOString() }
+                }
+            };
         } else {
-            event = { type: 'Note', title: 'Task Completed', description: `${activeTask.type} resolved.` };
+            event = { type: 'Note', title: 'Task Completed', description: `${task.types.join(', ')} resolved.`, doctor: userName };
         }
 
         setTimeout(() => {
             onUpdatePatient(patient.id, event, updates);
-            onCompleteTask(activeTask.id);
+            onCompleteTask(task.id);
             setIsLoading(false);
-        }, 1500);
+        }, 1000);
     };
 
-    const submitAction = () => {
-        if (!actionNote.trim()) return;
-        
-        setIsLoading(true);
-        let event: Omit<TimelineEvent, 'id' | 'date'>;
-        let updates: Partial<Patient> = {};
+    const handleAddCycle = () => {
+        if (!confirm("Start a new treatment cycle? This will advance the protocol to the next 'Metabolic' phase for lab work.")) return;
 
-        if (activeAction === 'labs') {
-             event = { type: 'Labs', title: 'Labs Ordered', description: `Coordinator ordered: ${actionNote}` };
-             updates = { status: 'Additional Testing Required' };
-        } else if (activeAction === 'consult') {
-             event = { type: 'Consultation', title: 'Consult Requested', description: `Details: ${actionNote}` };
-             updates = { status: 'Follow-up Required' };
-        } else if (activeAction === 'flag') {
-             event = { type: 'Note', title: 'Issue Flagged', description: `Flagged: ${actionNote}` };
-             updates = { status: 'Action Required', nextAction: 'Review Flagged Issue' };
-        } else {
-             event = { type: 'Note', title: 'Note Added', description: actionNote };
-        }
-        
+        setIsLoading(true);
+        const nextCycle = currentCycle + 1;
+
+        const event: Omit<TimelineEvent, 'id' | 'date'> = {
+            type: 'Protocol',
+            title: `Cycle ${nextCycle} Started`,
+            description: 'Care Coordinator initiated new treatment loop. Labs ordered.',
+            doctor: userName
+        };
+
+        const updates: Partial<Patient> = {
+            currentCycle: nextCycle,
+            status: 'Labs Ordered', // Reset status to start of loop (Metabolic)
+            nextAction: 'Coordinate Lab Visit',
+            tracking: {
+                ...patient.tracking,
+                labs: { status: 'booked', date: new Date().toISOString().split('T')[0] },
+                consultation: { status: 'booked' },
+                shipment: { status: 'Awaiting' }
+            }
+        };
+
         setTimeout(() => {
             onUpdatePatient(patient.id, event, updates);
+            setIsLoading(false);
+            setSuccessMessage(`Cycle ${nextCycle} started.`);
+            setTimeout(() => setSuccessMessage(null), 2000);
+        }, 800);
+    };
+
+    const toggleAction = (item: any, linkedTask?: CareCoordinatorTask) => {
+        const uid = String(patient.id);
+        const section = item.targetSection;
+        const status = item.targetStatus;
+
+        if (confirm(`Update ${section} status to '${status}'?`)) {
+            setIsLoading(true);
+
+            let updates: Partial<Patient> = {};
+            let event: Omit<TimelineEvent, 'id' | 'date'> | null = null;
+
+            if (section === 'profile') {
+                updates = { status: status };
+                event = {
+                    type: 'Assessment',
+                    title: 'Intake Completed',
+                    description: 'Care Coordinator marked patient intake as complete.',
+                    doctor: userName
+                };
+            } else if (['labs', 'consultation', 'shipment'].includes(section)) {
+                // Ensure safe access to existing tracking data
+                const currentTracking = patient.tracking || {};
+                const currentSectionData = currentTracking[section] || {};
+
+                updates = {
+                    tracking: {
+                        ...currentTracking,
+                        [section]: {
+                            ...currentSectionData,
+                            status: status,
+                            updated_at: new Date().toISOString(),
+                            // Format: "5 February 2026 at 11:38:07 UTC+5:30"
+                            migrated_at: new Date().toLocaleString('en-GB', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: 'numeric',
+                                second: 'numeric',
+                                hour12: false
+                            }) + " UTC+5:30"
+                        }
+                    }
+                };
+
+                // Generate a more specific event type if possible
+                const eventType = section === 'labs' ? 'Labs' : (section === 'consultation' ? 'Consultation' : (section === 'shipment' ? 'Shipment' : 'Note'));
+
+                event = {
+                    type: eventType as any,
+                    title: `${section.charAt(0).toUpperCase() + section.slice(1)} Updated`,
+                    description: `Care Coordinator moved ${section} to ${status}.`,
+                    doctor: userName
+                };
+
+                // Move Patient Status if pharmacy/shipment is completed
+                if (section === 'shipment' && status === 'Delivered') {
+                    updates.status = 'Ongoing Treatment';
+                }
+            }
+
+            setTimeout(() => {
+                console.log(`📤 [CaregiverActions] Sending update for ${section}:`, { updates, event });
+                onUpdatePatient(patient.id, event, updates);
+                if (linkedTask) onCompleteTask(linkedTask.id);
+                setIsLoading(false);
+                setSuccessMessage(`${section} status updated to ${status}.`);
+                setTimeout(() => setSuccessMessage(null), 2000);
+            }, 800);
+        }
+    };
+
+    const submitQuickLog = () => {
+        if (!actionNote.trim()) return;
+        setIsLoading(true);
+        const event: Omit<TimelineEvent, 'id' | 'date'> = {
+            type: 'Note',
+            title: `${actionCategory} Logged`,
+            description: actionNote,
+            doctor: userName
+        };
+        setTimeout(() => {
+            onUpdatePatient(patient.id, event, {});
             setIsLoading(false);
             setActionNote('');
             setSuccessMessage('Action recorded.');
@@ -212,102 +294,233 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
-                <h2 className="text-lg font-bold text-gray-800">Care Action Center</h2>
-                <div className={`text-xs font-bold uppercase tracking-wide px-2 py-1 rounded ${patient.status === 'Action Required' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {patient.status}
+                <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-bold text-gray-800">Care Action Center</h2>
+                    <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded-full border border-gray-200 uppercase tracking-wide">
+                        Cycle {currentCycle}
+                    </span>
+                </div>
+                <div className="relative">
+                    <select
+                        value={patient.status}
+                        onChange={(e) => {
+                            const newStatus = e.target.value;
+                            if (confirm(`Manual Override: Change patient status to ${newStatus}?`)) {
+                                onUpdatePatient(patient.id, {
+                                    type: 'Note',
+                                    title: 'Status Override',
+                                    description: `Status manually changed to ${newStatus} by Care Coordinator.`,
+                                    doctor: userName
+                                }, { status: newStatus as any });
+                            }
+                        }}
+                        className={`text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border-none outline-none appearance-none cursor-pointer transition-all ${patient.status === 'Action Required' ? 'bg-red-100 text-red-700' : 'bg-brand-cyan/10 text-brand-cyan'}`}
+                    >
+                        {[
+                            'Assessment Review', 'Labs Ordered', 'Awaiting Lab Confirmation',
+                            'Awaiting Lab Results', 'Ready for Consult', 'Consultation Scheduled',
+                            'Follow-up Required', 'Awaiting Shipment', 'Ongoing Treatment',
+                            'Monitoring Loop', 'Action Required', 'Additional Testing Required'
+                        ].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="bg-gray-50 border-b border-gray-200 p-4">
-                <div className="flex gap-4 mb-4">
-                    <button onClick={() => setActiveAction('labs')} className={`flex flex-col items-center gap-1 group ${activeAction === 'labs' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                            <LabsIcon2D />
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-500">Labs</span>
-                    </button>
-                    <button onClick={() => setActiveAction('consult')} className={`flex flex-col items-center gap-1 group ${activeAction === 'consult' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                            <ConsultIcon2D />
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-500">Consult</span>
-                    </button>
-                    <button onClick={() => setActiveAction('note')} className={`flex flex-col items-center gap-1 group ${activeAction === 'note' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                            <NoteIcon2D />
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-500">Note</span>
-                    </button>
-                    <button onClick={() => setActiveAction('flag')} className={`flex flex-col items-center gap-1 group ${activeAction === 'flag' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                            <FlagIcon2D />
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-500">Flag</span>
-                    </button>
-                </div>
-
-                <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2">
-                    <input 
-                        type="text" 
+            {/* Quick Log Area */}
+            <div className="bg-gray-50 border-b border-gray-200 p-4 sm:p-6">
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-brand-cyan/20">
+                    <textarea
                         value={actionNote}
                         onChange={(e) => setActionNote(e.target.value)}
-                        placeholder={
-                            activeAction === 'note' ? "Add a care note..." :
-                            activeAction === 'labs' ? "Labs to coordinate..." :
-                            activeAction === 'consult' ? "Reason for consult..." :
-                            "Reason for flagging..."
-                        }
-                        className={`flex-1 p-2 text-sm outline-none bg-transparent ${activeAction === 'flag' ? 'text-red-700 placeholder-red-300' : 'text-gray-700 placeholder-gray-400'}`}
-                        onKeyDown={(e) => e.key === 'Enter' && submitAction()}
+                        placeholder="Log a quick note, call summary, or offline action..."
+                        className="w-full p-2 text-sm outline-none bg-transparent min-h-[40px] resize-none text-gray-700 placeholder-gray-400"
+                        rows={1}
                     />
-                    <button 
-                        onClick={submitAction} 
-                        disabled={isLoading} 
-                        className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${activeAction === 'flag' ? 'bg-red-500 hover:bg-red-600' : 'bg-brand-cyan hover:bg-brand-cyan/90'}`}
-                    >
-                        {isLoading ? '...' : (activeAction === 'note' ? 'Save' : activeAction === 'flag' ? 'Flag' : 'Send')}
-                    </button>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
+                        <select
+                            value={actionCategory}
+                            onChange={(e) => setActionCategory(e.target.value)}
+                            className="text-xs font-bold text-gray-500 bg-transparent outline-none cursor-pointer hover:text-brand-purple transition-colors"
+                        >
+                            <option value="Note">General Note</option>
+                            <option value="Call">Call / Consult</option>
+                            <option value="Lab">Lab Coordination</option>
+                            <option value="Logistics">Logistics</option>
+                        </select>
+                        <button
+                            onClick={submitQuickLog}
+                            disabled={isLoading || !actionNote.trim()}
+                            className="text-xs font-bold text-white bg-gray-900 px-4 py-1.5 rounded-lg hover:bg-black transition-all disabled:opacity-50"
+                        >
+                            {isLoading ? 'Saving...' : 'Log Note'}
+                        </button>
+                    </div>
                 </div>
-                {successMessage && (
-                    <p className="text-[10px] text-green-600 font-bold mt-2 text-center animate-fade-in">{successMessage}</p>
-                )}
+                {successMessage && <p className="text-[10px] text-green-600 font-bold mt-2 text-center animate-fade-in">{successMessage}</p>}
             </div>
 
-            {/* Tasks Queue */}
             <div className="p-6 bg-white">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex justify-between">
-                    <span>Pending Tasks</span>
-                    <span className="bg-brand-cyan/10 text-brand-cyan px-2 rounded-full">{tasks.length}</span>
-                </h3>
-                
-                {/* Task Selection Pills */}
-                {tasks.length > 1 && (
-                    <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
-                        {tasks.map(t => (
-                            <button
-                                key={t.id}
-                                onClick={() => setActiveTaskId(t.id)}
-                                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${activeTaskId === t.id ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-purple/50'}`}
-                            >
-                                {t.type}
-                            </button>
-                        ))}
+
+                {/* 1. Priority Alerts Section */}
+                {alertTasks.length > 0 && (
+                    <div className="mb-8 p-4 bg-red-50 rounded-xl border border-red-100">
+                        <h3 className="text-xs font-black text-red-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>
+                            Priority Queue
+                        </h3>
+                        <div className="space-y-3">
+                            {alertTasks.map(task => (
+                                <div key={task.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-800">{task.types.join(' + ')}</p>
+                                        <p className="text-[11px] text-gray-500">{task.detailsList.join(', ')}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleTaskAction(task)}
+                                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
+                                    >
+                                        Resolve
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
-                {activeTask ? (
-                    <ActiveTaskCard 
-                        key={activeTask.id}
-                        task={activeTask} 
-                        isLoading={isLoading} 
-                        onAction={handleActiveTaskAction} 
-                    />
-                ) : (
-                    <div className="p-8 text-center text-gray-400 text-sm border-2 border-dashed border-gray-100 rounded-xl">
-                        No pending tasks for this patient.
+                {/* 2. Dynamic Care Protocol Journey Map */}
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6 pl-2">Patient Journey Map</h3>
+
+                <div className="relative pl-6 space-y-0">
+                    {/* Vertical Line */}
+                    <div className="absolute left-[31px] top-3 bottom-10 w-0.5 bg-gray-100 -z-0"></div>
+
+                    {protocolSteps.map((step, index) => {
+                        const isActive = index === activeStepIndex;
+                        const isCompleted = index < activeStepIndex;
+                        const isPending = index > activeStepIndex;
+
+                        return (
+                            <div key={step.uniqueId} className={`relative flex gap-6 pb-8 last:pb-0 group transition-all duration-500 ${isActive ? 'opacity-100' : isPending ? 'opacity-40 hover:opacity-60' : 'opacity-70'}`}>
+
+                                {/* Status Indicator Dot */}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 border-2 transition-all duration-300 bg-white ${isActive
+                                    ? 'border-brand-cyan shadow-[0_0_0_4px_rgba(94,234,212,0.2)] scale-110 text-brand-cyan'
+                                    : isCompleted
+                                        ? 'border-green-500 bg-green-500 text-white'
+                                        : 'border-gray-200 text-gray-300'
+                                    }`}>
+                                    {isCompleted ? <CheckIcon /> : <span className="text-xs font-bold">{index + 1}</span>}
+                                </div>
+
+                                <div className="flex-1 pt-1">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <h4 className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>{step.label}</h4>
+                                            {isActive && <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>}
+                                        </div>
+                                        {isActive && <span className="text-[9px] font-bold bg-brand-cyan/10 text-brand-cyan px-2 py-0.5 rounded uppercase tracking-wider">Current Stage</span>}
+                                    </div>
+
+                                    {/* Real Action Support - Always detailed for Active or Completed stages */}
+                                    {(isActive || isCompleted) && (
+                                        <div className="mt-4 space-y-2 hidden group-hover:block transition-all duration-300">
+                                            {step.actions.map((item) => {
+                                                const section = item.targetSection;
+                                                const targetStatus = item.targetStatus;
+
+                                                // Check if actually completed in real data
+                                                let isDone = false;
+                                                const hasRx = !!patient.clinic?.prescription;
+
+                                                if (section === 'profile') {
+                                                    isDone = patient.status !== 'Action Required';
+                                                } else if (section === 'labs' || section === 'consultation' || section === 'shipment') {
+                                                    // Only show shipment actions if Rx exists
+                                                    if (section === 'shipment' && !hasRx) return null;
+
+                                                    const currentStatus = patient.tracking?.[section]?.status;
+                                                    if (targetStatus === 'completed' || targetStatus === 'Delivered') {
+                                                        isDone = currentStatus === 'completed' || currentStatus === 'Delivered';
+                                                    } else if (targetStatus === 'ongoing' || targetStatus === 'Shipped') {
+                                                        isDone = currentStatus === 'ongoing' || currentStatus === 'completed' || currentStatus === 'Shipped' || currentStatus === 'Delivered';
+                                                    }
+                                                }
+
+                                                // Check for linked tasks for active mapping
+                                                const linkedTask = tasks.find(t =>
+                                                    (section === 'labs' && t.types.includes('Lab Coordination')) ||
+                                                    (section === 'consultation' && t.types.includes('New Consultation')) ||
+                                                    (section === 'profile' && t.types.includes('Intake Review'))
+                                                );
+
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={() => !isDone && toggleAction(item, linkedTask)}
+                                                        className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer ${linkedTask && !isDone
+                                                            ? 'bg-brand-purple/5 border-brand-purple/30 shadow-sm hover:bg-brand-purple/10'
+                                                            : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
+                                                            } ${isDone ? 'opacity-70' : ''}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div
+                                                                className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isDone
+                                                                    ? 'bg-green-500 border-green-500 text-white'
+                                                                    : 'border-gray-300 bg-white hover:border-gray-400'
+                                                                    }`}
+                                                            >
+                                                                {isDone && <CheckIcon />}
+                                                            </div>
+                                                            <span className={`text-xs font-medium ${isDone ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                                                                {item.label}
+                                                            </span>
+                                                        </div>
+
+                                                        {!isDone && (
+                                                            <span className="text-[9px] font-bold bg-brand-cyan/20 text-brand-cyan px-2 py-0.5 rounded uppercase tracking-wide">
+                                                                {isActive ? 'Update' : 'Jump back'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {/* Add Cycle Button */}
+                    <div className="relative flex gap-6 pb-2 group pt-4">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400">
+                            <span className="text-xs font-bold">+</span>
+                        </div>
+                        <div className="flex-1 pt-1">
+                            <button
+                                onClick={handleAddCycle}
+                                className="w-full text-left p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-brand-purple/50 hover:bg-brand-purple/5 transition-all group/btn"
+                            >
+                                <div className="flex items-center gap-2 text-gray-500 group-hover/btn:text-brand-purple">
+                                    <PlusIcon />
+                                    <span className="text-sm font-bold">Start Next Cycle</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1 pl-6">Initiate Clinical/Pharmacy/Care loop for Cycle {currentCycle + 1}</p>
+                            </button>
+                        </div>
                     </div>
-                )}
+
+                </div>
             </div>
         </div>
     );

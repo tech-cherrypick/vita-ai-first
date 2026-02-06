@@ -1,10 +1,14 @@
 
 import React from 'react';
-import { TimelineEvent, TimelineVideoIcon, TimelineDocumentIcon, TimelineClipboardIcon, TimelineNoteIcon, TimelineShipmentIcon, TimelineProtocolIcon } from '../../constants';
+import { Patient, TimelineEvent, TimelineVideoIcon, TimelineDocumentIcon, TimelineClipboardIcon, TimelineNoteIcon, TimelineShipmentIcon, TimelineProtocolIcon, PatientStatus } from '../../constants';
+import CareProcessTracker from './CareProcessTracker';
 
 interface ConsultationTimelineProps {
+    patient: Patient; // Added full patient for data-driven bits
     timeline: TimelineEvent[];
+    history?: TimelineEvent[];
     title?: string;
+    status?: PatientStatus | string;
 }
 
 const eventTypeStyles = {
@@ -40,18 +44,32 @@ const LabIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4
 const ConsultIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 
 
-const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ timeline, title = "Patient History" }) => {
-    // Sort timeline with the most recent event first
-    const sortedTimeline = [...timeline].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+
+const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ patient, timeline, history = [], title = "Patient History", status }) => {
+    // Merge legacy timeline with new structured history
+    const allEvents = [...timeline, ...history];
+    // Sort with the most recent event first
+    const sortedTimeline = allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    console.log(`🔍 [ConsultationTimeline] Events:`, sortedTimeline.length);
+    console.log(`   History Prop:`, history.length);
+    console.log(`   Latest Event:`, sortedTimeline[0]?.title, sortedTimeline[0]?.date);
 
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
             <h2 className="text-xl font-bold text-gray-900 mb-6">{title}</h2>
+
+            {/* Visual Process Tracker */}
+            <CareProcessTracker patient={patient} />
+
+
+
             <div className="relative border-l-2 border-gray-200 pl-8">
                 {sortedTimeline.map((event, index) => {
                     const styles = eventTypeStyles[event.type] || eventTypeStyles['Note'];
                     return (
-                         <div key={event.id} className="mb-8 last:mb-0">
+                        <div key={event.id} className="mb-8 last:mb-0">
                             <span className={`absolute -left-4 flex items-center justify-center w-8 h-8 rounded-full ring-4 ring-white ${styles.bgColor}`}>
                                 {styles.icon}
                             </span>
@@ -62,15 +80,15 @@ const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ timeline, t
                                 </div>
                                 {event.doctor && <p className="text-xs font-bold text-brand-purple mb-1">{event.doctor}</p>}
                                 <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
-                                     {event.description}
+                                    {event.description}
                                 </p>
 
                                 {/* Rich Context Rendering for Composite Events */}
-                                {(event.context?.rx || event.context?.labs || event.context?.consult) && (
+                                {(event.context?.rx || event.context?.labs || event.context?.consult || event.context?.shipment) && (
                                     <div className="mt-3 space-y-2">
                                         {event.context.rx && (
-                                            <div className="bg-green-50 p-3 rounded-lg border border-green-100 flex gap-3 items-start">
-                                                <div className="text-green-600 mt-0.5"><RxIcon/></div>
+                                            <div className="bg-green-50 p-3 rounded-xl border border-green-100 flex gap-3 items-start">
+                                                <div className="text-green-600 mt-0.5"><RxIcon /></div>
                                                 <div>
                                                     <p className="text-xs font-bold text-green-800 uppercase mb-0.5">Rx Modification ({event.context.rx.type})</p>
                                                     <p className="text-sm font-bold text-gray-900">{event.context.rx.name} - {event.context.rx.dosage}</p>
@@ -79,31 +97,58 @@ const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ timeline, t
                                             </div>
                                         )}
                                         {event.context.labs && (
-                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex gap-3 items-start">
-                                                <div className="text-blue-600 mt-0.5"><LabIcon/></div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-blue-800 uppercase mb-0.5">Labs Ordered</p>
-                                                    <p className="text-sm text-gray-900">{event.context.labs.orders}</p>
+                                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-3 items-start">
+                                                <div className="text-blue-600 mt-0.5"><LabIcon /></div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <p className="text-xs font-bold text-blue-800 uppercase mb-0.5">Lab Record</p>
+                                                        {event.context.labs.date && <span className="text-[10px] font-bold text-blue-400">{event.context.labs.date}</span>}
+                                                    </div>
+                                                    <p className="text-sm font-bold text-gray-900">{event.context.labs.orders || 'Standard Panel'}</p>
+                                                    {event.context.labs.provider && (
+                                                        <p className="text-xs text-gray-600 mt-1">Provider: <span className="font-semibold">{event.context.labs.provider}</span></p>
+                                                    )}
+                                                    {event.context.labs.status === 'completed' && (
+                                                        <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full w-fit border border-teal-100">
+                                                            <span>✨ Results Finalized</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
                                         {event.context.consult && (
-                                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 flex gap-3 items-start">
-                                                <div className="text-purple-600 mt-0.5"><ConsultIcon/></div>
+                                            <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 flex gap-3 items-start">
+                                                <div className="text-purple-600 mt-0.5"><ConsultIcon /></div>
                                                 <div>
-                                                    <p className="text-xs font-bold text-purple-800 uppercase mb-0.5">Follow-up Request</p>
-                                                    <p className="text-sm text-gray-900">Timeframe: {event.context.consult.timeframe}</p>
+                                                    <p className="text-xs font-bold text-purple-800 uppercase mb-0.5">Consultation Detail</p>
+                                                    <p className="text-sm text-gray-900">{event.context.consult.type || 'Review Session'}</p>
+                                                    {event.context.consult.date && <p className="text-xs text-gray-500">Held on {event.context.consult.date}</p>}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {event.context.shipment && (
+                                            <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 flex gap-3 items-start">
+                                                <div className="text-orange-600 mt-0.5"><TimelineShipmentIcon /></div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-bold text-orange-800 uppercase mb-0.5">Shipment Tracking</p>
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-sm font-bold text-gray-900">Status: {event.context.shipment.status}</p>
+                                                        {event.context.shipment.courier && <span className="text-[10px] font-bold text-orange-400">{event.context.shipment.courier}</span>}
+                                                    </div>
+                                                    {event.context.shipment.trackingUrl && (
+                                                        <a href={event.context.shipment.trackingUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-purple font-bold mt-1 hover:underline">Track Package →</a>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                 )}
-                                
+
                                 {/* Dynamic Action Links (Legacy Support) */}
                                 <div className="flex flex-wrap gap-3 mt-3">
                                     {event.documentId && (
-                                        <button 
-                                            onClick={() => alert(`Opening document: ${event.documentId}`)} 
+                                        <button
+                                            onClick={() => alert(`Opening document: ${event.documentId}`)}
                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-bold text-gray-700 hover:bg-gray-200 transition-colors"
                                         >
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -111,8 +156,8 @@ const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ timeline, t
                                         </button>
                                     )}
                                     {event.context?.meetingLink && (
-                                        <button 
-                                            onClick={() => alert(`Joining meeting: ${event.context.meetingLink}`)} 
+                                        <button
+                                            onClick={() => alert(`Joining meeting: ${event.context.meetingLink}`)}
                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 text-xs font-bold text-green-700 hover:bg-green-200 transition-colors"
                                         >
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -120,8 +165,8 @@ const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ timeline, t
                                         </button>
                                     )}
                                     {event.context?.trackingUrl && (
-                                        <button 
-                                            onClick={() => alert(`Tracking package: ${event.context.trackingUrl}`)} 
+                                        <button
+                                            onClick={() => alert(`Tracking package: ${event.context.trackingUrl}`)}
                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-100 text-xs font-bold text-orange-700 hover:bg-orange-200 transition-colors"
                                         >
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>

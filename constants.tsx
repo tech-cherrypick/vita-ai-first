@@ -125,6 +125,8 @@ export const whyGlp1Benefits = [
 // --- Types ---
 export type PatientStatus = 'Assessment Review' | 'Labs Ordered' | 'Awaiting Lab Confirmation' | 'Awaiting Lab Results' | 'Ready for Consult' | 'Consultation Scheduled' | 'Follow-up Required' | 'Awaiting Shipment' | 'Ongoing Treatment' | 'Monitoring Loop' | 'Action Required' | 'Additional Testing Required';
 
+export type CareCoordinatorView = 'triage' | 'schedule' | 'messages';
+
 export interface Prescription {
     name: string;
     dosage: string;
@@ -138,6 +140,14 @@ export interface ShippingAddress {
     state: string;
     zip: string;
     country: string;
+}
+
+export interface LabResult {
+    name: string;
+    value: string;
+    range: string;
+    status: 'High' | 'Low' | 'Normal';
+    category: string;
 }
 
 export interface Vital {
@@ -167,7 +177,7 @@ export interface TimelineEvent {
     date: string;
     title: string;
     description: string;
-    type: 'Status' | 'Upload' | 'Message' | 'Alert' | 'Note' | 'Labs' | 'Consultation' | 'Protocol' | 'Shipment';
+    type: 'Status' | 'Upload' | 'Message' | 'Alert' | 'Note' | 'Labs' | 'Consultation' | 'Protocol' | 'Shipment' | 'Assessment';
     doctor?: string;
     documentId?: string;
     context?: any;
@@ -193,14 +203,16 @@ export interface MedicalReport {
     name: string;
     date: string;
     summary: string;
+    parsedResults?: LabResult[];
 }
 
 export interface Patient {
-    id: number;
+    id: string | number;
     name: string;
     age: number;
     dob?: string;
     imageUrl: string;
+    photoURL?: string;
     email: string;
     phone: string;
     shippingAddress: ShippingAddress;
@@ -210,9 +222,14 @@ export interface Patient {
     pathway?: string;
     vitals: Vital[];
     reports: MedicalReport[];
+    // history replaced timeline in backend, but mapped to 'history' and 'timeline' key. 
+    // We'll keep timeline for compat or use history.
     timeline: TimelineEvent[];
+    history?: TimelineEvent[]; // Explicit history from backend
+
     currentPrescription: Prescription;
     prescriptionHistory: PrescriptionLog[];
+    labResults?: LabResult[];
     weeklyLogs: WeekLogEntry[];
     dailyLogs?: Record<string, DailyLog>;
     careTeam: {
@@ -242,10 +259,23 @@ export interface Patient {
         mindbody: string[];
     };
     psych?: Record<string, string>;
-    medical?: Record<string, any>;
-    clinic?: any;
-    consultation?: any;
-    labs?: any;
+    medical?: Record<string, any>; // Usage found in HealthMetricsDashboard
+
+    // New Unified Structure
+    tracking?: {
+        labs?: any;
+        consultation?: any;
+        shipment?: any;
+        checklist?: Record<string, boolean>; // Persist SOP checkbox states
+        status?: string; // "key status as well"
+    };
+    clinic?: {
+        prescription?: any;
+    };
+    patient_history?: TimelineEvent[]; // Unified history events
+
+    // Legacy / Convenience props (can be optional or removed if code is refactored)
+    currentCycle?: number;
 }
 
 export interface PrescriptionLog {
@@ -259,11 +289,11 @@ export interface PrescriptionLog {
 
 export interface CareCoordinatorTask {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
-    type: 'New Message' | 'Follow-up Request' | 'New Consultation' | 'Lab Coordination' | 'Medication Shipment' | 'Intake Review' | 'Prescription Approval' | 'General Support';
-    details: string;
+    types: ('New Message' | 'Follow-up Request' | 'New Consultation' | 'Lab Coordination' | 'Medication Shipment' | 'Intake Review' | 'Prescription Approval' | 'General Support')[];
+    detailsList: string[];
     patientStatus: PatientStatus;
     priority: 'High' | 'Medium' | 'Low';
     timestamp: string;
@@ -294,6 +324,17 @@ export interface Message {
     sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system' | 'trainer' | 'nutritionist';
     text: string;
     timestamp: string;
+}
+
+export interface GlobalChatMessage {
+    id: string;
+    patientId: number;
+    sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system';
+    text: string;
+    timestamp: string;
+    senderName?: string;
+    role?: string;
+    avatar?: string;
 }
 
 export interface MessageThread {
@@ -336,8 +377,13 @@ export const createNewPatient = (name: string, email: string, phone: string): Pa
     weeklyLogs: [],
     careTeam: {
         physician: 'Pending Assignment',
-        coordinator: 'Alex Ray',
+        coordinator: 'Unassigned',
     },
+    tracking: {
+        labs: { status: 'booked' },
+        consultation: { status: 'booked' },
+        shipment: { status: 'Awaiting' }
+    }
 });
 
 // --- Mock Data ---
@@ -362,7 +408,41 @@ export const dashboardSteps = [
 
 export const mockPatients: Patient[] = [];
 
-export const mockCareCoordinatorTasks: CareCoordinatorTask[] = [];
+export const mockCareCoordinatorTasks: CareCoordinatorTask[] = [
+    {
+        id: '1',
+        patientId: 101,
+        patientName: 'Ananya Iyer',
+        patientImageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1887&auto=format&fit=crop',
+        types: ['Medication Shipment'],
+        detailsList: ['Review shipment delay'],
+        patientStatus: 'Awaiting Shipment',
+        priority: 'High', // High priority triggers red left border
+        timestamp: '2 hours ago'
+    },
+    {
+        id: '2',
+        patientId: 102,
+        patientName: 'Karan Patel',
+        patientImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1887&auto=format&fit=crop',
+        types: ['New Message'],
+        detailsList: ['Side effects question'],
+        patientStatus: 'Action Required',
+        priority: 'Medium', // Or High? Screenshot is ambiguous but likely needs attention
+        timestamp: '1 day ago'
+    },
+    {
+        id: '3',
+        patientId: 103,
+        patientName: 'Vikram Singh',
+        patientImageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1887&auto=format&fit=crop',
+        types: ['Lab Coordination'],
+        detailsList: ['Lab results pending'],
+        patientStatus: 'Awaiting Lab Results',
+        priority: 'Low',
+        timestamp: '5 hours ago'
+    }
+];
 
 export const mockAppointments: DoctorAppointment[] = [];
 

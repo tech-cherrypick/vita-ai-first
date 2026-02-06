@@ -64,7 +64,7 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
 
 interface PatientScorecardProps {
     patient: Patient;
-    onUpdatePatient?: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient?: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
 }
 
 const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePatient }) => {
@@ -92,15 +92,15 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
     }
 
     // Labs / HOMA-IR
-    // Check patient.labs
-    const homaIr = patient.labs?.homaIr ? parseFloat(patient.labs.homaIr as string) : 0; // Assuming labs has homaIr
+    // Check patient.tracking.labs
+    const homaIr = patient.tracking?.labs?.homaIr ? parseFloat(patient.tracking.labs.homaIr as string) : 0; // Labs are nested under tracking
     // If not in labs, fallback to 0. 
 
     const isHighRiskBMI = bmi > 30;
 
     // Psych
-    const phq9Score = patient.psych?.phq9_score || 0;
-    const besScore = patient.psych?.bes_score || 0;
+    const phq9Score = patient.psych?.phq9_score ? parseFloat(patient.psych.phq9_score as string) : 0;
+    const besScore = patient.psych?.bes_score ? parseFloat(patient.psych.bes_score as string) : 0;
 
     // Risk Calculations
     const metabolicRisk = (homaIr > 2.5 || isHighRiskBMI || bmi > 27) ? 'High' : (bmi > 25 ? 'Moderate' : 'Low');

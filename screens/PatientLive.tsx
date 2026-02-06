@@ -485,7 +485,17 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             if (type === 'consultation' || nextProgress === 100) updates.status = 'Awaiting Shipment';
             else if (type === 'vitals') updates.status = 'Assessment Review';
             else if (type === 'labs') updates.status = 'Ready for Consult';
-            onUpdatePatient(patient.id, null, updates);
+
+            let event = null;
+            if (type === 'medical') {
+                event = {
+                    type: 'Assessment',
+                    title: 'Digital Data Intake Completed',
+                    description: 'Patient completed intake assessment via Live chat.',
+                    doctor: 'Vita AI'
+                };
+            }
+            onUpdatePatient(patient.id, event, updates);
         }
 
         // 5. Format system message

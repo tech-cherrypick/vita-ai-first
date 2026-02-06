@@ -3,7 +3,7 @@ import { Patient, TimelineEvent, Prescription, PrescriptionLog, PatientStatus } 
 
 interface ClinicalActionCenterProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 type RxModificationType = 'replace' | 'add' | 'adjust' | 'onetime';
@@ -129,144 +129,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
     );
 };
 
-// --- Tracking Components ---
 
-const LabTracker: React.FC<{ patient: Patient }> = ({ patient }) => {
-    // Priority 1: Check dedicated labs subcollection
-    const labsData = patient.labs;
-    const hasLabsData = labsData && Object.keys(labsData).length > 0;
-
-    // Priority 2: Check timeline for lab events
-    const labEvents = patient.timeline.filter(e =>
-        e.type === 'Labs' ||
-        e.context?.labs ||
-        (e.title && /Lab|Test|Panel|Diagnostics/i.test(e.title)) ||
-        (e.description && /ordered|booked|scheduled/i.test(e.description) && /lab|test|panel/i.test(e.description))
-    );
-    labEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const latestTimelineOrder = labEvents.length > 0 ? labEvents[0] : null;
-
-    // Use labs subcollection data if available, otherwise fall back to timeline
-    const orderDate = hasLabsData && labsData.date
-        ? new Date(labsData.date)
-        : (latestTimelineOrder ? new Date(latestTimelineOrder.date) : null);
-
-    const orderedBy = hasLabsData ? labsData.doctorName : latestTimelineOrder?.doctor;
-
-    if (!orderDate) return null;
-
-    // 2. Check for Collection
-    const collectionEvent = patient.timeline.find(e =>
-        new Date(e.date) >= orderDate &&
-        (
-            (e.type === 'Status' && e.title.includes('Collected')) ||
-            (e.type === 'Upload') ||
-            (e.context?.vitals) ||
-            (/collected|sample|blood|drawn/i.test(e.title || '') || /collected|sample|blood|drawn/i.test(e.description || ''))
-        )
-    );
-    const vitalCollection = patient.vitals.find(v => new Date(v.date) >= orderDate);
-    const isCollected = !!collectionEvent || !!vitalCollection;
-    const collectionDate = collectionEvent?.date || vitalCollection?.date;
-
-    // 3. Check for Report
-    const report = patient.reports.find(r => new Date(r.date) >= orderDate);
-    const reportEvent = patient.timeline.find(e =>
-        new Date(e.date) >= orderDate &&
-        (/report|result|analysis/i.test(e.title || '') || /report|result/i.test(e.description || ''))
-    );
-    const isReportReady = !!report || !!reportEvent;
-    const reportDate = report?.date || reportEvent?.date;
-
-    const steps = [
-        { label: 'Ordered', date: orderDate.toLocaleDateString(), status: 'completed' },
-        { label: 'Collected', date: collectionDate || '-', status: isCollected ? 'completed' : 'pending' },
-        { label: 'Report Ready', date: reportDate || '-', status: isReportReady ? 'completed' : 'pending' }
-    ];
-
-    return (
-        <div className="bg-white border-b border-gray-100 p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <LabIcon />
-                <h4 className="text-xs font-bold text-gray-500 uppercase">Lab Status</h4>
-                {orderedBy && <span className="text-[10px] text-gray-400 ml-auto">by {orderedBy}</span>}
-            </div>
-            <div className="flex items-center justify-between relative">
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-100 -z-0"></div>
-                {steps.map((step, i) => (
-                    <div key={i} className="relative z-10 flex flex-col items-center bg-white px-2">
-                        <div className={`w-3 h-3 rounded-full mb-2 ${step.status === 'completed' ? 'bg-blue-500 ring-4 ring-blue-100' : 'bg-gray-200'}`}></div>
-                        <span className={`text-[10px] font-bold ${step.status === 'completed' ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
-                        <span className="text-[10px] text-gray-400">{step.status === 'completed' ? step.date : ''}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const ConsultTracker: React.FC<{ patient: Patient }> = ({ patient }) => {
-    // Priority 1: Check dedicated consultation subcollection
-    const consultData = patient.consultation;
-    const hasConsultData = consultData && Object.keys(consultData).length > 0;
-
-    // Priority 2: Check timeline for consultation events
-    const consultEvents = patient.timeline.filter(e =>
-        e.type === 'Consultation' ||
-        e.context?.consult ||
-        (/consult|appointment|video|call/i.test(e.title || '')) ||
-        (e.description && /scheduled|booked|request/i.test(e.description) && /consult|appointment|dr|video/i.test(e.description))
-    );
-    consultEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const latestTimelineConsult = consultEvents.length > 0 ? consultEvents[0] : null;
-
-    // Use consultation subcollection data if available, otherwise fall back to timeline
-    const bookDate = hasConsultData && consultData.date
-        ? new Date(consultData.date)
-        : (latestTimelineConsult ? new Date(latestTimelineConsult.date) : null);
-
-    const bookedBy = hasConsultData ? consultData.doctorName : latestTimelineConsult?.doctor;
-    const consultTime = hasConsultData ? consultData.time : null;
-
-    if (!bookDate) return null;
-
-    // 2. Check for Completion
-    const completionEvent = patient.timeline.find(e =>
-        new Date(e.date) >= bookDate &&
-        e.id !== latestTimelineConsult?.id &&
-        (
-            (e.type === 'Note' || e.type === 'Protocol') && e.doctor
-            || (/completed|done|finished|summary/i.test(e.title || '') && /consult|visit|call/i.test(e.title || ''))
-            || (/completed|conducted/i.test(e.description || ''))
-        )
-    );
-    const isCompleted = !!completionEvent;
-
-    const steps = [
-        { label: 'Booked', date: bookDate.toLocaleDateString() + (consultTime ? ` ${consultTime}` : ''), status: 'completed' },
-        { label: 'Completed', date: completionEvent?.date || '-', status: isCompleted ? 'completed' : 'pending' }
-    ];
-
-    return (
-        <div className="bg-white border-b border-gray-100 p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <ConsultIcon />
-                <h4 className="text-xs font-bold text-gray-500 uppercase">Consultation Status</h4>
-                {bookedBy && <span className="text-[10px] text-gray-400 ml-auto">by {bookedBy}</span>}
-            </div>
-            <div className="flex items-center justify-between relative max-w-[60%]">
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-100 -z-0"></div>
-                {steps.map((step, i) => (
-                    <div key={i} className="relative z-10 flex flex-col items-center bg-white px-2">
-                        <div className={`w-3 h-3 rounded-full mb-2 ${step.status === 'completed' ? 'bg-purple-500 ring-4 ring-purple-100' : 'bg-gray-200'}`}></div>
-                        <span className={`text-[10px] font-bold ${step.status === 'completed' ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
-                        <span className="text-[10px] text-gray-400">{step.status === 'completed' ? step.date : ''}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
 
 const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, onUpdatePatient }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -373,12 +236,16 @@ Notes:
 
             statusUpdate = 'Awaiting Shipment';
 
-            // Apply updates to patient object
+            // Apply updates to clinic subcollection
             if (rxActionType === 'replace' || rxActionType === 'adjust' || rxActionType === 'add') {
-                updates.currentPrescription = {
-                    name: rxName,
-                    dosage: rxDose,
-                    instructions: rxInstructions
+                updates.clinic = {
+                    ...patient.clinic,
+                    prescription: {
+                        name: rxName,
+                        dosage: rxDose,
+                        instructions: rxInstructions,
+                        status: 'Awaiting Shipment'
+                    }
                 };
             }
         }
@@ -440,7 +307,7 @@ Notes:
     const timeline = [...patient.timeline].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col h-[850px]">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
 
             {/* 1. Header: Clinical Pathway */}
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-5 text-white shrink-0 z-20">
@@ -490,15 +357,7 @@ Notes:
                 </div>
             </div>
 
-            {/* 1.5 Tracking Widgets (New Section) */}
-            <div className="flex border-b border-gray-200">
-                <div className="w-1/2 border-r border-gray-100">
-                    <LabTracker patient={patient} />
-                </div>
-                <div className="w-1/2">
-                    <ConsultTracker patient={patient} />
-                </div>
-            </div>
+
 
             {/* 2. Unified Clinical Action Form */}
             <div className="bg-gray-50 border-b border-gray-200 shrink-0 z-10 shadow-sm relative p-5">
@@ -628,22 +487,7 @@ Notes:
                 </div>
             </div>
 
-            {/* 3. Scrollable Timeline */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white relative">
-                {timeline.length === 0 ? (
-                    <div className="text-center text-gray-400 mt-10">No history available.</div>
-                ) : (
-                    timeline.map((event, idx) => (
-                        <TimelineItem
-                            key={event.id}
-                            event={event}
-                            isExpanded={expandedEventId === event.id}
-                            onToggle={() => handleToggleEvent(event.id)}
-                            isLast={idx === timeline.length - 1}
-                        />
-                    ))
-                )}
-            </div>
+
         </div>
     );
 };

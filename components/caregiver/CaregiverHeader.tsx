@@ -1,9 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { VitaLogo } from '../../constants';
-import { CareCoordinatorView } from '../../screens/CaregiverDashboard';
-
+import { VitaLogo, CareCoordinatorView } from '../../constants';
 interface CareCoordinatorHeaderProps {
     onSignOut: () => void;
     currentView: CareCoordinatorView;

@@ -1,20 +1,16 @@
 
 import React, { useState } from 'react';
-import { Patient, CareCoordinatorTask, TimelineEvent } from '../../constants';
+import { Patient, CareCoordinatorTask, TimelineEvent, CareCoordinatorView, mockCareCoordinatorMessageThreads, GlobalChatMessage } from '../constants';
 import CareCoordinatorHeader from '../components/caregiver/CaregiverHeader';
 import CareCoordinatorTriageScreen from './caregiver/CaregiverTriageScreen';
 import CareCoordinatorScheduleScreen from './caregiver/CaregiverScheduleScreen';
 import CareCoordinatorMessagesScreen from './caregiver/CaregiverMessagesScreen';
 import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverPatientDetailView';
-import { mockCareCoordinatorMessageThreads } from '../constants';
-
-
-export type CareCoordinatorView = 'triage' | 'schedule' | 'messages';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
     allPatients: Patient[];
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
     tasks: CareCoordinatorTask[];
     onCompleteTask: (taskId: string) => void;
     userName: string;
@@ -24,9 +20,88 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const [view, setView] = useState<CareCoordinatorView>('triage');
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+    const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
 
-    const handlePatientSelect = (patientId: number) => {
-        const patient = allPatients.find(p => p.id === patientId);
+    // Derive tasks from allPatients (Real Backend Data) - Grouped by Patient
+    const tasksMap = new Map<string | number, CareCoordinatorTask>();
+
+    allPatients.forEach(patient => {
+        const tracking = patient.tracking || {};
+        const labs = tracking.labs || {};
+        const consult = tracking.consultation || {};
+
+        const getGroupedTask = (patient: Patient): CareCoordinatorTask => {
+            if (!tasksMap.has(patient.id)) {
+                tasksMap.set(patient.id, {
+                    id: `patient_${patient.id}`,
+                    patientId: patient.id,
+                    patientName: patient.name,
+                    patientImageUrl: patient.imageUrl || patient.photoURL || 'https://via.placeholder.com/150',
+                    types: [],
+                    detailsList: [],
+                    patientStatus: patient.status,
+                    priority: 'Low',
+                    timestamp: 'Pending',
+                    context: patient
+                } as CareCoordinatorTask);
+            }
+            return tasksMap.get(patient.id)!;
+        };
+
+        // 1. Lab Coordination Task
+        if (labs.date && labs.status !== 'completed') {
+            const task = getGroupedTask(patient);
+            task.types.push('Lab Coordination');
+            task.detailsList.push(labs.status === 'booked' ? 'Confirm Lab Appointment' : 'Review Lab Progress');
+            if (patient.status === 'Action Required') task.priority = 'High';
+            else if (task.priority !== 'High') task.priority = 'Medium';
+            task.timestamp = `${labs.date} ${labs.time || ''}`;
+        }
+
+        // 2. Consultation Coordination Task
+        if (consult.date && consult.status !== 'completed') {
+            const task = getGroupedTask(patient);
+            task.types.push('New Consultation');
+            task.detailsList.push(consult.status === 'booked' ? 'Schedule Doctor Consultation' : 'Pre-call prep required');
+            if (patient.status === 'Action Required') task.priority = 'High';
+            else if (task.priority !== 'High') task.priority = 'Medium';
+            task.timestamp = `${consult.date} ${consult.time || ''}`;
+        }
+
+        // 3. Digital Intake Task
+        const intakeComplete = patient.status !== 'Action Required' && (patient.psych && Object.keys(patient.psych).length > 0);
+        if (!intakeComplete) {
+            const task = getGroupedTask(patient);
+            task.types.push('Intake Review');
+            task.detailsList.push('Missing Digital Intake Assessment');
+            task.priority = 'High';
+            // Keep timestamp if already set by labs/consult, otherwise 'Pending'
+        }
+
+        // 4. Medication Shipment Task (Real Data Mode)
+        const rx = patient.clinic?.prescription;
+        const shipment = tracking.shipment || {};
+        if (rx && shipment.status !== 'Delivered') {
+            const task = getGroupedTask(patient);
+            task.types.push('Medication Shipment');
+            task.detailsList.push(shipment.status === 'Shipped' ? 'Track Delivery' : `Fulfill Rx: ${rx.name}`);
+            if (shipment.status === 'Awaiting') {
+                task.priority = 'High';
+            } else if (task.priority !== 'High') {
+                task.priority = 'Medium';
+            }
+
+            if (shipment.updated_at) {
+                task.timestamp = new Date(shipment.updated_at).toLocaleDateString();
+            }
+        }
+    });
+
+    const derivedTasks = Array.from(tasksMap.values());
+    const tasksToDisplay = derivedTasks; // Strict Real Data Mode
+
+    const handlePatientSelect = (patientId: string | number) => {
+        const patient = allPatients.find(p => String(p.id) === String(patientId));
         if (patient) {
             setSelectedPatient(patient);
         } else {
@@ -38,8 +113,8 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         setSelectedPatient(null);
     };
 
-    const handleSendMessage = (patientId: number) => {
-        const thread = mockCareCoordinatorMessageThreads.find(t => t.patientId === patientId);
+    const handleSendMessage = (patientId: string | number) => {
+        const thread = mockCareCoordinatorMessageThreads.find(t => String(t.patientId) === String(patientId));
         if (thread) {
             setActiveThreadId(thread.id);
             setView('messages');
@@ -52,10 +127,27 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         }
     };
 
-    const handleUpdatePatientWrapper = (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => {
+    const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
+        const newMsg: GlobalChatMessage = {
+            ...msg,
+            id: `msg_${Date.now()}`,
+            timestamp: new Date().toISOString()
+        };
+        setGlobalChatHistory(prev => [...prev, newMsg]);
+    };
+
+    const handleUpdatePatientWrapper = (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient> = {}) => {
         onUpdatePatient(patientId, newEvent, updates);
         // Optimistically update local selected patient to reflect changes immediately in UI
-        setSelectedPatient(prev => prev ? { ...prev, ...updates } : null);
+        setSelectedPatient(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                ...updates,
+                tracking: updates.tracking ? { ...prev.tracking, ...updates.tracking } : prev.tracking,
+                clinic: updates.clinic ? { ...prev.clinic, ...updates.clinic } : prev.clinic,
+            };
+        });
     };
 
     const handleTaskCompletion = (taskId: string) => {
@@ -67,7 +159,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const renderContent = () => {
         if (selectedPatient) {
             // Filter tasks for the selected patient
-            const patientTasks = tasks.filter(t => t.patientId === selectedPatient.id);
+            const patientTasks = derivedTasks.filter(t => t.patientId === selectedPatient.id);
 
             return <CareCoordinatorPatientDetailView
                 patient={selectedPatient}
@@ -76,6 +168,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                 onUpdatePatient={handleUpdatePatientWrapper}
                 onCompleteTask={handleTaskCompletion}
                 onSendMessage={handleSendMessage}
+                userName={userName}
             />;
         }
 
@@ -83,10 +176,21 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
             case 'schedule':
                 return <CareCoordinatorScheduleScreen />;
             case 'messages':
-                return <CareCoordinatorMessagesScreen initialSelectedThreadId={activeThreadId} />;
+                return (
+                    <CareCoordinatorMessagesScreen
+                        initialSelectedThreadId={activeThreadId}
+                        chatHistory={globalChatHistory}
+                        allPatients={allPatients}
+                        onSendMessage={handleSendChatMessage}
+                    />
+                );
             case 'triage':
             default:
-                return <CareCoordinatorTriageScreen tasks={tasks} setView={setView} onPatientSelect={handlePatientSelect} />;
+                return <CareCoordinatorTriageScreen
+                    tasks={derivedTasks}
+                    setView={setView}
+                    onTaskSelect={(task) => handlePatientSelect(task.patientId)}
+                />;
         }
     };
 

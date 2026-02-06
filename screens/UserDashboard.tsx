@@ -26,7 +26,7 @@ type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_
 interface UserDashboardProps {
     onSignOut: () => void;
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
     userName: string;
 }
 
@@ -272,7 +272,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     const handleMedicalHistoryComplete = (data: any) => {
         const intakeEvent: Omit<TimelineEvent, 'id' | 'date'> = {
             type: 'Assessment',
-            title: 'Medical History Updated',
+            title: 'Digital Data Intake Completed',
             description: 'Patient updated medical history via profiler.'
         };
 
