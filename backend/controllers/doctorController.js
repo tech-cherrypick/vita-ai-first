@@ -95,6 +95,10 @@ const getAllPatients = async (req, res) => {
       // Fetch history subcollections for each user
       ...patientUsers.map(user => 
         db.collection('users').doc(user.uid).collection('patient_history').orderBy('timestamp', 'desc').limit(20).get()
+      ),
+      // Fetch media_reports subcollections for each user
+      ...patientUsers.map(user => 
+        db.collection('users').doc(user.uid).collection('media_reports').orderBy('updated_at', 'desc').get()
       )
     ]); 
 
@@ -107,7 +111,8 @@ const getAllPatients = async (req, res) => {
     const consultSnapshots = results[6];
     const shipmentSnapshots = results[7];
     const prescriptionSnapshots = results[8];
-    const historySubCollections = results.slice(9);
+    const historySubCollections = results.slice(9, 9 + patientUsers.length);
+    const mediaSubCollections = results.slice(9 + patientUsers.length);
 
     // 6. Map results
     const patients = patientUsers.map((user, index) => {
@@ -116,7 +121,6 @@ const getAllPatients = async (req, res) => {
       
       // Reports
       const medicalData = medicalSnapshots[index].exists ? medicalSnapshots[index].data() : {};
-      const reports = medicalData.reports || [];
 
       // Vitals
       const vitalsData = vitalsSnapshots[index].exists ? vitalsSnapshots[index].data() : {};
@@ -178,6 +182,20 @@ const getAllPatients = async (req, res) => {
           prescription
       };
 
+      // Media Reports from subcollection
+      const reportsFromSub = [];
+      if (mediaSubCollections[index]) {
+          mediaSubCollections[index].forEach(doc => {
+              reportsFromSub.push({
+                  ...doc.data(),
+                  id: doc.id
+              });
+          });
+      }
+
+      // Merge with legacy reports if needed
+      const reports = reportsFromSub.length > 0 ? reportsFromSub : (medicalData.reports || []);
+
       // Status Derived
       let status = profile.status || 'Action Required';
       
@@ -225,6 +243,8 @@ const updatePatientData = async (req, res) => {
         collectionName = 'tracking';
     } else if (['prescription', 'notes', 'clinic'].includes(section)) {
         collectionName = 'clinic';
+    } else if (section === 'media_reports') {
+        collectionName = 'media_reports';
     } else {
         collectionName = 'data'; // profile, psych, medical(reports), vitals, history, timeline
     }
@@ -334,6 +354,22 @@ const updatePatientData = async (req, res) => {
         });
 
         return res.status(200).json({ status: 'success', message: 'Updated prescription' });
+    }
+
+    if (section === 'media_reports') {
+        const uid = String(patientId);
+        if (Array.isArray(data)) {
+            const batch = db.batch();
+            data.forEach(report => {
+                const ref = db.collection('users').doc(uid).collection('media_reports').doc(report.id);
+                batch.set(ref, { ...report, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            });
+            await batch.commit();
+        } else if (data.id) {
+            const ref = db.collection('users').doc(uid).collection('media_reports').doc(data.id);
+            await ref.set({ ...data, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        }
+        return res.status(200).json({ status: 'success', message: 'Updated media report' });
     }
 
     const docRef = db.collection('users').doc(String(patientId)).collection(collectionName).doc(docName);

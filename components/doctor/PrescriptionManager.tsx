@@ -16,7 +16,7 @@ const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
 
 interface PrescriptionManagerProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUpdatePatient }) => {

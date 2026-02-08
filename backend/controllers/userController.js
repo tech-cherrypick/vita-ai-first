@@ -38,6 +38,8 @@ const syncData = async (req, res) => {
         collectionName = 'tracking';
     } else if (['prescription', 'notes', 'clinic'].includes(section)) {
         collectionName = 'clinic';
+    } else if (section === 'media_reports') {
+        collectionName = 'media_reports';
     }
 
     // Handle nested 'tracking' or 'clinic' updates if passed as a bulk object (same as doctorController)
@@ -100,6 +102,24 @@ const syncData = async (req, res) => {
          return res.status(200).json({ status: 'success', message: 'Updated prescription' });
     }
 
+    if (section === 'media_reports') {
+        // 'data' here is expected to be a single report object OR an array of reports
+        // If it's an array (initial sync/legacy), we iterate. 
+        // But usually it should be a single report update.
+        if (Array.isArray(data)) {
+            const batch = db.batch();
+            data.forEach(report => {
+                const ref = db.collection('users').doc(uid).collection('media_reports').doc(report.id);
+                batch.set(ref, { ...report, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            });
+            await batch.commit();
+        } else if (data.id) {
+            const ref = db.collection('users').doc(uid).collection('media_reports').doc(data.id);
+            await ref.set({ ...data, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        }
+        return res.status(200).json({ status: 'success', message: 'Updated media report' });
+    }
+
     const docRef = db.collection('users').doc(uid).collection(collectionName).doc(docName);
     const prevSnap = await docRef.get();
     const prevData = prevSnap.exists ? prevSnap.data() : {};
@@ -135,11 +155,12 @@ const getData = async (req, res) => {
     const clinicRef = db.collection('users').doc(uid).collection('clinic');
     const historyColRef = db.collection('users').doc(uid).collection('patient_history').orderBy('timestamp', 'desc');
 
-    const [dataSnap, trackingSnap, clinicSnap, historyColSnap] = await Promise.all([
+    const [dataSnap, trackingSnap, clinicSnap, historyColSnap, mediaSnap] = await Promise.all([
         dataRef.get(),
         trackingRef.get(),
         clinicRef.get(),
-        historyColRef.get()
+        historyColRef.get(),
+        db.collection('users').doc(uid).collection('media_reports').get()
     ]);
 
     const data = {};
@@ -161,8 +182,17 @@ const getData = async (req, res) => {
         data.clinic[doc.id] = doc.data();
     });
 
-    // 4. Reports (Mapped from 'medical' in data collection for consistency)
-    if (data.medical && data.medical.reports) {
+    // 4. Reports (Mapped from 'media_reports' subcollection)
+    data.reports = [];
+    mediaSnap.forEach(doc => {
+        data.reports.push({
+            ...doc.data(),
+            id: doc.id
+        });
+    });
+
+    // Fallback: Check if there's legacy reports in 'medical' doc
+    if (data.reports.length === 0 && data.medical && data.medical.reports) {
         data.reports = data.medical.reports;
     }
 

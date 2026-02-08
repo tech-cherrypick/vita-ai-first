@@ -203,6 +203,9 @@ export interface MedicalReport {
     name: string;
     date: string;
     summary: string;
+    url?: string; // Data URL or Cloud Storage URL
+    type?: 'pdf' | 'image';
+    fileSize?: number;
     parsedResults?: LabResult[];
 }
 
@@ -302,7 +305,7 @@ export interface CareCoordinatorTask {
 
 export interface DoctorAppointment {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     time: string;
@@ -312,7 +315,7 @@ export interface DoctorAppointment {
 
 export interface CareCoordinatorAppointment {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     time: string;
@@ -328,7 +331,7 @@ export interface Message {
 
 export interface GlobalChatMessage {
     id: string;
-    patientId: number;
+    patientId: string | number;
     sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system';
     text: string;
     timestamp: string;
@@ -339,7 +342,7 @@ export interface GlobalChatMessage {
 
 export interface MessageThread {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     lastMessage: string;

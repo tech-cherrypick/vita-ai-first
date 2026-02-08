@@ -10,7 +10,7 @@ interface DoctorMessagesScreenProps {
 }
 
 const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory, allPatients, initialSelectedThreadId, onSendMessage }) => {
-    const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+    const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [isMobileThreadVisible, setIsMobileThreadVisible] = useState(false);
     const [inputValue, setInputValue] = useState('');
 

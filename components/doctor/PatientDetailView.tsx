@@ -12,8 +12,8 @@ import ConsultationTimeline from './ConsultationTimeline';
 interface PatientDetailViewProps {
     patient: Patient;
     onBack: () => void;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
-    onSendMessage: (patientId: number) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onSendMessage: (patientId: string | number) => void;
 }
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, onSendMessage }) => {

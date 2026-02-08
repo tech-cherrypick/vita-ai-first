@@ -3,7 +3,7 @@ import { Patient, TimelineEvent } from '../../constants';
 
 interface NotesManagerProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 const NotesManager: React.FC<NotesManagerProps> = ({ patient, onUpdatePatient }) => {

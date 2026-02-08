@@ -322,8 +322,8 @@ const App: React.FC = () => {
 
     // New Data Persistence
     if (updates.reports) {
-      // User requested 'medical' doc for reports
-      savePatientToCloud('medical', { reports: updatedPatient.reports }, updatedPatient.id);
+      // Use specific media_reports section for better scaling and multi-user sync
+      savePatientToCloud('media_reports', updates.reports, updatedPatient.id);
     }
 
     if (updates.tracking) {

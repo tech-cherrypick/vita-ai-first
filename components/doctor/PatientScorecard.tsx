@@ -64,7 +64,7 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
 
 interface PatientScorecardProps {
     patient: Patient;
-    onUpdatePatient?: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    onUpdatePatient?: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
 }
 
 const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePatient }) => {

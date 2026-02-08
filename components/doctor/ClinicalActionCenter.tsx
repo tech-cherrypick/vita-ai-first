@@ -3,7 +3,7 @@ import { Patient, TimelineEvent, Prescription, PrescriptionLog, PatientStatus } 
 
 interface ClinicalActionCenterProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 type RxModificationType = 'replace' | 'add' | 'adjust' | 'onetime';

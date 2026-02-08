@@ -13,13 +13,13 @@ export type DoctorView = 'patients' | 'schedule' | 'messages';
 interface DoctorDashboardProps {
     onSignOut: () => void;
     allPatients: Patient[];
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
     userName: string;
 }
 
 const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, userName }) => {
     // Store ID instead of object to prevent stale data
-    const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+    const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [view, setView] = useState<DoctorView>('patients');
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
@@ -36,7 +36,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         setSelectedPatientId(null);
     };
 
-    const handleSendMessage = (patientId: number) => {
+    const handleSendMessage = (patientId: string | number) => {
         // Direct navigation to message thread for this patient
         setActiveThreadId(patientId.toString());
         setView('messages');
