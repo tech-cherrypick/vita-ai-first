@@ -254,12 +254,24 @@ Notes:
         if (includeLabs) {
             context.labs = { orders: labsInput };
             statusUpdate = 'Additional Testing Required'; // Overrides Rx status usually
+
+            // Explicitly set tracking status
+            updates.tracking = {
+                ...updates.tracking,
+                labs: { status: 'Ordered', orders: labsInput, date: new Date().toLocaleDateString() }
+            };
         }
 
         // 3. Consult Logic
         if (includeConsult) {
             context.consult = { timeframe: consultTime };
             if (!includeLabs) statusUpdate = 'Follow-up Required';
+
+            // Explicitly set tracking status
+            updates.tracking = {
+                ...updates.tracking,
+                consultation: { status: 'Ordered', timeframe: consultTime, date: new Date().toLocaleDateString() }
+            };
         }
 
         updates.status = statusUpdate;

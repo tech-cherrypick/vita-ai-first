@@ -6,6 +6,7 @@ import CareCoordinatorTriageScreen from './caregiver/CaregiverTriageScreen';
 import CareCoordinatorScheduleScreen from './caregiver/CaregiverScheduleScreen';
 import CareCoordinatorMessagesScreen from './caregiver/CaregiverMessagesScreen';
 import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverPatientDetailView';
+import PatientList from '../components/doctor/PatientList';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -18,9 +19,12 @@ interface CareCoordinatorDashboardProps {
 
 const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask, userName }) => {
     const [view, setView] = useState<CareCoordinatorView>('triage');
-    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+    const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
+
+    // Derive current patient from the fresh prop
+    const selectedPatient = allPatients.find(p => String(p.id) === String(selectedPatientId)) || null;
 
     // Derive tasks from allPatients (Real Backend Data) - Grouped by Patient
     const tasksMap = new Map<string | number, CareCoordinatorTask>();
@@ -79,20 +83,24 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         }
 
         // 4. Medication Shipment Task (Real Data Mode)
-        const rx = patient.clinic?.prescription;
         const shipment = tracking.shipment || {};
-        if (rx && shipment.status !== 'Delivered') {
+        const rx = patient.clinic?.prescription || (shipment.status === 'Awaiting Shipment' ? shipment : null);
+
+        if (rx && shipment.status !== 'Delivered' && shipment.status) {
             const task = getGroupedTask(patient);
             task.types.push('Medication Shipment');
-            task.detailsList.push(shipment.status === 'Shipped' ? 'Track Delivery' : `Fulfill Rx: ${rx.name}`);
-            if (shipment.status === 'Awaiting') {
+            task.detailsList.push(shipment.status === 'Shipped' ? 'Track Delivery' : `Fulfill Rx: ${rx.name || 'Prescription'}`);
+
+            if (shipment.status === 'Awaiting Shipment' || shipment.status === 'Awaiting') {
                 task.priority = 'High';
             } else if (task.priority !== 'High') {
                 task.priority = 'Medium';
             }
 
             if (shipment.updated_at) {
-                task.timestamp = new Date(shipment.updated_at).toLocaleDateString();
+                task.timestamp = typeof shipment.updated_at === 'string'
+                    ? new Date(shipment.updated_at).toLocaleDateString()
+                    : new Date(shipment.updated_at._seconds * 1000).toLocaleDateString();
             }
         }
     });
@@ -101,16 +109,11 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const tasksToDisplay = derivedTasks; // Strict Real Data Mode
 
     const handlePatientSelect = (patientId: string | number) => {
-        const patient = allPatients.find(p => String(p.id) === String(patientId));
-        if (patient) {
-            setSelectedPatient(patient);
-        } else {
-            console.error(`Patient with ID ${patientId} not found.`);
-        }
+        setSelectedPatientId(patientId);
     };
 
     const handleBackToList = () => {
-        setSelectedPatient(null);
+        setSelectedPatientId(null);
     };
 
     const handleSendMessage = (patientId: string | number) => {
@@ -118,12 +121,12 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         if (thread) {
             setActiveThreadId(thread.id);
             setView('messages');
-            setSelectedPatient(null);
+            setSelectedPatientId(null);
         } else {
             console.warn(`No message thread found for patient ID: ${patientId}`);
             setActiveThreadId(null);
             setView('messages');
-            setSelectedPatient(null);
+            setSelectedPatientId(null);
         }
     };
 
@@ -138,16 +141,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
 
     const handleUpdatePatientWrapper = (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient> = {}) => {
         onUpdatePatient(patientId, newEvent, updates);
-        // Optimistically update local selected patient to reflect changes immediately in UI
-        setSelectedPatient(prev => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                ...updates,
-                tracking: updates.tracking ? { ...prev.tracking, ...updates.tracking } : prev.tracking,
-                clinic: updates.clinic ? { ...prev.clinic, ...updates.clinic } : prev.clinic,
-            };
-        });
+        // No longer need to manually update selectedPatient as it's derived from allPatients prop
     };
 
     const handleTaskCompletion = (taskId: string) => {
@@ -183,6 +177,18 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                         allPatients={allPatients}
                         onSendMessage={handleSendChatMessage}
                     />
+                );
+            case 'patients':
+                return (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-900">All Patients ({allPatients.length})</h2>
+                        </div>
+                        <PatientList
+                            patients={allPatients}
+                            onPatientSelect={(patient) => handlePatientSelect(patient.id)}
+                        />
+                    </div>
                 );
             case 'triage':
             default:

@@ -96,9 +96,17 @@ const getAllPatients = async (req, res) => {
       ...patientUsers.map(user => 
         db.collection('users').doc(user.uid).collection('patient_history').orderBy('timestamp', 'desc').limit(20).get()
       ),
+      // Fetch prescriptions subcollections for each user
+      ...patientUsers.map(user => 
+        db.collection('users').doc(user.uid).collection('prescriptions').orderBy('updated_at', 'desc').get()
+      ),
       // Fetch media_reports subcollections for each user
       ...patientUsers.map(user => 
         db.collection('users').doc(user.uid).collection('media_reports').orderBy('updated_at', 'desc').get()
+      ),
+      // Fetch current_loop subcollections for each user
+      ...patientUsers.map(user => 
+        db.collection('users').doc(user.uid).collection('current_loop').get()
       )
     ]); 
 
@@ -112,7 +120,9 @@ const getAllPatients = async (req, res) => {
     const shipmentSnapshots = results[7];
     const prescriptionSnapshots = results[8];
     const historySubCollections = results.slice(9, 9 + patientUsers.length);
-    const mediaSubCollections = results.slice(9 + patientUsers.length);
+    const prescriptionSubCollections = results.slice(9 + patientUsers.length, 9 + 2 * patientUsers.length);
+    const mediaSubCollections = results.slice(9 + 2 * patientUsers.length, 9 + 3 * patientUsers.length);
+    const currentLoopSubCollections = results.slice(9 + 3 * patientUsers.length);
 
     // 6. Map results
     const patients = patientUsers.map((user, index) => {
@@ -176,11 +186,21 @@ const getAllPatients = async (req, res) => {
           });
       }
 
-      // Clinic
-      const prescription = prescriptionSnapshots[index].exists ? prescriptionSnapshots[index].data() : null;
+      // Clinic & Prescriptions
+      const legacyRx = prescriptionSnapshots[index].exists ? prescriptionSnapshots[index].data() : null;
       const clinic = {
-          prescription
+          prescription: legacyRx
       };
+
+      const prescriptions = [];
+      if (prescriptionSubCollections[index]) {
+          prescriptionSubCollections[index].forEach(doc => {
+              prescriptions.push({
+                  id: doc.id,
+                  ...doc.data()
+              });
+          });
+      }
 
       // Media Reports from subcollection
       const reportsFromSub = [];
@@ -196,6 +216,14 @@ const getAllPatients = async (req, res) => {
       // Merge with legacy reports if needed
       const reports = reportsFromSub.length > 0 ? reportsFromSub : (medicalData.reports || []);
 
+      // Current Loop Persistence from subcollection
+      const current_loop = {};
+      if (currentLoopSubCollections[index]) {
+          currentLoopSubCollections[index].forEach(doc => {
+              current_loop[doc.id] = doc.data();
+          });
+      }
+
       // Status Derived
       let status = profile.status || 'Action Required';
       
@@ -208,7 +236,9 @@ const getAllPatients = async (req, res) => {
         timeline: history,
         tracking,
         clinic,
+        prescriptions: prescriptions.length > 0 ? prescriptions : (legacyRx ? [legacyRx] : []),
         patient_history,
+        current_loop,
         medical: medicalData,
         id: user.uid // Ensure Auth UID overrides any numeric ID in profile
       };
@@ -230,130 +260,206 @@ const updatePatientData = async (req, res) => {
     return res.status(400).send('Missing patientId, section, or data');
   }
 
-  try {
-    const doctorDoc = await db.collection('users').doc(req.user.uid).get();
-    const doctorData = doctorDoc.exists ? doctorDoc.data() : {};
-    const doctorName = doctorData.name || doctorData.displayName || req.user.email || 'Unknown Doctor';
-
-    // Router for Collections
-    let collectionName = 'data';
-    let docName = section;
-
-    if (['labs', 'consultation', 'shipment', 'tracking'].includes(section)) {
-        collectionName = 'tracking';
-    } else if (['prescription', 'notes', 'clinic'].includes(section)) {
-        collectionName = 'clinic';
-    } else if (section === 'media_reports') {
-        collectionName = 'media_reports';
-    } else {
-        collectionName = 'data'; // profile, psych, medical(reports), vitals, history, timeline
-    }
-
-    // Special case handling for nested updates from frontend
-    // If frontend sends section='tracking' with data={ labs: ... }, we need to route to 'tracking/labs'?
-    // The frontend currently sends 'tracking' as the section name in App.tsx.
-    // We should split this. If section is 'tracking', we might need to iterate keys?
-    // Or simpler: Frontend should send 'labs', 'consultation' as sections?
-    // Let's adjust this controller to handle the 'tracking' section payload from App.tsx.
-    
-    if (section === 'tracking') {
-        console.log(`🔌 [doctorController] Processing TRACKING update. Data keys: ${Object.keys(data).join(', ')}`);
-        if(data.labs) console.log(`🧪 Labs Update Payload:`, JSON.stringify(data.labs, null, 2));
-        
-        const batch = db.batch();
+    try {
         const uid = String(patientId);
-        
-        if (data.labs) {
-            console.log(`🧪 Updating Labs for UID: ${uid}`);
-            const ref = db.collection('users').doc(uid).collection('tracking').doc('labs');
-            const currentSnap = await ref.get();
-            const currentStatus = currentSnap.exists ? currentSnap.data().status : 'booked';
-            
-            // Explicitly prioritize incoming status, fallback to current only if undefined
-            const newStatus = data.labs.status !== undefined ? data.labs.status : currentStatus;
-            console.log(`🧪 Status Change: ${currentStatus} -> ${newStatus}`);
+        const doctorDoc = await db.collection('users').doc(req.user.uid).get();
+        const doctorData = doctorDoc.exists ? doctorDoc.data() : {};
+        const updaterName = doctorData.name || doctorData.displayName || req.user.email || 'Unknown User';
 
-            batch.set(ref, { 
-                ...data.labs, 
-                status: newStatus,
-                updated_at: admin.firestore.FieldValue.serverTimestamp() 
-            }, { merge: true });
-            
-            if (data.labs.status === 'completed' && currentStatus !== 'completed') {
-                await logHistory(uid, {
-                    type: 'Labs',
-                    title: 'Lab Results Completed',
-                    description: 'Patient lab results have been reviewed and finalized.',
-                    doctor: doctorName,
-                    context: { labs: data.labs }
-                });
-            }
+        // Fetch patient profile to get assigned physician
+        const patientProfileDoc = await db.collection('users').doc(uid).collection('data').doc('profile').get();
+        const patientProfile = patientProfileDoc.exists ? patientProfileDoc.data() : {};
+        const physicianName = patientProfile.careTeam?.physician || 'the assigned physician';
+
+        // Router for Collections
+        let collectionName = 'data';
+        let docName = section;
+
+        if (['labs', 'consultation', 'shipment', 'tracking'].includes(section)) {
+            collectionName = 'tracking';
+        } else if (['prescription', 'notes', 'clinic'].includes(section)) {
+            collectionName = 'clinic';
+        } else if (section === 'media_reports') {
+            collectionName = 'media_reports';
+        } else {
+            collectionName = 'data'; // profile, psych, medical(reports), vitals, history, timeline
         }
-        
-        if (data.consultation) {
-            const ref = db.collection('users').doc(uid).collection('tracking').doc('consultation');
-            const currentSnap = await ref.get();
-            const currentStatus = currentSnap.exists ? currentSnap.data().status : 'booked';
+
+        // Special case handling for nested updates from frontend
+        if (section === 'tracking') {
+            console.log(`🔌 [doctorController] Processing TRACKING update for UID: ${uid}. Data keys: ${Object.keys(data).join(', ')}`);
             
-            batch.set(ref, { 
-                ...data.consultation, 
-                status: data.consultation.status || currentStatus,
-                updated_at: admin.firestore.FieldValue.serverTimestamp() 
-            }, { merge: true });
+            const batch = db.batch();
+            let hasOps = false;
 
-            if (data.consultation.status === 'completed' && currentStatus !== 'completed') {
-                await logHistory(uid, {
-                    type: 'Consultation',
-                    title: 'Doctor Consultation Completed',
-                    description: `Metabolic review with Dr. ${doctorName} finalized.`,
-                    doctor: doctorName,
-                    context: { consult: data.consultation }
-                });
+            if (data.labs) {
+                console.log(`🧪 Updating Labs for UID: ${uid}`);
+                const ref = db.collection('users').doc(uid).collection('tracking').doc('labs');
+                const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('labs');
+                const currentSnap = await ref.get();
+                const currentStatus = (currentSnap.exists && currentSnap.data().status) ? currentSnap.data().status : 'booked';
+
+                const newStatus = data.labs.status || currentStatus;
+                
+                // Persistence: Always update current_loop for UI tracking
+                batch.set(loopRef, {
+                    ...data.labs,
+                    status: newStatus,
+                    updated_at: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                if (data.labs.status === 'completed' && currentStatus !== 'completed') {
+                    await logHistory(uid, {
+                        type: 'Labs',
+                        title: 'Lab Results Completed',
+                        description: 'Patient lab results have been reviewed and finalized.',
+                        doctor: physicianName,
+                        updater: updaterName,
+                        context: { labs: data.labs }
+                    });
+                    // Move-and-Delete: Remove from tracking once completed
+                    batch.delete(ref);
+                    console.log(`🗑️ [doctorController] Deleted tracking/labs for UID: ${uid} (Completed)`);
+                } else {
+                    batch.set(ref, {
+                        ...data.labs,
+                        status: newStatus,
+                        updated_at: admin.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
+                hasOps = true;
             }
-        }
-        
-        if (data.shipment) {
-            const ref = db.collection('users').doc(uid).collection('tracking').doc('shipment');
-            const currentSnap = await ref.get();
-            const currentStatus = currentSnap.exists ? currentSnap.data().status : 'Awaiting';
 
-            batch.set(ref, { 
-                ...data.shipment, 
-                updated_at: admin.firestore.FieldValue.serverTimestamp() 
-            }, { merge: true });
+            if (data.consultation) {
+                const ref = db.collection('users').doc(uid).collection('tracking').doc('consultation');
+                const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('consultation');
+                const currentSnap = await ref.get();
+                const currentStatus = (currentSnap.exists && currentSnap.data().status) ? currentSnap.data().status : 'booked';
 
-            if (data.shipment.status === 'Delivered' && currentStatus !== 'Delivered') {
-                await logHistory(uid, {
-                    type: 'Shipment',
-                    title: 'Medication Delivered',
-                    description: 'The patient has successfully received their prescribed medication.',
-                    doctor: doctorName,
-                    context: { shipment: data.shipment }
-                });
+                const newStatus = data.consultation.status || currentStatus;
+
+                // Persistence: Always update current_loop for UI tracking
+                batch.set(loopRef, {
+                    ...data.consultation,
+                    status: newStatus,
+                    updated_at: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                if (data.consultation.status === 'completed' && currentStatus !== 'completed') {
+                    await logHistory(uid, {
+                        type: 'Consultation',
+                        title: 'Doctor Consultation Completed',
+                        description: `Metabolic review with ${physicianName.startsWith('Dr.') ? physicianName : 'Dr. ' + physicianName} finalized.`,
+                        doctor: physicianName,
+                        updater: updaterName,
+                        context: { consult: data.consultation }
+                    });
+                    // Move-and-Delete: Remove from tracking once completed
+                    batch.delete(ref);
+                    console.log(`🗑️ [doctorController] Deleted tracking/consultation for UID: ${uid} (Completed)`);
+                } else {
+                    batch.set(ref, {
+                        ...data.consultation,
+                        status: newStatus,
+                        updated_at: admin.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
+                hasOps = true;
             }
+
+            if (data.shipment) {
+                const ref = db.collection('users').doc(uid).collection('tracking').doc('shipment');
+                const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('shipment');
+                const currentSnap = await ref.get();
+                const currentStatus = (currentSnap.exists && currentSnap.data().status) ? currentSnap.data().status : 'Awaiting';
+
+                const newStatus = data.shipment.status || currentStatus;
+
+                // Persistence: Always update current_loop for UI tracking
+                batch.set(loopRef, {
+                    ...data.shipment,
+                    status: newStatus,
+                    updated_at: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                if (data.shipment.status === 'Delivered' && currentStatus !== 'Delivered') {
+                    await logHistory(uid, {
+                        type: 'Shipment',
+                        title: 'Medication Delivered',
+                        description: 'The patient has successfully received their prescribed medication.',
+                        doctor: physicianName,
+                        updater: updaterName,
+                        context: { shipment: data.shipment }
+                    });
+                    // Move-and-Delete: Remove from tracking once delivered
+                    batch.delete(ref);
+                    console.log(`🗑️ [doctorController] Deleted tracking/shipment for UID: ${uid} (Delivered)`);
+                } else {
+                    batch.set(ref, { 
+                        ...data.shipment, 
+                        updated_at: admin.firestore.FieldValue.serverTimestamp() 
+                    }, { merge: true });
+                }
+                hasOps = true;
+            }
+            
+            if (hasOps) {
+                await batch.commit();
+            }
+            return res.status(200).json({ status: 'success', message: 'Updated tracking docs' });
         }
-        
-        await batch.commit();
-        return res.status(200).json({ status: 'success', message: 'Updated tracking docs' });
-    }
     
     if (section === 'clinic' && data.prescription) {
-        const ref = db.collection('users').doc(String(patientId)).collection('clinic').doc('prescription');
-        await ref.set({ 
+        const uid = String(patientId);
+        // 1. Save to many-to-one 'prescriptions' subcollection
+        const rxRef = db.collection('users').doc(uid).collection('prescriptions');
+        await rxRef.add({ 
             ...data.prescription, 
             status: data.prescription.status || 'Awaiting Shipment',
+            authorized_at: admin.firestore.FieldValue.serverTimestamp(),
             updated_at: admin.firestore.FieldValue.serverTimestamp() 
-        }, { merge: true });
-        
-        // Log Rx Creation if it's new (adjust as needed if replacement)
-        await logHistory(String(patientId), {
-            type: 'Protocol',
-            title: 'Prescription Authorized',
-            description: `A new prescription for ${data.prescription.name} has been authorized.`,
-            doctor: doctorName
         });
 
-        return res.status(200).json({ status: 'success', message: 'Updated prescription' });
+        // 2. Automatically trigger/update Pharmacy Shipment task in tracking
+        const shipmentRef = db.collection('users').doc(uid).collection('tracking').doc('shipment');
+        await shipmentRef.set({
+            status: 'Awaiting Shipment',
+            name: data.prescription.name,
+            dosage: data.prescription.dosage,
+            authorized_by: physicianName,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // 3. Update the 'active' prescription document in clinic collection for dashboard triggers
+        const activeRxRef = db.collection('users').doc(uid).collection('clinic').doc('prescription');
+        await activeRxRef.set({ 
+            ...data.prescription, 
+            status: 'Awaiting Shipment',
+            authorized_at: admin.firestore.FieldValue.serverTimestamp(),
+            updated_at: admin.firestore.FieldValue.serverTimestamp() 
+        }, { merge: true });
+
+        // 4. Update current_loop/shipment for persistent progress visualization
+        const loopRxRef = db.collection('users').doc(uid).collection('current_loop').doc('shipment');
+        await loopRxRef.set({
+            status: 'Awaiting Shipment',
+            name: data.prescription.name,
+            dosage: data.prescription.dosage,
+            authorized_by: physicianName,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        // 5. Log Rx Creation
+        await logHistory(uid, {
+            type: 'Protocol',
+            title: 'Prescription Authorized',
+            description: `A new prescription for ${data.prescription.name} has been authorized by ${physicianName.startsWith('Dr.') ? physicianName : 'Dr. ' + physicianName}.`,
+            doctor: physicianName,
+            updater: updaterName,
+            context: { prescription: data.prescription }
+        });
+
+        return res.status(200).json({ status: 'success', message: 'Authorized prescription and triggered shipment task' });
     }
 
     if (section === 'media_reports') {
@@ -372,20 +478,81 @@ const updatePatientData = async (req, res) => {
         return res.status(200).json({ status: 'success', message: 'Updated media report' });
     }
 
+    if (section === 'data' && docName === 'profile') {
+        const currentCycle = data.currentCycle;
+        if (currentCycle && (!patientProfile.currentCycle || currentCycle > patientProfile.currentCycle)) {
+            console.log(`🔄 [doctorController] New Cycle Detected (${currentCycle}). Archiving current_loop...`);
+            
+            // 1. Move current_loop to all_loops/{prevCycle}
+            const prevCycle = patientProfile.currentCycle || 1;
+            const loopRef = db.collection('users').doc(uid).collection('current_loop');
+            const archiveRef = db.collection('users').doc(uid).collection('all_loops').doc(`cycle_${prevCycle}`);
+            
+            const loopDocs = await loopRef.get();
+            const loopData = {};
+            loopDocs.forEach(doc => {
+                loopData[doc.id] = doc.data();
+            });
+            
+            if (Object.keys(loopData).length > 0) {
+                await archiveRef.set({
+                    ...loopData,
+                    cycle: prevCycle,
+                    archived_at: admin.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // 2. Clear current_loop for the new cycle
+                const deleteBatch = db.batch();
+                loopDocs.forEach(doc => {
+                    deleteBatch.delete(doc.ref);
+                });
+                await deleteBatch.commit();
+                console.log(`✅ [doctorController] Archived cycle ${prevCycle} and cleared current_loop`);
+            }
+        }
+    }
+
     const docRef = db.collection('users').doc(String(patientId)).collection(collectionName).doc(docName);
     
     await docRef.set({
       ...data,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      updated_by_doctor: req.user.uid,
-      doctorName: doctorName
+      updated_by: req.user.uid,
+      updaterName: updaterName,
+      physicianName: physicianName
     }, { merge: true });
 
-    console.log(`👨‍⚕️ Doctor ${doctorName} updated ${collectionName}/${docName} for patient ${patientId}`);
+    // Milestone Logging: Intake Completed
+    if (data.status === 'Assessment Review' && patientProfile.status !== 'Assessment Review') {
+        console.log(`📝 [doctorController] Status change to Assessment Review detected for ${uid}. Logging history...`);
+        await logHistory(uid, {
+            type: 'Assessment',
+            title: 'Intake Completed',
+            description: `Care Coordinator (${updaterName}) marked patient intake as complete, moving them to Assessment Review.`,
+            doctor: physicianName,
+            updater: updaterName
+        });
+    }
+
+    // Sync to current_loop if it's a tracking-related doc
+    if (collectionName === 'tracking' && ['labs', 'consultation', 'shipment'].includes(docName)) {
+        console.log(`🔄 [doctorController] Syncing individual tracking doc ${docName} for patient ${uid} to current_loop`);
+        const loopRef = db.collection('users').doc(uid).collection('current_loop').doc(docName);
+        await loopRef.set({
+            ...data,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    }
+
+    console.log(`📡 ${updaterName} updated ${collectionName}/${docName} for patient ${patientId}`);
     res.status(200).json({ status: 'success', message: `Updated ${docName}` });
   } catch (error) {
     console.error('❌ Error in updatePatientData:', error);
-    res.status(500).send(`Internal Server Error: ${error.message}`);
+    res.status(500).json({ 
+        status: 'error', 
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

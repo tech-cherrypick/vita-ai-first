@@ -365,7 +365,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             context: { labDateTime: formattedDateTime },
             documentId: 'REQ-24-001'
         };
-        onUpdatePatient(patient.id, labEvent, { status: 'Ready for Consult', nextAction: 'Schedule Doctor Consultation' });
+        onUpdatePatient(patient.id, labEvent, {
+            status: 'Ready for Consult',
+            nextAction: 'Schedule Doctor Consultation',
+            tracking: {
+                ...patient.tracking,
+                labs: { status: 'booked', date: formattedDateTime, ...labEvent.context }
+            }
+        });
         closeFocusMode();
     };
 
@@ -380,7 +387,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 meetingLink: 'https://meet.google.com/vita-health-consult'
             }
         };
-        onUpdatePatient(patient.id, consultEvent, { status: 'Consultation Scheduled', nextAction: `Attend call on ${formattedDateTime}` });
+        onUpdatePatient(patient.id, consultEvent, {
+            status: 'Consultation Scheduled',
+            nextAction: `Attend call on ${formattedDateTime}`,
+            tracking: {
+                ...patient.tracking,
+                consultation: { status: 'booked', date: formattedDateTime, ...consultEvent.context }
+            }
+        });
         closeFocusMode();
     };
 

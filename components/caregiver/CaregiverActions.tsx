@@ -21,7 +21,7 @@ const ONBOARDING_STEPS = [
         id: 'intake',
         label: 'Intake',
         description: 'Survey completion and lab setup.',
-        statuses: ['Assessment Review', 'Action Required'],
+        statuses: ['Action Required'],
         actions: [
             { id: 'complete_intake', label: 'Mark Intake as Completed', targetStatus: 'Assessment Review', targetSection: 'profile' }
         ]
@@ -33,7 +33,7 @@ const MAINTENANCE_LOOP = [
         id: 'metabolic',
         label: 'Metabolic',
         description: 'Lab analysis and clinical review preparation.',
-        statuses: ['Labs Ordered', 'Awaiting Lab Confirmation', 'Awaiting Lab Results', 'Additional Testing Required'],
+        statuses: ['Assessment Review', 'Labs Ordered', 'Awaiting Lab Confirmation', 'Awaiting Lab Results', 'Additional Testing Required'],
         actions: [
             { id: 'ongoing_labs', label: 'Mark Labs as Ongoing', targetStatus: 'ongoing', targetSection: 'labs' },
             { id: 'complete_labs', label: 'Mark Labs as Completed', targetStatus: 'completed', targetSection: 'labs' }
@@ -82,6 +82,7 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
     // 1. Determine Cycle Count (Default to 1 if not set)
     const currentCycle = patient.currentCycle || 1;
     const hasPrescription = !!patient.clinic?.prescription;
+    const physicianName = patient.careTeam?.physician || 'Doctor';
 
     // 2. Dynamically construct the full protocol based on cycles
     const protocolSteps = useMemo(() => {
@@ -118,13 +119,15 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
 
     // 3. Determine Active Step Index
     // We look for the FIRST step that matches the current patient status.
-    // If patient is in a later cycle, previous cycle steps don't match because their 'activeStatuses' is empty.
-    let activeStepIndex = protocolSteps.findIndex(step => step.activeStatuses.includes(patient.status));
+    let activeStepIndex = protocolSteps.findIndex(step =>
+        step.activeStatuses.some(s => s.toLowerCase() === patient.status?.toLowerCase())
+    );
 
-    // Fallback: If no status matches (e.g. status is weird), default to the last step of the current cycle
+    // Fallback: If no status matches (e.g. status is weird), determine where we should be
     if (activeStepIndex === -1) {
-        // Default to the last step added (likely Care Loop of current cycle)
-        activeStepIndex = protocolSteps.length - 1;
+        // Find the index of the first step in the CURRENT cycle
+        const firstStepInCurrentCycle = protocolSteps.findIndex(s => s.isCycle && s.cycleNum === currentCycle);
+        activeStepIndex = firstStepInCurrentCycle !== -1 ? firstStepInCurrentCycle : protocolSteps.length - 1;
     }
 
     // Filter ad-hoc alerts (High priority or messages) from standard flow tasks
@@ -136,7 +139,7 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
         let updates: Partial<Patient> = {};
 
         if (task.types.includes('Medication Shipment')) {
-            event = { type: 'Shipment', title: 'Medication Shipped', description: 'Order processed by Care Coordinator.', doctor: userName };
+            event = { type: 'Shipment', title: 'Medication Shipped', description: `Order processed by ${userName} (Coordinator).`, doctor: physicianName };
             updates = {
                 status: 'Ongoing Treatment',
                 nextAction: 'Monitoring Check-in',
@@ -146,10 +149,10 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
                 }
             };
         } else if (task.types.includes('New Message')) {
-            event = { type: 'Note', title: 'Message Replied', description: `Coordinator reply: ${note || 'Resolved'}`, doctor: userName };
+            event = { type: 'Note', title: 'Message Replied', description: `Coordinator (${userName}) reply: ${note || 'Resolved'}`, doctor: physicianName };
             updates = { status: 'Ongoing Treatment' };
         } else if (task.types.includes('Lab Coordination')) {
-            event = { type: 'Note', title: 'Lab Coordination', description: 'Patient contacted regarding labs.', doctor: userName };
+            event = { type: 'Note', title: 'Lab Coordination', description: `Patient contacted by ${userName} regarding labs.`, doctor: physicianName };
             updates = {
                 tracking: {
                     ...patient.tracking,
@@ -157,7 +160,7 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
                 }
             };
         } else {
-            event = { type: 'Note', title: 'Task Completed', description: `${task.types.join(', ')} resolved.`, doctor: userName };
+            event = { type: 'Note', title: 'Task Completed', description: `${task.types.join(', ')} resolved by ${userName}.`, doctor: physicianName };
         }
 
         setTimeout(() => {
@@ -176,8 +179,8 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
         const event: Omit<TimelineEvent, 'id' | 'date'> = {
             type: 'Protocol',
             title: `Cycle ${nextCycle} Started`,
-            description: 'Care Coordinator initiated new treatment loop. Labs ordered.',
-            doctor: userName
+            description: `Care Coordinator (${userName}) initiated new treatment loop. Labs ordered.`,
+            doctor: physicianName
         };
 
         const updates: Partial<Patient> = {
@@ -216,49 +219,69 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
                 event = {
                     type: 'Assessment',
                     title: 'Intake Completed',
-                    description: 'Care Coordinator marked patient intake as complete.',
-                    doctor: userName
+                    description: `Care Coordinator (${userName}) marked patient intake as complete.`,
+                    doctor: physicianName
                 };
             } else if (['labs', 'consultation', 'shipment'].includes(section)) {
                 // Ensure safe access to existing tracking data
                 const currentTracking = patient.tracking || {};
                 const currentSectionData = currentTracking[section] || {};
 
+                const updatePayload = {
+                    ...currentSectionData,
+                    status: status,
+                    updated_at: new Date().toISOString(),
+                    migrated_at: new Date().toLocaleString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                        hour12: false
+                    }) + " UTC+5:30"
+                };
+
                 updates = {
                     tracking: {
                         ...currentTracking,
-                        [section]: {
-                            ...currentSectionData,
-                            status: status,
-                            updated_at: new Date().toISOString(),
-                            // Format: "5 February 2026 at 11:38:07 UTC+5:30"
-                            migrated_at: new Date().toLocaleString('en-GB', {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                                hour: 'numeric',
-                                minute: 'numeric',
-                                second: 'numeric',
-                                hour12: false
-                            }) + " UTC+5:30"
-                        }
+                        [section]: updatePayload
+                    },
+                    current_loop: {
+                        ...patient.current_loop,
+                        [section]: updatePayload
                     }
                 };
 
-                // Generate a more specific event type if possible
-                const eventType = section === 'labs' ? 'Labs' : (section === 'consultation' ? 'Consultation' : (section === 'shipment' ? 'Shipment' : 'Note'));
+                // Reactive History: If terminal status reached, generate history event immediately for UI
+                if ((section === 'labs' && status === 'completed') ||
+                    (section === 'consultation' && status === 'completed') ||
+                    (section === 'shipment' && status === 'Delivered')) {
 
-                event = {
-                    type: eventType as any,
-                    title: `${section.charAt(0).toUpperCase() + section.slice(1)} Updated`,
-                    description: `Care Coordinator moved ${section} to ${status}.`,
-                    doctor: userName
-                };
+                    const eventTitle = section === 'labs' ? 'Lab Results Completed' :
+                        section === 'consultation' ? 'Doctor Consultation Completed' :
+                            'Medication Delivered';
 
-                // Move Patient Status if pharmacy/shipment is completed
-                if (section === 'shipment' && status === 'Delivered') {
-                    updates.status = 'Ongoing Treatment';
+                    const eventDesc = section === 'labs' ? 'Patient lab results have been reviewed and finalized.' :
+                        section === 'consultation' ? `Metabolic review with ${physicianName} finalized.` :
+                            'The patient has successfully received their prescribed medication.';
+
+                    event = {
+                        type: section === 'labs' ? 'Labs' : section === 'consultation' ? 'Consultation' : 'Shipment',
+                        title: eventTitle,
+                        description: eventDesc,
+                        doctor: physicianName,
+                        updater: userName,
+                        context: { [section]: updates.tracking[section] }
+                    };
+                } else {
+                    event = null; // No history for intermediate statuses
                 }
+            }
+
+            // Move Patient Status if pharmacy/shipment is completed
+            if (section === 'shipment' && status === 'Delivered') {
+                updates.status = 'Ongoing Treatment';
             }
 
             setTimeout(() => {
@@ -279,7 +302,8 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
             type: 'Note',
             title: `${actionCategory} Logged`,
             description: actionNote,
-            doctor: userName
+            doctor: physicianName,
+            updater: userName
         };
         setTimeout(() => {
             onUpdatePatient(patient.id, event, {});
@@ -448,11 +472,15 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
                                                     // Only show shipment actions if Rx exists
                                                     if (section === 'shipment' && !hasRx) return null;
 
-                                                    const currentStatus = patient.tracking?.[section]?.status;
+                                                    const trackStatus = patient.tracking?.[section]?.status;
+                                                    const loopStatus = patient.current_loop?.[section]?.status;
+                                                    const currentStatus = (loopStatus || trackStatus || '').toLowerCase();
+
                                                     if (targetStatus === 'completed' || targetStatus === 'Delivered') {
-                                                        isDone = currentStatus === 'completed' || currentStatus === 'Delivered';
+                                                        const target = targetStatus.toLowerCase();
+                                                        isDone = currentStatus === 'completed' || currentStatus === 'delivered';
                                                     } else if (targetStatus === 'ongoing' || targetStatus === 'Shipped') {
-                                                        isDone = currentStatus === 'ongoing' || currentStatus === 'completed' || currentStatus === 'Shipped' || currentStatus === 'Delivered';
+                                                        isDone = currentStatus === 'ongoing' || currentStatus === 'completed' || currentStatus === 'shipped' || currentStatus === 'delivered';
                                                     }
                                                 }
 

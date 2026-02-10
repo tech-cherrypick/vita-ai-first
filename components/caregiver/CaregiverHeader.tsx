@@ -60,6 +60,9 @@ const CareCoordinatorHeader: React.FC<CareCoordinatorHeaderProps> = ({ onSignOut
                             <NavLink isActive={currentView === 'triage'} onClick={() => handleNavClick('triage')}>
                                 Triage Queue
                             </NavLink>
+                            <NavLink isActive={currentView === 'patients'} onClick={() => handleNavClick('patients')}>
+                                Patients
+                            </NavLink>
                             <NavLink isActive={currentView === 'schedule'} onClick={() => handleNavClick('schedule')}>
                                 Schedule
                             </NavLink>

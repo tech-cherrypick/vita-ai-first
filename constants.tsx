@@ -125,7 +125,7 @@ export const whyGlp1Benefits = [
 // --- Types ---
 export type PatientStatus = 'Assessment Review' | 'Labs Ordered' | 'Awaiting Lab Confirmation' | 'Awaiting Lab Results' | 'Ready for Consult' | 'Consultation Scheduled' | 'Follow-up Required' | 'Awaiting Shipment' | 'Ongoing Treatment' | 'Monitoring Loop' | 'Action Required' | 'Additional Testing Required';
 
-export type CareCoordinatorView = 'triage' | 'schedule' | 'messages';
+export type CareCoordinatorView = 'triage' | 'schedule' | 'messages' | 'patients';
 
 export interface Prescription {
     name: string;
@@ -179,6 +179,8 @@ export interface TimelineEvent {
     description: string;
     type: 'Status' | 'Upload' | 'Message' | 'Alert' | 'Note' | 'Labs' | 'Consultation' | 'Protocol' | 'Shipment' | 'Assessment';
     doctor?: string;
+    updater?: string;
+    physicianName?: string;
     documentId?: string;
     context?: any;
 }
@@ -276,6 +278,16 @@ export interface Patient {
         prescription?: any;
     };
     patient_history?: TimelineEvent[]; // Unified history events
+    prescriptions?: any[]; // Multi-prescription subcollection
+
+    // Unified Persistent Loop State
+    current_loop?: {
+        labs?: any;
+        consultation?: any;
+        shipment?: any;
+        updated_at?: string;
+    };
+    all_loops?: Record<string, any>; // Store historical loop data
 
     // Legacy / Convenience props (can be optional or removed if code is refactored)
     currentCycle?: number;
@@ -366,15 +378,17 @@ export const createNewPatient = (name: string, email: string, phone: string): Pa
     nextAction: 'Complete medical intake assessment',
     vitals: [],
     reports: [],
-    timeline: [
+    timeline: [],
+    patient_history: [
         {
             id: `t_${Date.now()}`,
             date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
             title: 'Account Created',
-            description: 'Patient registered via Google Auth.',
-            type: 'Assessment'
+            description: 'Patient successfully registered and generated a treatment profile.',
+            type: 'Note'
         },
     ],
+    prescriptions: [],
     currentPrescription: { name: 'Pending Assessment', dosage: '-', instructions: '-' },
     prescriptionHistory: [],
     weeklyLogs: [],
@@ -383,9 +397,9 @@ export const createNewPatient = (name: string, email: string, phone: string): Pa
         coordinator: 'Unassigned',
     },
     tracking: {
-        labs: { status: 'booked' },
-        consultation: { status: 'booked' },
-        shipment: { status: 'Awaiting' }
+        labs: { status: 'Pending' },
+        consultation: { status: 'Pending' },
+        shipment: { status: 'Pending' }
     }
 });
 

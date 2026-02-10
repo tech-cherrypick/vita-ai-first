@@ -76,8 +76,14 @@ const App: React.FC = () => {
           age: profile.age || 0,
           // Merge other sections if they exist
           timeline: cloudData.timeline?.events || [],
+          patient_history: cloudData.patient_history || [],
+          prescriptions: cloudData.prescriptions || [],
           vitals: cloudData.vitals?.list || [],
           weeklyLogs: cloudData.weeklyLogs?.entries || [],
+          tracking: cloudData.tracking || { labs: { status: 'Pending' }, consultation: { status: 'Pending' }, shipment: { status: 'Pending' } },
+          clinic: cloudData.clinic || {},
+          reports: cloudData.reports || [],
+          current_loop: cloudData.current_loop || {},
           dailyLogs: cloudData.dailyLogs || {},
           carePlan: cloudData.carePlan || undefined,
           id: profile.id || Date.now(),
@@ -268,8 +274,13 @@ const App: React.FC = () => {
         id: `t${Date.now()}`,
         date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       };
-      newTimeline = [newTimelineEvent, ...currentP.timeline];
-      newHistory = [newTimelineEvent, ...newHistory];
+
+      // Favor patient_history for the unified view, otherwise fallback to timeline
+      if (currentP.patient_history) {
+        newHistory = [newTimelineEvent, ...currentP.patient_history];
+      } else {
+        newTimeline = [newTimelineEvent, ...currentP.timeline];
+      }
     }
 
     const updatedPatient = {
@@ -277,6 +288,7 @@ const App: React.FC = () => {
       ...updates,
       tracking: updates.tracking ? { ...currentP.tracking, ...updates.tracking } : currentP.tracking,
       clinic: updates.clinic ? { ...currentP.clinic, ...updates.clinic } : currentP.clinic,
+      current_loop: updates.current_loop ? { ...currentP.current_loop, ...updates.current_loop } : currentP.current_loop,
       timeline: newTimeline,
       patient_history: newHistory
     };

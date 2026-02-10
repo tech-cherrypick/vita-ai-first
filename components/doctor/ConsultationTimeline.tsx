@@ -47,10 +47,25 @@ const ConsultIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4
 
 
 const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ patient, timeline, history = [], title = "Patient History", status }) => {
-    // Merge legacy timeline with new structured history
-    const allEvents = [...timeline, ...history];
-    // Sort with the most recent event first
-    const sortedTimeline = allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 1. Convert prescriptions to TimelineEvent format
+    const prescriptionEvents: TimelineEvent[] = (patient.prescriptions || []).map(rx => ({
+        id: rx.id || `rx-${rx.authorized_at}`,
+        type: 'Protocol',
+        title: 'Prescription Authorized',
+        description: `Medication: ${rx.name} (${rx.dosage})\nStatus: ${rx.status}\nInstructions: ${rx.instructions || 'Follow as directed.'}`,
+        date: rx.authorized_at
+            ? (typeof rx.authorized_at === 'string' ? rx.authorized_at : new Date(rx.authorized_at._seconds * 1000).toLocaleDateString())
+            : (rx.date || 'TBD'),
+        doctor: rx.authorized_by,
+        context: { rx }
+    }));
+
+    // 2. Merge all sources and de-duplicate
+    const allEvents = [...timeline, ...history, ...prescriptionEvents];
+    const uniqueEvents = Array.from(new Map(allEvents.map(e => [`${e.title}-${e.date}-${e.description?.slice(0, 20)}`, e])).values());
+
+    // 3. Sort with the most recent event first
+    const sortedTimeline = uniqueEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     console.log(`🔍 [ConsultationTimeline] Events:`, sortedTimeline.length);
     console.log(`   History Prop:`, history.length);

@@ -456,8 +456,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     // --- Widget Logic ---
 
     const handleWidgetSubmit = async (type: WidgetType, data: any, messageIndex: number) => {
+        // Enforce status consistency for Move-and-Delete workflow
+        const submitData = { ...data };
+        if (type === 'labs' || type === 'consultation') {
+            submitData.status = 'booked';
+        }
+
         // 1. Sync data to Google Cloud Bucket
-        saveToCloudBucket(type, data);
+        saveToCloudBucket(type, submitData);
 
         // 2. Handle side effects like setting sex from vitals
         if (type === 'vitals' && data.sex) {
@@ -576,6 +582,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 phone: data.phone,
                 shippingAddress: data.shippingAddress
             });
+            if (type === 'labs' || type === 'consultation') {
+                onUpdatePatient(patient.id, null, {
+                    tracking: {
+                        ...patient.tracking,
+                        [type]: submitData
+                    }
+                });
+            }
         }
     };
 

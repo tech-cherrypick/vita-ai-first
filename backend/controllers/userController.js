@@ -47,51 +47,24 @@ const syncData = async (req, res) => {
         const uid = req.user.uid;
         if (data.labs) {
             const ref = db.collection('users').doc(uid).collection('tracking').doc('labs');
-            const currentSnap = await ref.get();
-            const currentStatus = currentSnap.exists ? currentSnap.data().status : 'booked';
+            const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('labs');
             
             await ref.set({ ...data.labs, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-
-            if (data.labs.status === 'completed' && currentStatus !== 'completed') {
-                await logHistory(uid, {
-                    type: 'Labs',
-                    title: 'Lab Results Completed',
-                    description: 'Your lab results have been reviewed and finalized.',
-                    context: { labs: data.labs }
-                });
-            }
+            await loopRef.set({ ...data.labs, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
         }
         if (data.consultation) {
             const ref = db.collection('users').doc(uid).collection('tracking').doc('consultation');
-            const currentSnap = await ref.get();
-            const currentStatus = currentSnap.exists ? currentSnap.data().status : 'booked';
+            const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('consultation');
 
             await ref.set({ ...data.consultation, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-
-            if (data.consultation.status === 'completed' && currentStatus !== 'completed') {
-                await logHistory(uid, {
-                    type: 'Consultation',
-                    title: 'Doctor Consultation Completed',
-                    description: 'Your metabolic review has been finalized.',
-                    context: { consult: data.consultation }
-                });
-            }
+            await loopRef.set({ ...data.consultation, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
         }
         if (data.shipment) {
              const ref = db.collection('users').doc(uid).collection('tracking').doc('shipment');
-             const currentSnap = await ref.get();
-             const currentStatus = currentSnap.exists ? currentSnap.data().status : 'Awaiting';
+             const loopRef = db.collection('users').doc(uid).collection('current_loop').doc('shipment');
 
              await ref.set({ ...data.shipment, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-
-             if (data.shipment.status === 'Delivered' && currentStatus !== 'Delivered') {
-                 await logHistory(uid, {
-                     type: 'Shipment',
-                     title: 'Medication Delivered',
-                     description: 'You have successfully received your prescribed medication.',
-                     context: { shipment: data.shipment }
-                 });
-             }
+             await loopRef.set({ ...data.shipment, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
         }
         return res.status(200).json({ status: 'success', message: 'Updated tracking docs' });
     }
@@ -126,14 +99,37 @@ const syncData = async (req, res) => {
 
     await docRef.set({
       ...data,
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_by: req.user.uid,
+      // updaterName and physicianName are not available in userController context
+      // updaterName: updaterName,
+      // physicianName: physicianName
     }, { merge: true });
 
-    // Detect Intake Completion
+    // Sync to current_loop if it's a tracking-related doc
+    if (collectionName === 'tracking' && ['labs', 'consultation', 'shipment'].includes(docName)) {
+        console.log(`🔄 [userController] Syncing individual tracking doc ${docName} to current_loop`);
+        const loopRef = db.collection('users').doc(uid).collection('current_loop').doc(docName);
+        await loopRef.set({
+            ...data,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    }
+
+    // 1. Account Creation Log
+    if (section === 'profile' && !prevSnap.exists) {
+        await logHistory(uid, {
+            type: 'Note',
+            title: 'Account Created',
+            description: 'Patient successfully registered and generated a treatment profile.'
+        });
+    }
+
+    // 2. Detect Intake Completion
     if (section === 'profile' && data.status === 'Assessment Review' && prevData.status === 'Action Required') {
          await logHistory(uid, {
             type: 'Assessment',
-            title: 'Digital Data Intake Completed',
+            title: 'Digital data intake completed',
             description: 'Patient finished the initial metabolic and psychographics assessment.'
          });
     }
@@ -153,14 +149,18 @@ const getData = async (req, res) => {
     const dataRef = db.collection('users').doc(uid).collection('data');
     const trackingRef = db.collection('users').doc(uid).collection('tracking');
     const clinicRef = db.collection('users').doc(uid).collection('clinic');
+    const rxRef = db.collection('users').doc(uid).collection('prescriptions').orderBy('updated_at', 'desc');
     const historyColRef = db.collection('users').doc(uid).collection('patient_history').orderBy('timestamp', 'desc');
+    const loopRef = db.collection('users').doc(uid).collection('current_loop');
 
-    const [dataSnap, trackingSnap, clinicSnap, historyColSnap, mediaSnap] = await Promise.all([
+    const [dataSnap, trackingSnap, clinicSnap, historyColSnap, mediaSnap, rxSnap, loopSnap] = await Promise.all([
         dataRef.get(),
         trackingRef.get(),
         clinicRef.get(),
         historyColRef.get(),
-        db.collection('users').doc(uid).collection('media_reports').get()
+        db.collection('users').doc(uid).collection('media_reports').get(),
+        rxRef.get(),
+        loopRef.get()
     ]);
 
     const data = {};
@@ -202,16 +202,38 @@ const getData = async (req, res) => {
     }
 
     // 6. Patient History (From subcollection)
-    data.patient_history = [];
+    const patient_history = [];
     historyColSnap.forEach(doc => {
         const hData = doc.data();
-        data.patient_history.push({
+        patient_history.push({
             id: doc.id,
             ...hData,
             date: hData.date || (hData.timestamp ? hData.timestamp.toDate().toLocaleDateString() : '')
         });
     });
+
+    // 7. Prescriptions (From multi-rx subcollection)
+    const prescriptions = [];
+    rxSnap.forEach(doc => {
+        prescriptions.push({
+            id: doc.id,
+            ...doc.data()
+        });
+    });
+
+    // Legacy fallback for single prescription in clinic
+    if (prescriptions.length === 0 && data.clinic && data.clinic.prescription) {
+        prescriptions.push(data.clinic.prescription);
+    }
     
+    data.patient_history = patient_history;
+    data.prescriptions = prescriptions;
+    
+    data.current_loop = {};
+    loopSnap.forEach(doc => {
+        data.current_loop[doc.id] = doc.data();
+    });
+
     console.log(`📥 Fetched unified data for user ${uid}`);
     res.status(200).json(data);
   } catch (error) {

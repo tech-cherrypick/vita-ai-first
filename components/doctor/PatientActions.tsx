@@ -30,7 +30,11 @@ const PatientActions: React.FC<PatientActionsProps> = ({ patient, onUpdatePatien
         } as const;
         const updates: Partial<Patient> = {
             status: 'Awaiting Lab Confirmation',
-            nextAction: 'Patient to book lab appointment'
+            nextAction: 'Patient to book lab appointment',
+            tracking: {
+                ...patient.tracking,
+                labs: { status: 'Ordered', date: new Date().toLocaleDateString() }
+            }
         };
         performUpdate(event, updates);
     };

@@ -7,8 +7,16 @@ interface CareProcessTrackerProps {
 const CareProcessTracker: React.FC<CareProcessTrackerProps> = ({ patient }) => {
     const currentStatus = patient.status || 'Action Required';
     const tracking = patient.tracking || {};
-    const labs = tracking.labs || {};
-    const consult = tracking.consultation || {};
+    const history = patient.patient_history || [];
+
+    // Calculate Loop Number based on how many shipments were delivered
+    const completedLoops = history.filter(e => e.type === 'Shipment' && e.title?.includes('Delivered')).length;
+    const currentLoop = completedLoops + 1;
+
+    const currentLoopData = patient.current_loop || {};
+    const labsStatus = currentLoopData.labs?.status || tracking.labs?.status;
+    const consultStatus = currentLoopData.consultation?.status || tracking.consultation?.status;
+    const shipmentStatus = currentLoopData.shipment?.status || tracking.shipment?.status;
 
     const steps = [
         { id: 'intake', label: 'Intake', icon: <IntakeIcon /> },
@@ -18,32 +26,25 @@ const CareProcessTracker: React.FC<CareProcessTrackerProps> = ({ patient }) => {
         { id: 'care', label: 'Care Loop', icon: <MonitoringIcon /> },
     ];
 
-    // Map specific statuses to step indices (0-4)
+    // Map specific statuses to step indices (0-4) using persistent current_loop state
     let activeIndex = 0;
 
-    // 1. Terminal / Advanced States
-    if (['Ongoing Treatment', 'Monitoring Loop'].includes(currentStatus)) {
-        activeIndex = 4;
-    } else if (['Awaiting Shipment', 'Pharmacy Review'].includes(currentStatus)) {
-        activeIndex = 3;
-    }
-    // 2. Data Driven States (Check subcollections status)
-    else if (consult.date && consult.status !== 'completed') {
+    const s_current = (currentStatus || '').toLowerCase();
+    const s_labs = (labsStatus || '').toLowerCase();
+    const s_consult = (consultStatus || '').toLowerCase();
+    const s_shipment = (shipmentStatus || '').toLowerCase();
+
+    if (['ongoing treatment', 'monitoring loop'].includes(s_current) || s_shipment === 'delivered') {
+        activeIndex = 4; // Care Loop
+    } else if (['awaiting shipment', 'shipped'].includes(s_shipment) || s_consult === 'completed' || s_current === 'awaiting shipment') {
+        activeIndex = 3; // Pharmacy
+    } else if (['ready for consult', 'consultation scheduled', 'consultation'].includes(s_current) || s_labs === 'completed' || s_consult === 'scheduled') {
         activeIndex = 2; // Clinical
-    } else if (labs.date && labs.status !== 'completed') {
+    } else if (['assessment review', 'labs ordered', 'awaiting lab results', 'awaiting lab confirmation'].includes(s_current) ||
+        ['booked', 'ordered', 'ongoing', 'awaiting lab results'].includes(s_labs)) {
         activeIndex = 1; // Metabolic
-    }
-    // 3. Transition States
-    else if (labs.status === 'completed' && (!consult.status || consult.status !== 'completed')) {
-        activeIndex = 2; // Ready for clinical
-    } else if (consult.status === 'completed') {
-        activeIndex = 3; // Ready for pharmacy
-    }
-    // 4. Default Intake Fallback
-    else {
-        if (['Labs Ordered', 'Awaiting Lab Confirmation', 'Awaiting Lab Results'].includes(currentStatus)) activeIndex = 1;
-        else if (['Ready for Consult', 'Consultation Scheduled'].includes(currentStatus)) activeIndex = 2;
-        else activeIndex = 0;
+    } else {
+        activeIndex = 0; // Intake
     }
 
     return (
@@ -88,9 +89,15 @@ const CareProcessTracker: React.FC<CareProcessTrackerProps> = ({ patient }) => {
 
             {/* Context Banner */}
             <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-brand-purple animate-pulse"></span>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Current Status</p>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-brand-purple animate-pulse"></span>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Current Status</p>
+                    </div>
+                    <div className="h-4 w-px bg-gray-300"></div>
+                    <div className="flex items-center gap-1.5 bg-brand-purple/10 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-black text-brand-purple uppercase">Loop {currentLoop}</span>
+                    </div>
                 </div>
                 <span className="text-sm font-bold text-brand-purple">{currentStatus}</span>
             </div>
