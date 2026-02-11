@@ -201,6 +201,31 @@ const getData = async (req, res) => {
         data.timeline = data.history.events;
     }
 
+    // Dynamic Care Team Assignment if missing
+    if (data.profile) {
+      if (!data.profile.careTeam) {
+        data.profile.careTeam = { physician: 'Pending Assignment', coordinator: 'Vita Care Team' };
+      }
+
+      // Check for 'careCoordinator' role to assign real name
+      if (data.profile.careTeam.coordinator === 'Unassigned' || data.profile.careTeam.coordinator === 'Vita Care Team') {
+        const rolesSnap = await db.collection('roles').where('role', '==', 'careCoordinator').get();
+        if (!rolesSnap.empty) {
+          // Just pick the first coordinator found for now
+          const coordinatorEmail = rolesSnap.docs[0].id; // Document IDs are emails
+          // Fetch display name from auth or just use a pretty version of email/fixed name
+          // Since we don't have auth list here easily, we'll try to find if a doc exists for them in 'users'
+          const ccSnap = await db.collection('users').doc(rolesSnap.docs[0].id).collection('data').doc('profile').get();
+          if (ccSnap.exists) {
+            data.profile.careTeam.coordinator = ccSnap.data().name || 'Vita Care Team';
+          } else {
+            // Fallback to a fixed coordinator name found in previous sessions (Alex Ray)
+            data.profile.careTeam.coordinator = 'Alex Ray'; 
+          }
+        }
+      }
+    }
+
     // 6. Patient History (From subcollection)
     const patient_history = [];
     historyColSnap.forEach(doc => {
@@ -242,4 +267,25 @@ const getData = async (req, res) => {
   }
 };
 
-module.exports = { getRole, syncData, getData };
+const getMessages = async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    const messagesSnap = await db.collection('users').doc(uid).collection('messages').orderBy('timestamp', 'asc').get();
+    const messages = [];
+    messagesSnap.forEach(doc => {
+      const data = doc.data();
+      messages.push({
+        id: doc.id,
+        patientId: data.patientId || uid,
+        ...data,
+        timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString()
+      });
+    });
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error('❌ Error fetching messages:', error);
+    res.status(500).send('Internal Server Error');
+  }
+};
+
+module.exports = { getRole, syncData, getData, getMessages };

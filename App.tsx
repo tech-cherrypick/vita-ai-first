@@ -219,6 +219,11 @@ const App: React.FC = () => {
         setFirebaseUser(user);
         setIsSignedIn(true);
 
+        // Store token for dashboard components that use sessionStorage
+        user.getIdToken().then(token => {
+          sessionStorage.setItem('authToken', token);
+        });
+
         try {
           const role = await fetchUserRole(user);
           setUserType(role as any);
@@ -354,6 +359,7 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     try {
       localStorage.removeItem('vita_user_type');
+      sessionStorage.removeItem('authToken');
       await signOut(auth);
       setShowLogin(false);
     } catch (error) {

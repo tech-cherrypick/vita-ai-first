@@ -556,4 +556,39 @@ const updatePatientData = async (req, res) => {
   }
 };
 
-module.exports = { getAllPatients, updatePatientData };
+const getChatHistory = async (req, res) => {
+  const { patientIds } = req.body; // Array of strings
+  if (!patientIds || !Array.isArray(patientIds)) {
+    return res.status(400).send('Missing patientIds array');
+  }
+
+  try {
+    const allMessages = [];
+    // Firestore limit for getAll is small, so we might need to loop or use collectionGroup if indexed.
+    // For now, let's fetch in parallel with a limit to avoid performance hits.
+    const messagePromises = patientIds.map(async (pid) => {
+      const snap = await db.collection('users').doc(pid).collection('messages').orderBy('timestamp', 'desc').limit(20).get();
+      const msgs = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        msgs.push({
+          id: doc.id,
+          patientId: pid,
+          ...data,
+          timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString()
+        });
+      });
+      return msgs;
+    });
+
+    const results = await Promise.all(messagePromises);
+    results.forEach(msgs => allMessages.push(...msgs));
+
+    res.status(200).json(allMessages);
+  } catch (error) {
+    console.error('❌ Error in getChatHistory:', error);
+    res.status(500).send('Internal Server Error');
+  }
+};
+
+module.exports = { getAllPatients, updatePatientData, getChatHistory };

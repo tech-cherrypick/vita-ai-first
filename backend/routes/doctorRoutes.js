@@ -6,6 +6,7 @@ const { verifyToken } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 router.get('/patients', verifyToken, getAllPatients);
+router.post('/messages', verifyToken, require('../controllers/doctorController').getChatHistory); // Add this
 router.post('/update-patient', verifyToken, require('../controllers/doctorController').updatePatientData);
 
 module.exports = router;

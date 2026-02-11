@@ -14,16 +14,17 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
     const [isMobileThreadVisible, setIsMobileThreadVisible] = useState(false);
     const [inputValue, setInputValue] = useState('');
 
-    // Group messages by patient
+    // Group messages by patient and sort by activity
     const threads = allPatients.map(patient => {
-        const messages = chatHistory.filter(m => m.patientId === patient.id).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const messages = chatHistory.filter(m => String(m.patientId) === String(patient.id)).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
         return {
             patient,
             messages,
-            lastMessage
+            lastMessage,
+            lastMessageTime: lastMessage ? new Date(lastMessage.timestamp).getTime() : 0
         };
-    }).filter(t => t.messages.length > 0);
+    }).sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
     useEffect(() => {
         if (initialSelectedThreadId) {
@@ -34,7 +35,7 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
         }
     }, [threads.length, initialSelectedThreadId]);
 
-    const activeThread = threads.find(t => t.patient.id === selectedPatientId);
+    const activeThread = threads.find(t => String(t.patient.id) === String(selectedPatientId));
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();

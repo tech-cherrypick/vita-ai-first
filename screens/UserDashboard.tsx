@@ -19,8 +19,9 @@ import MedicalProfiler from '../components/MedicalProfiler';
 import PsychoProfiler from '../components/PsychoProfiler';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
 import PatientLive from './PatientLive';
+import PatientMessagesScreen from './dashboard/PatientMessagesScreen';
 
-export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live';
+export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'messages';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
 
 interface UserDashboardProps {
@@ -507,7 +508,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'profile': return <MyProfileScreen patient={patient} onUpdatePatient={onUpdatePatient} />;
             case 'reports': return <ReportsScreen patient={patient} />;
             case 'payments': return <PaymentsScreen />;
-            case 'care_team': return <CareTeamScreen patient={patient} />;
+            case 'care_team': return <CareTeamScreen patient={patient} onSendMessage={() => setCurrentView('messages')} />;
+            case 'messages': return <PatientMessagesScreen patient={patient} />;
             case 'help': return <HelpScreen />;
             default: return renderDashboardHome();
         }
