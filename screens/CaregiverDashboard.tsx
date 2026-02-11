@@ -213,6 +213,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                         chatHistory={globalChatHistory}
                         allPatients={allPatients}
                         onSendMessage={handleSendChatMessage}
+                        userName={userName}
                     />
                 );
             case 'patients':

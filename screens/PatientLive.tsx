@@ -6,6 +6,7 @@ import { Patient, VitaLogo } from '../constants';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
 import SideMenu from '../components/dashboard/SideMenu';
+import { getSocket } from '../socket';
 
 // --- Type Definitions for Speech API ---
 interface SpeechRecognition extends EventTarget {
@@ -46,6 +47,7 @@ interface Message {
     avatar?: string;
     color?: string;
     isConnecting?: boolean;
+    messageType?: 'ai' | 'careteam'; // NEW: Track message destination
     widget?: {
         type: WidgetType;
         isComplete: boolean;
@@ -81,7 +83,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             avatar: CARE_MANAGER.avatar,
             color: CARE_MANAGER.color,
             text: "Establishing secure connection...",
-            isConnecting: true
+            isConnecting: true,
+            messageType: 'ai'
         }
     ]);
     const [inputValue, setInputValue] = useState('');
@@ -109,11 +112,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     const initRun = useRef(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const socketRef = useRef<any>(null); // NEW: Socket reference
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     useEffect(() => { scrollToBottom(); }, [messages, isTyping]);
 
-    // --- Initialize Chat ---
+    // --- Initialize Chat & Socket ---
     useEffect(() => {
         const fetchHistory = async () => {
             const user = auth.currentUser;
@@ -190,16 +194,44 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 }
             } catch (e) {
                 console.error("Chat Init Error", e);
-                setMessages(prev => [...prev, { sender: 'System', text: 'Connection failed. Please refresh.' }]);
+                setMessages(prev => [...prev, { sender: 'System', text: 'Connection failed. Please refresh.', messageType: 'ai' }]);
             }
+        };
+
+        // NEW: Initialize Socket for CareTeam messages
+        const initSocket = () => {
+            const socket = getSocket();
+            socketRef.current = socket;
+
+            // Join patient room
+            socket.emit('join_room', patient.id);
+
+            // Listen for CareTeam messages (but ignore our own messages)
+            socket.on('receive_message', (message: any) => {
+                // Only add messages from care team members (not from the patient themselves)
+                if (message.sender !== 'patient' && message.senderRole !== 'patient') {
+                    setMessages(prev => [...prev, {
+                        sender: message.senderName || message.sender,
+                        text: message.text,
+                        role: message.role,
+                        avatar: message.avatar,
+                        messageType: 'careteam',
+                        color: message.sender === 'careCoordinator' ? 'text-brand-cyan' : 'text-gray-600'
+                    }]);
+                }
+            });
         };
 
         if (patient) {
             initChat();
+            initSocket();
         }
 
         return () => {
             ignore = true;
+            if (socketRef.current) {
+                socketRef.current.off('receive_message');
+            }
         };
     }, [patient.id]);
 
@@ -378,7 +410,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
         const text = inputValue;
         setInputValue('');
-        setMessages(prev => [...prev, { sender: 'You', text }]);
+        setMessages(prev => [...prev, { sender: 'You', text, messageType: 'ai' }]);
         setIsTyping(true);
 
         try {
@@ -388,6 +420,36 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             setIsTyping(false);
             console.error("Send Error", err);
         }
+    };
+
+    // NEW: Handle CareTeam message sending
+    const handleSendToCareTeam = () => {
+        if (!inputValue.trim() || !socketRef.current) return;
+
+        if (isListening) toggleDictation();
+
+        const text = inputValue;
+        setInputValue('');
+
+        const messageData = {
+            patientUid: patient.id,
+            text,
+            senderId: patient.id,
+            senderName: patient.name,
+            senderRole: 'patient',
+            avatar: patient.imageUrl || patient.photoURL
+        };
+
+        // Add to local state immediately
+        setMessages(prev => [...prev, {
+            sender: 'You',
+            text,
+            messageType: 'careteam',
+            avatar: patient.imageUrl || patient.photoURL
+        }]);
+
+        // Emit to socket
+        socketRef.current.emit('send_message', messageData);
     };
 
     const sendAudioMessage = async (audioBlob: Blob) => {
@@ -648,7 +710,11 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         <div key={idx} className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
                             {msg.avatar && <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />}
                             <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
-                                {msg.role && <span className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${msg.color}`}>{msg.role}</span>}
+                                {/* Show sender name for CareTeam messages, role for AI messages */}
+                                {msg.messageType === 'careteam' && msg.sender !== 'You' && (
+                                    <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
+                                )}
+                                {msg.messageType === 'ai' && msg.role && <span className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${msg.color}`}>{msg.role}</span>}
 
                                 {msg.text && (
                                     <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
@@ -764,12 +830,24 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         </svg>
                     </button>
 
+                    {/* NEW: Dual Send Buttons */}
                     <button
                         onClick={() => handleSendMessage()}
                         disabled={!inputValue.trim()}
-                        className="w-12 h-12 rounded-2xl bg-brand-text text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0"
+                        className="px-4 h-12 rounded-2xl bg-brand-purple text-white flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-xs font-bold"
+                        title="Send to AI Assistant"
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        <span className="hidden sm:inline">to AI</span>
+                    </button>
+                    <button
+                        onClick={handleSendToCareTeam}
+                        disabled={!inputValue.trim()}
+                        className="px-4 h-12 rounded-2xl bg-brand-cyan text-gray-900 flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-xs font-bold"
+                        title="Send to Care Team"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        <span className="hidden sm:inline">to CareTeam</span>
                     </button>
                 </div>
             </div>

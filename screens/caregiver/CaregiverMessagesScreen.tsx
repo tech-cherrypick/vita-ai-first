@@ -7,9 +7,10 @@ interface CareCoordinatorMessagesScreenProps {
     allPatients: Patient[];
     initialSelectedThreadId?: string | null;
     onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
+    userName: string; // NEW: Actual coordinator name from Firebase Auth
 }
 
-const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps> = ({ chatHistory, allPatients, initialSelectedThreadId, onSendMessage }) => {
+const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps> = ({ chatHistory, allPatients, initialSelectedThreadId, onSendMessage, userName }) => {
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [isMobileThreadVisible, setIsMobileThreadVisible] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -44,7 +45,7 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
         onSendMessage({
             patientId: selectedPatientId,
             sender: 'careCoordinator',
-            senderName: 'Alex Ray',
+            senderName: userName, // Use actual coordinator name from Firebase Auth
             role: 'Care Coordinator',
             text: inputValue,
             avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop'

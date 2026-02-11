@@ -7,9 +7,10 @@ interface DoctorMessagesScreenProps {
     allPatients: Patient[];
     initialSelectedThreadId?: string | null;
     onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
+    userName: string; // NEW: Actual doctor name from Firebase Auth
 }
 
-const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory, allPatients, initialSelectedThreadId, onSendMessage }) => {
+const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory, allPatients, initialSelectedThreadId, onSendMessage, userName }) => {
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [isMobileThreadVisible, setIsMobileThreadVisible] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -47,8 +48,8 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
         onSendMessage({
             patientId: selectedPatientId,
             sender: 'doctor',
-            senderName: 'Dr. Sarah Mitchell',
-            role: 'Lead Physician',
+            senderName: userName, // Use actual doctor name from Firebase Auth
+            role: 'Physician',
             text: inputValue,
             avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop'
         });

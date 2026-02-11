@@ -107,6 +107,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                         chatHistory={globalChatHistory}
                         allPatients={allPatients}
                         onSendMessage={handleSendChatMessage}
+                        userName={userName}
                     />
                 );
             case 'patients':
