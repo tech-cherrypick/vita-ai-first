@@ -11,6 +11,7 @@ interface MedicalReportsProps {
 
 const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 
 const MedicalReports: React.FC<MedicalReportsProps> = ({ reports, patientId, onUpdatePatient }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,6 +21,15 @@ const MedicalReports: React.FC<MedicalReportsProps> = ({ reports, patientId, onU
 
     const handleUploadClick = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleDownloadReport = (report: MedicalReport) => {
+        const link = document.createElement('a');
+        link.href = report.url;
+        link.download = report.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,12 +177,21 @@ const MedicalReports: React.FC<MedicalReportsProps> = ({ reports, patientId, onU
                             <h3 className="font-bold">{selectedReport.name}</h3>
                             <p className="text-xs text-white/60">{selectedReport.date} • {selectedReport.summary}</p>
                         </div>
-                        <button
-                            onClick={() => setSelectedReport(null)}
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => handleDownloadReport(selectedReport)}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-purple hover:bg-brand-purple/80 rounded-lg transition-colors font-semibold text-sm"
+                            >
+                                <DownloadIcon />
+                                Download
+                            </button>
+                            <button
+                                onClick={() => setSelectedReport(null)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
                     </header>
                     <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
                         {selectedReport.type === 'pdf' ? (

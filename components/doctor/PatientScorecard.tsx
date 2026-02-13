@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Patient, TimelineEvent } from '../../constants';
 import { MetabolicView, PsychView, SafetyView, VitalsView } from '../HealthMetricsDashboard';
+import LabReportUploader from './LabReportUploader';
 
 // --- Shared Components ---
 
@@ -9,7 +10,7 @@ const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5
 const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>;
 const SparkleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-brand-purple" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
 
-const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLevel }: { title: string, icon: string, summary: string, children?: React.ReactNode, isOpen: boolean, onToggle: () => void, riskLevel: 'Low' | 'Moderate' | 'High' }) => {
+const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLevel, onUploadClick }: { title: string, icon: string, summary: string, children?: React.ReactNode, isOpen: boolean, onToggle: () => void, riskLevel: 'Low' | 'Moderate' | 'High', onUploadClick?: () => void }) => {
     const riskColors = {
         'High': 'text-red-700 bg-red-100 border-red-200',
         'Moderate': 'text-yellow-700 bg-yellow-100 border-yellow-200',
@@ -45,9 +46,23 @@ const SectionCard = ({ title, icon, summary, children, isOpen, onToggle, riskLev
                         )}
                     </div>
                 </div>
-                <button className="p-2 text-gray-400 hover:text-brand-purple transition-colors ml-4">
-                    {isOpen ? <div className="flex items-center gap-1 text-xs font-bold uppercase">Less <ChevronUp /></div> : <div className="flex items-center gap-1 text-xs font-bold uppercase">Deep Dive <ChevronDown /></div>}
-                </button>
+                <div className="flex items-center gap-2 ml-4">
+                    {isOpen && onUploadClick && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onUploadClick();
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors flex items-center gap-1"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            Upload Report
+                        </button>
+                    )}
+                    <button className="p-2 text-gray-400 hover:text-brand-purple transition-colors">
+                        {isOpen ? <div className="flex items-center gap-1 text-xs font-bold uppercase">Less <ChevronUp /></div> : <div className="flex items-center gap-1 text-xs font-bold uppercase">Deep Dive <ChevronDown /></div>}
+                    </button>
+                </div>
             </div>
 
             {/* Expanded Content */}
@@ -70,6 +85,7 @@ interface PatientScorecardProps {
 const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePatient }) => {
     // State to track which section is expanded
     const [expandedSection, setExpandedSection] = useState<'metabolic' | 'psych' | 'safety' | null>(null);
+    const [showLabUploader, setShowLabUploader] = useState(false);
 
     // Real Data Derivation
     // Vitals / BMI
@@ -149,6 +165,7 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
                     isOpen={expandedSection === 'metabolic'}
                     onToggle={() => toggleSection('metabolic')}
                     riskLevel={metabolicRisk}
+                    onUploadClick={() => setShowLabUploader(true)}
                 >
                     <div className="space-y-6">
                         <VitalsView patient={patient} />
@@ -178,6 +195,15 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
                     <SafetyView patient={patient} />
                 </SectionCard>
             </div>
+
+            {/* Lab Report Uploader Modal */}
+            {showLabUploader && onUpdatePatient && (
+                <LabReportUploader
+                    patient={patient}
+                    onUpdatePatient={onUpdatePatient}
+                    onClose={() => setShowLabUploader(false)}
+                />
+            )}
         </div>
     );
 };
