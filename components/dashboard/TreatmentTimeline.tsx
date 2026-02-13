@@ -5,7 +5,7 @@ import { Patient, WorkoutRoutine, DailyLog, TimelineEvent, WeekLogEntry } from '
 
 interface TreatmentTimelineProps {
     patient?: Patient;
-    onUpdatePatient?: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    onUpdatePatient?: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
 }
 
 interface WeekLogProps {
@@ -189,7 +189,7 @@ const getDailyInsight = (patient: Patient, date: Date): string => {
     return insights[seed % insights.length];
 };
 
-const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: number, e: null, u: Partial<Patient>) => void }> = ({ patient, onUpdatePatient }) => {
+const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: string | number, e: null, u: Partial<Patient>) => void }> = ({ patient, onUpdatePatient }) => {
     const today = new Date();
     const [selectedDate, setSelectedDate] = useState(today);
     const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);

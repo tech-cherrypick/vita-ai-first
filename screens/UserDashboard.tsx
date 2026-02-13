@@ -19,14 +19,16 @@ import MedicalProfiler from '../components/MedicalProfiler';
 import PsychoProfiler from '../components/PsychoProfiler';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
 import PatientLive from './PatientLive';
+import PatientMessagesScreen from './dashboard/PatientMessagesScreen';
 
-export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live';
+export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'messages';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
 
 interface UserDashboardProps {
     onSignOut: () => void;
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    userName: string;
 }
 
 const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
@@ -206,7 +208,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
 };
 
 
-const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient }) => {
+const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, userName }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
@@ -271,7 +273,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     const handleMedicalHistoryComplete = (data: any) => {
         const intakeEvent: Omit<TimelineEvent, 'id' | 'date'> = {
             type: 'Assessment',
-            title: 'Medical History Updated',
+            title: 'Digital Data Intake Completed',
             description: 'Patient updated medical history via profiler.'
         };
 
@@ -364,7 +366,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             context: { labDateTime: formattedDateTime },
             documentId: 'REQ-24-001'
         };
-        onUpdatePatient(patient.id, labEvent, { status: 'Ready for Consult', nextAction: 'Schedule Doctor Consultation' });
+        onUpdatePatient(patient.id, labEvent, {
+            status: 'Ready for Consult',
+            nextAction: 'Schedule Doctor Consultation',
+            tracking: {
+                ...patient.tracking,
+                labs: { status: 'booked', date: formattedDateTime, ...labEvent.context }
+            }
+        });
         closeFocusMode();
     };
 
@@ -379,7 +388,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 meetingLink: 'https://meet.google.com/vita-health-consult'
             }
         };
-        onUpdatePatient(patient.id, consultEvent, { status: 'Consultation Scheduled', nextAction: `Attend call on ${formattedDateTime}` });
+        onUpdatePatient(patient.id, consultEvent, {
+            status: 'Consultation Scheduled',
+            nextAction: `Attend call on ${formattedDateTime}`,
+            tracking: {
+                ...patient.tracking,
+                consultation: { status: 'booked', date: formattedDateTime, ...consultEvent.context }
+            }
+        });
         closeFocusMode();
     };
 
@@ -492,7 +508,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'profile': return <MyProfileScreen patient={patient} onUpdatePatient={onUpdatePatient} />;
             case 'reports': return <ReportsScreen patient={patient} />;
             case 'payments': return <PaymentsScreen />;
-            case 'care_team': return <CareTeamScreen patient={patient} />;
+            case 'care_team': return <CareTeamScreen patient={patient} onSendMessage={() => setCurrentView('messages')} />;
+            case 'messages': return <PatientMessagesScreen patient={patient} />;
             case 'help': return <HelpScreen />;
             default: return renderDashboardHome();
         }
@@ -500,7 +517,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
 
     return (
         <div className="min-h-screen bg-brand-bg">
-            <UserHeader onOpenMenu={() => setIsMenuOpen(true)} onGoHome={() => { setCurrentView('dashboard'); setFocusMode('none'); }} />
+            <UserHeader onOpenMenu={() => setIsMenuOpen(true)} onGoHome={() => { setCurrentView('dashboard'); setFocusMode('none'); }} userName={userName} />
             <SideMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
