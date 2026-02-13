@@ -10,12 +10,11 @@ const app = express();
 
 // CORS Configuration
 const allowedOrigins = [
-  'https://vita-ai-first-19ad7kifn-cherry-picks-projects-29b8b9cc.vercel.app',
-  'https://vita-ai-first-3b03doby6-cherry-picks-projects-29b8b9cc.vercel.app',
-  'https://vita-ai-first.vercel.app', // Add your production Vercel domain
+  /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
+  'https://vita-ai-first.vercel.app',          // Production Vercel domain
   'http://localhost:3000',
-  'http://localhost:19006', // Expo web
-  'http://localhost:8081'   // React Native
+  'http://localhost:19006',                     // Expo web
+  'http://localhost:8081'                       // React Native
 ];
 
 app.use(cors({
@@ -23,7 +22,15 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Check if origin matches any pattern (string or regex)
+    const isAllowed = allowedOrigins.some(pattern => {
+      if (pattern instanceof RegExp) {
+        return pattern.test(origin);
+      }
+      return pattern === origin;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('❌ CORS blocked origin:', origin);
