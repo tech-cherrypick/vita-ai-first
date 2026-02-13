@@ -34,41 +34,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '11mb' }));
+app.use(express.urlencoded({ limit: '11mb', extended: true }));
 
-// Initialize Firebase Admin 
-const serviceAccountPath = './service-account.json';
-const fs = require('fs');
-
-try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using FIREBASE_SERVICE_ACCOUNT_JSON env var');
-  } else if (fs.existsSync(serviceAccountPath)) {
-    admin.initializeApp({
-      credential: admin.credential.cert(require(serviceAccountPath)),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using service-account.json');
-  } else {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: 'vita-479105'
-    });
-    console.log('✅ Firebase Admin Initialized using GCloud CLI (ADC)');
-  }
-} catch (error) {
-  console.error('❌ Firebase Admin Init Error:', error.message);
-  console.log('⚠️ To fix this, either:');
-  console.log('   1. Run: gcloud auth application-default login');
-  console.log('   2. Add backend/service-account.json from Firebase Console');
-}
-
-// Initialize Firebase
+// Initialize Firebase Admin
 initializeFirebase();
 const db = admin.firestore();
 const server = http.createServer(app);
@@ -79,9 +48,6 @@ const io = new Server(server, {
   }
 });
 
-app.use(cors());
-app.use(express.json({ limit: '11mb' }));
-app.use(express.urlencoded({ limit: '11mb', extended: true }));
 
 // Socket.io Logic
 io.on('connection', (socket) => {
