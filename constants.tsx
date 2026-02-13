@@ -125,6 +125,8 @@ export const whyGlp1Benefits = [
 // --- Types ---
 export type PatientStatus = 'Assessment Review' | 'Labs Ordered' | 'Awaiting Lab Confirmation' | 'Awaiting Lab Results' | 'Ready for Consult' | 'Consultation Scheduled' | 'Follow-up Required' | 'Awaiting Shipment' | 'Ongoing Treatment' | 'Monitoring Loop' | 'Action Required' | 'Additional Testing Required';
 
+export type CareCoordinatorView = 'triage' | 'schedule' | 'messages' | 'patients';
+
 export interface Prescription {
     name: string;
     dosage: string;
@@ -138,6 +140,14 @@ export interface ShippingAddress {
     state: string;
     zip: string;
     country: string;
+}
+
+export interface LabResult {
+    name: string;
+    value: string;
+    range: string;
+    status: 'High' | 'Low' | 'Normal';
+    category: string;
 }
 
 export interface Vital {
@@ -167,8 +177,10 @@ export interface TimelineEvent {
     date: string;
     title: string;
     description: string;
-    type: 'Assessment' | 'Labs' | 'Consultation' | 'Shipment' | 'Protocol' | 'Note';
+    type: 'Status' | 'Upload' | 'Message' | 'Alert' | 'Note' | 'Labs' | 'Consultation' | 'Protocol' | 'Shipment' | 'Assessment';
     doctor?: string;
+    updater?: string;
+    physicianName?: string;
     documentId?: string;
     context?: any;
 }
@@ -193,14 +205,19 @@ export interface MedicalReport {
     name: string;
     date: string;
     summary: string;
+    url?: string; // Data URL or Cloud Storage URL
+    type?: 'pdf' | 'image';
+    fileSize?: number;
+    parsedResults?: LabResult[];
 }
 
 export interface Patient {
-    id: number;
+    id: string | number;
     name: string;
     age: number;
     dob?: string;
     imageUrl: string;
+    photoURL?: string;
     email: string;
     phone: string;
     shippingAddress: ShippingAddress;
@@ -210,9 +227,14 @@ export interface Patient {
     pathway?: string;
     vitals: Vital[];
     reports: MedicalReport[];
+    // history replaced timeline in backend, but mapped to 'history' and 'timeline' key. 
+    // We'll keep timeline for compat or use history.
     timeline: TimelineEvent[];
+    history?: TimelineEvent[]; // Explicit history from backend
+
     currentPrescription: Prescription;
     prescriptionHistory: PrescriptionLog[];
+    labResults?: LabResult[];
     weeklyLogs: WeekLogEntry[];
     dailyLogs?: Record<string, DailyLog>;
     careTeam: {
@@ -241,6 +263,34 @@ export interface Patient {
         };
         mindbody: string[];
     };
+    psych?: Record<string, string>;
+    medical?: Record<string, any>; // Usage found in HealthMetricsDashboard
+
+    // New Unified Structure
+    tracking?: {
+        labs?: any;
+        consultation?: any;
+        shipment?: any;
+        checklist?: Record<string, boolean>; // Persist SOP checkbox states
+        status?: string; // "key status as well"
+    };
+    clinic?: {
+        prescription?: any;
+    };
+    patient_history?: TimelineEvent[]; // Unified history events
+    prescriptions?: any[]; // Multi-prescription subcollection
+
+    // Unified Persistent Loop State
+    current_loop?: {
+        labs?: any;
+        consultation?: any;
+        shipment?: any;
+        updated_at?: string;
+    };
+    all_loops?: Record<string, any>; // Store historical loop data
+
+    // Legacy / Convenience props (can be optional or removed if code is refactored)
+    currentCycle?: number;
 }
 
 export interface PrescriptionLog {
@@ -254,11 +304,11 @@ export interface PrescriptionLog {
 
 export interface CareCoordinatorTask {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
-    type: 'New Message' | 'Follow-up Request' | 'New Consultation' | 'Lab Coordination' | 'Medication Shipment' | 'Intake Review' | 'Prescription Approval' | 'General Support';
-    details: string;
+    types: ('New Message' | 'Follow-up Request' | 'New Consultation' | 'Lab Coordination' | 'Medication Shipment' | 'Intake Review' | 'Prescription Approval' | 'General Support')[];
+    detailsList: string[];
     patientStatus: PatientStatus;
     priority: 'High' | 'Medium' | 'Low';
     timestamp: string;
@@ -267,7 +317,7 @@ export interface CareCoordinatorTask {
 
 export interface DoctorAppointment {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     time: string;
@@ -277,7 +327,7 @@ export interface DoctorAppointment {
 
 export interface CareCoordinatorAppointment {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     time: string;
@@ -291,9 +341,20 @@ export interface Message {
     timestamp: string;
 }
 
+export interface GlobalChatMessage {
+    id: string;
+    patientId: string | number;
+    sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system';
+    text: string;
+    timestamp: string;
+    senderName?: string;
+    role?: string;
+    avatar?: string;
+}
+
 export interface MessageThread {
     id: string;
-    patientId: number;
+    patientId: string | number;
     patientName: string;
     patientImageUrl: string;
     lastMessage: string;
@@ -317,22 +378,29 @@ export const createNewPatient = (name: string, email: string, phone: string): Pa
     nextAction: 'Complete medical intake assessment',
     vitals: [],
     reports: [],
-    timeline: [
+    timeline: [],
+    patient_history: [
         {
             id: `t_${Date.now()}`,
             date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
             title: 'Account Created',
-            description: 'Patient registered via Google Auth.',
-            type: 'Assessment'
+            description: 'Patient successfully registered and generated a treatment profile.',
+            type: 'Note'
         },
     ],
+    prescriptions: [],
     currentPrescription: { name: 'Pending Assessment', dosage: '-', instructions: '-' },
     prescriptionHistory: [],
     weeklyLogs: [],
     careTeam: {
         physician: 'Pending Assignment',
-        coordinator: 'Alex Ray',
+        coordinator: 'Unassigned',
     },
+    tracking: {
+        labs: { status: 'Pending' },
+        consultation: { status: 'Pending' },
+        shipment: { status: 'Pending' }
+    }
 });
 
 // --- Mock Data ---
@@ -344,6 +412,7 @@ export const sideMenuItems = [
     { name: 'Reports', id: 'reports', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 2v-6m-8 13h11a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> },
     { name: 'Payments', id: 'payments', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg> },
     { name: 'Care Team', id: 'care_team', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
+    { name: 'Messages', id: 'messages', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg> },
     { name: 'Help & FAQ', id: 'help', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
 ];
 
@@ -357,7 +426,41 @@ export const dashboardSteps = [
 
 export const mockPatients: Patient[] = [];
 
-export const mockCareCoordinatorTasks: CareCoordinatorTask[] = [];
+export const mockCareCoordinatorTasks: CareCoordinatorTask[] = [
+    {
+        id: '1',
+        patientId: 101,
+        patientName: 'Ananya Iyer',
+        patientImageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1887&auto=format&fit=crop',
+        types: ['Medication Shipment'],
+        detailsList: ['Review shipment delay'],
+        patientStatus: 'Awaiting Shipment',
+        priority: 'High', // High priority triggers red left border
+        timestamp: '2 hours ago'
+    },
+    {
+        id: '2',
+        patientId: 102,
+        patientName: 'Karan Patel',
+        patientImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1887&auto=format&fit=crop',
+        types: ['New Message'],
+        detailsList: ['Side effects question'],
+        patientStatus: 'Action Required',
+        priority: 'Medium', // Or High? Screenshot is ambiguous but likely needs attention
+        timestamp: '1 day ago'
+    },
+    {
+        id: '3',
+        patientId: 103,
+        patientName: 'Vikram Singh',
+        patientImageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1887&auto=format&fit=crop',
+        types: ['Lab Coordination'],
+        detailsList: ['Lab results pending'],
+        patientStatus: 'Awaiting Lab Results',
+        priority: 'Low',
+        timestamp: '5 hours ago'
+    }
+];
 
 export const mockAppointments: DoctorAppointment[] = [];
 

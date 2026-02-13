@@ -26,6 +26,13 @@ const UnifiedLoginPage: React.FC<UnifiedLoginPageProps> = ({ onSignIn }) => {
             onSignIn(result.user);
         } catch (error: any) {
             console.error("Auth Error:", error.code, error.message);
+
+            // Handle cases where the user intentionally closes the popup or cancels the request
+            if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+                setIsLoading(false);
+                return;
+            }
+
             const errorMessage = `Authentication failed: ${error.message} (${error.code})`;
 
             if (error.code === 'auth/popup-blocked') {

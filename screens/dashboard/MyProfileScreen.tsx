@@ -37,7 +37,7 @@ const InfoRow: React.FC<{ label: string; value: string; isEditing?: boolean; onC
 
 interface MyProfileScreenProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates?: Partial<Patient>) => void;
 }
 
 const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePatient }) => {
@@ -180,7 +180,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
 
                 {/* Journey History Section */}
                 <div className="pt-10 border-t border-gray-100">
-                    <ConsultationTimeline timeline={patient.timeline} title="My Journey History" />
+                    <ConsultationTimeline patient={patient} timeline={patient.timeline} title="My Journey History" />
                 </div>
             </div>
         </div>

@@ -14,7 +14,7 @@ const ContextRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label
 );
 
 const CareCoordinatorTaskDetailCard: React.FC<CareCoordinatorTaskDetailCardProps> = ({ task }) => {
-    
+
     const renderContent = () => {
         if (task.context?.prescription) {
             const rx = task.context.prescription;
@@ -26,7 +26,7 @@ const CareCoordinatorTaskDetailCard: React.FC<CareCoordinatorTaskDetailCardProps
                 </>
             );
         }
-        
+
         if (task.context?.labDateTime) {
             return <ContextRow label="Scheduled Lab" value={task.context.labDateTime} />;
         }
@@ -37,7 +37,9 @@ const CareCoordinatorTaskDetailCard: React.FC<CareCoordinatorTaskDetailCardProps
 
         return (
             <>
-                <ContextRow label="Details" value={task.details} />
+                {task.detailsList.map((details, idx) => (
+                    <ContextRow key={idx} label={`Detail ${task.detailsList.length > 1 ? idx + 1 : ''}`} value={details} />
+                ))}
                 <ContextRow label="Priority" value={<span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${task.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{task.priority}</span>} />
             </>
         );

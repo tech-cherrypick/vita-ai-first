@@ -3,7 +3,7 @@ import { Patient, TimelineEvent, Prescription, PrescriptionLog, PatientStatus } 
 
 interface ClinicalActionCenterProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 type RxModificationType = 'replace' | 'add' | 'adjust' | 'onetime';
@@ -11,7 +11,7 @@ type RxModificationType = 'replace' | 'add' | 'adjust' | 'onetime';
 // Icons
 const NoteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
 const RxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
-const LabIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>; 
+const LabIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
 const ConsultIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
 const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>;
@@ -39,11 +39,11 @@ interface TimelineItemProps {
 
 const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle, isLast }) => {
     const style = getEventStyles(event.type, event.title);
-    
+
     return (
         <div className="flex gap-4 relative">
             <div className="flex flex-col items-center">
-                <button 
+                <button
                     onClick={onToggle}
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm transition-transform hover:scale-105 ${style.bg} ${style.text}`}
                 >
@@ -52,7 +52,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                 {!isLast && <div className="w-0.5 h-full bg-gray-200 absolute top-10 -z-0"></div>}
             </div>
             <div className="pb-8 flex-1 pt-1 min-w-0">
-                <div 
+                <div
                     className="flex justify-between items-start cursor-pointer group"
                     onClick={onToggle}
                 >
@@ -64,7 +64,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                         {isExpanded ? <ChevronUp /> : <ChevronDown />}
                     </button>
                 </div>
-                
+
                 {/* Collapsed Preview */}
                 {!isExpanded && (
                     <p className="text-sm text-gray-600 mt-1 truncate cursor-pointer" onClick={onToggle}>{event.description}</p>
@@ -74,7 +74,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                 {isExpanded && (
                     <div className="mt-3 bg-gray-50 p-4 rounded-xl border border-gray-100 animate-fade-in text-sm text-gray-700 space-y-3">
                         <p className="font-medium whitespace-pre-wrap">{event.description}</p>
-                        
+
                         {/* Composite Event Renderers */}
                         {event.context?.rx && (
                             <div className="bg-white p-3 rounded-lg border border-gray-200 border-l-4 border-l-green-500">
@@ -117,7 +117,7 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
                             </div>
                         )}
                         {event.documentId && (
-                             <button className="text-xs font-bold text-brand-purple hover:underline flex items-center gap-1 mt-2">
+                            <button className="text-xs font-bold text-brand-purple hover:underline flex items-center gap-1 mt-2">
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                 View Document ({event.documentId})
                             </button>
@@ -128,6 +128,8 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ event, isExpanded, onToggle
         </div>
     );
 };
+
+
 
 const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, onUpdatePatient }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -140,13 +142,13 @@ const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, on
     const [pathwayDetails, setPathwayDetails] = useState(
         patient.pathway && patient.pathway.includes(' - ') ? patient.pathway.split(' - ')[1] : ''
     );
-    
+
     // --- Composite Form State ---
     const [noteContent, setNoteContent] = useState('');
-    
+
     const [includeRx, setIncludeRx] = useState(false);
     const [rxActionType, setRxActionType] = useState<RxModificationType>('replace');
-    const [rxName, setRxName] = useState(patient.currentPrescription.name); 
+    const [rxName, setRxName] = useState(patient.currentPrescription.name);
     const [rxDose, setRxDose] = useState(patient.currentPrescription.dosage);
     const [rxInstructions, setRxInstructions] = useState(patient.currentPrescription.instructions);
 
@@ -161,17 +163,17 @@ const ClinicalActionCenter: React.FC<ClinicalActionCenterProps> = ({ patient, on
     };
 
     const handlePathwaySave = () => {
-        const finalPathwayString = pathwayDetails.trim() 
+        const finalPathwayString = pathwayDetails.trim()
             ? `${currentPathway} - ${pathwayDetails}`
             : currentPathway;
-        
+
         onUpdatePatient(patient.id, {
             type: 'Protocol',
             title: 'Clinical Pathway Updated',
             description: `Protocol updated to: ${finalPathwayString}`,
             doctor: patient.careTeam.physician
         }, { pathway: finalPathwayString });
-        
+
         setIsEditingPathway(false);
         setSuccessMessage('Pathway updated.');
         setTimeout(() => setSuccessMessage(null), 3000);
@@ -210,7 +212,7 @@ Notes:
     const submitCompositeAction = () => {
         // Validation: Must have note OR at least one action selected
         const hasAction = includeRx || includeLabs || includeConsult;
-        
+
         if (!noteContent.trim() && !hasAction) {
             alert("Please enter a clinical note or select an action to submit.");
             return;
@@ -218,7 +220,7 @@ Notes:
 
         setIsLoading(true);
         let updates: Partial<Patient> = {};
-        
+
         // Build Composite Context
         const context: any = {};
         let statusUpdate: PatientStatus = 'Ongoing Treatment';
@@ -231,15 +233,19 @@ Notes:
                 dosage: rxDose,
                 instructions: rxInstructions
             };
-            
+
             statusUpdate = 'Awaiting Shipment';
 
-            // Apply updates to patient object
+            // Apply updates to clinic subcollection
             if (rxActionType === 'replace' || rxActionType === 'adjust' || rxActionType === 'add') {
-                updates.currentPrescription = {
-                    name: rxName,
-                    dosage: rxDose,
-                    instructions: rxInstructions
+                updates.clinic = {
+                    ...patient.clinic,
+                    prescription: {
+                        name: rxName,
+                        dosage: rxDose,
+                        instructions: rxInstructions,
+                        status: 'Awaiting Shipment'
+                    }
                 };
             }
         }
@@ -248,12 +254,24 @@ Notes:
         if (includeLabs) {
             context.labs = { orders: labsInput };
             statusUpdate = 'Additional Testing Required'; // Overrides Rx status usually
+
+            // Explicitly set tracking status
+            updates.tracking = {
+                ...updates.tracking,
+                labs: { status: 'Ordered', orders: labsInput, date: new Date().toLocaleDateString() }
+            };
         }
 
         // 3. Consult Logic
         if (includeConsult) {
             context.consult = { timeframe: consultTime };
             if (!includeLabs) statusUpdate = 'Follow-up Required';
+
+            // Explicitly set tracking status
+            updates.tracking = {
+                ...updates.tracking,
+                consultation: { status: 'Ordered', timeframe: consultTime, date: new Date().toLocaleDateString() }
+            };
         }
 
         updates.status = statusUpdate;
@@ -281,7 +299,7 @@ Notes:
             onUpdatePatient(patient.id, event, updates);
             setIsLoading(false);
             setSuccessMessage('Clinical plan updated successfully.');
-            
+
             // Reset Form
             setNoteContent('');
             setIncludeRx(false);
@@ -292,7 +310,7 @@ Notes:
             // But if they just updated it, maybe they want to see it. 
             // Let's reset to current valid state (which is the new state)
             // Ideally we'd re-read props, but for now just leave them as they are or reset to empty
-            
+
             setTimeout(() => setSuccessMessage(null), 3000);
         }, 1000);
     };
@@ -301,8 +319,8 @@ Notes:
     const timeline = [...patient.timeline].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col h-[800px]">
-            
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col">
+
             {/* 1. Header: Clinical Pathway */}
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-5 text-white shrink-0 z-20">
                 <div className="flex justify-between items-start">
@@ -310,8 +328,8 @@ Notes:
                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Treatment Protocol</h2>
                         {isEditingPathway ? (
                             <div className="mt-2 space-y-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm animate-fade-in">
-                                <select 
-                                    value={currentPathway} 
+                                <select
+                                    value={currentPathway}
                                     onChange={(e) => setCurrentPathway(e.target.value)}
                                     className="w-full text-sm p-2 rounded bg-white text-gray-900 border border-gray-200 outline-none"
                                 >
@@ -351,14 +369,16 @@ Notes:
                 </div>
             </div>
 
+
+
             {/* 2. Unified Clinical Action Form */}
             <div className="bg-gray-50 border-b border-gray-200 shrink-0 z-10 shadow-sm relative p-5">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-brand-purple"></span> Clinical Update
                 </h3>
-                
+
                 {/* Note Area */}
-                <textarea 
+                <textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
                     placeholder="Enter clinical assessment, plan details, or observation..."
@@ -368,19 +388,19 @@ Notes:
 
                 {/* Toggles */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                    <button 
+                    <button
                         onClick={() => setIncludeRx(!includeRx)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeRx ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:border-green-300'}`}
                     >
                         {includeRx ? '✓' : '+'} Prescription
                     </button>
-                    <button 
+                    <button
                         onClick={() => setIncludeLabs(!includeLabs)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeLabs ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'}`}
                     >
                         {includeLabs ? '✓' : '+'} Labs
                     </button>
-                    <button 
+                    <button
                         onClick={() => setIncludeConsult(!includeConsult)}
                         className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all flex items-center gap-2 ${includeConsult ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-purple-300'}`}
                     >
@@ -390,7 +410,7 @@ Notes:
 
                 {/* Conditional Inputs */}
                 <div className="space-y-3">
-                    
+
                     {/* Rx Form */}
                     {includeRx && (
                         <div className="p-4 bg-white rounded-xl border border-green-100 shadow-sm animate-fade-in">
@@ -408,23 +428,23 @@ Notes:
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3 mb-3">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={rxName}
                                     onChange={(e) => setRxName(e.target.value)}
                                     placeholder="Medication Name"
                                     className="p-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-green-400"
                                 />
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={rxDose}
                                     onChange={(e) => setRxDose(e.target.value)}
                                     placeholder="Dosage"
                                     className="p-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-green-400"
                                 />
                             </div>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={rxInstructions}
                                 onChange={(e) => setRxInstructions(e.target.value)}
                                 placeholder="Instructions"
@@ -437,8 +457,8 @@ Notes:
                     {includeLabs && (
                         <div className="p-4 bg-white rounded-xl border border-blue-100 shadow-sm animate-fade-in">
                             <h4 className="text-xs font-bold text-blue-700 uppercase mb-2">Order Diagnostics</h4>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={labsInput}
                                 onChange={(e) => setLabsInput(e.target.value)}
                                 placeholder="List required labs (e.g. Lipid Panel, HbA1c)..."
@@ -451,7 +471,7 @@ Notes:
                     {includeConsult && (
                         <div className="p-4 bg-white rounded-xl border border-purple-100 shadow-sm animate-fade-in flex items-center gap-3">
                             <h4 className="text-xs font-bold text-purple-700 uppercase">Request Follow-up:</h4>
-                            <select 
+                            <select
                                 value={consultTime}
                                 onChange={(e) => setConsultTime(e.target.value)}
                                 className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-purple-400"
@@ -466,9 +486,9 @@ Notes:
                 </div>
 
                 <div className="mt-4">
-                    <button 
-                        onClick={submitCompositeAction} 
-                        disabled={isLoading} 
+                    <button
+                        onClick={submitCompositeAction}
+                        disabled={isLoading}
                         className="w-full bg-brand-purple text-white py-3 rounded-xl font-bold shadow-lg shadow-brand-purple/20 hover:bg-brand-purple/90 transition-all disabled:opacity-50"
                     >
                         {isLoading ? 'Processing...' : 'Submit Clinical Plan'}
@@ -479,22 +499,7 @@ Notes:
                 </div>
             </div>
 
-            {/* 3. Scrollable Timeline */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white relative">
-                {timeline.length === 0 ? (
-                    <div className="text-center text-gray-400 mt-10">No history available.</div>
-                ) : (
-                    timeline.map((event, idx) => (
-                        <TimelineItem 
-                            key={event.id} 
-                            event={event} 
-                            isExpanded={expandedEventId === event.id} 
-                            onToggle={() => handleToggleEvent(event.id)} 
-                            isLast={idx === timeline.length - 1} 
-                        />
-                    ))
-                )}
-            </div>
+
         </div>
     );
 };

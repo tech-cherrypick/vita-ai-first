@@ -16,7 +16,7 @@ const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
 
 interface PrescriptionManagerProps {
     patient: Patient;
-    onUpdatePatient: (patientId: number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
+    onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
 }
 
 const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUpdatePatient }) => {
@@ -34,18 +34,18 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
 
     const handleSaveChanges = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const isInitialPrescription = patient.prescriptionHistory.length === 0;
 
         const newLogEntry: PrescriptionLog = {
             id: `ph${patient.prescriptionHistory.length + 1}`,
-            date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric'}),
+            date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
             medication: newMedication,
             dosage: newDosage,
             notes: notes || (isInitialPrescription ? 'Initial prescription.' : 'Prescription updated.'),
             doctor: patient.careTeam.physician
         };
-        
+
         const timelineEvent: Omit<TimelineEvent, 'id' | 'date'> = {
             type: 'Note',
             title: isInitialPrescription ? 'Initial prescription.' : 'Prescription updated.',
@@ -74,7 +74,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
                 <div className="flex items-center justify-between mb-4 border-b pb-4">
                     <h2 className="text-xl font-bold text-gray-900">Prescription Management</h2>
                     <div className="flex items-center gap-2">
-                        <button 
+                        <button
                             onClick={handleModify}
                             className="px-4 py-2 text-sm font-semibold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors">
                             Write / Modify Rx
@@ -88,7 +88,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
                         <InfoRow label="Instructions" value={patient.currentPrescription.instructions} />
                     </div>
                 </div>
-                
+
                 <div className="mt-6 pt-4 border-t">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">Rx History</h3>
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
@@ -110,7 +110,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
             </div>
 
             {isModalOpen && (
-                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-lg relative animate-slide-in-up">
                         <h2 className="text-2xl font-bold text-brand-text mb-4">Write Prescription</h2>
                         <form onSubmit={handleSaveChanges} className="space-y-4">
@@ -126,7 +126,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Dosage</label>
-                                <input 
+                                <input
                                     type="text"
                                     value={newDosage}
                                     onChange={e => setNewDosage(e.target.value)}
@@ -136,13 +136,13 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Clinical Justification / Notes</label>
-                                 <textarea
+                                <textarea
                                     value={notes}
                                     onChange={e => setNotes(e.target.value)}
                                     rows={3}
                                     className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-2 px-3 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
                                     placeholder="e.g., Initiating treatment protocol."
-                                 ></textarea>
+                                ></textarea>
                             </div>
                             <div className="flex justify-end gap-3 pt-4">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
@@ -150,7 +150,7 @@ const PrescriptionManager: React.FC<PrescriptionManagerProps> = ({ patient, onUp
                             </div>
                         </form>
                     </div>
-                 </div>
+                </div>
             )}
         </>
     );

@@ -10,10 +10,11 @@ const ScreenHeader: React.FC<{ title: string; subtitle: string }> = ({ title, su
 
 interface CareTeamScreenProps {
     patient: Patient;
+    onSendMessage?: () => void;
 }
 
-const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient }) => {
-    
+const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage }) => {
+
     const teamMembers = [
         {
             role: 'Your Physician',
@@ -45,10 +46,13 @@ const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient }) => {
                             <p className="text-sm text-brand-text-light mt-1">{member.specialty}</p>
                             <p className="text-brand-text-light mt-4 flex-1">{member.bio}</p>
                             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                                <button className="flex-1 px-4 py-3 text-sm font-bold text-white bg-brand-purple rounded-lg hover:opacity-90 transition-opacity">
+                                <button
+                                    onClick={onSendMessage}
+                                    className="flex-1 px-4 py-3 text-sm font-bold text-white bg-brand-purple rounded-lg hover:opacity-90 transition-opacity"
+                                >
                                     Send a Message
                                 </button>
-                                 <button className="flex-1 px-4 py-3 text-sm font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors">
+                                <button className="flex-1 px-4 py-3 text-sm font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors">
                                     Schedule a Call
                                 </button>
                             </div>
