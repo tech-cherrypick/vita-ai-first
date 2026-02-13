@@ -10,6 +10,7 @@ const app = express();
 
 // CORS Configuration
 const allowedOrigins = [
+  'https://vita-ai-first-19ad7kifn-cherry-picks-projects-29b8b9cc.vercel.app',
   'https://vita-ai-first-3b03doby6-cherry-picks-projects-29b8b9cc.vercel.app',
   'https://vita-ai-first.vercel.app', // Add your production Vercel domain
   'http://localhost:3000',
