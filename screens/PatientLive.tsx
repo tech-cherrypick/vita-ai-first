@@ -373,11 +373,11 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isConnecting);
                     return [...filtered, {
-                        sender: CARE_MANAGER.name,
+                        sender: 'Vita-AI',
                         role: CARE_MANAGER.role,
-                        avatar: CARE_MANAGER.avatar,
                         color: CARE_MANAGER.color,
-                        text: cleanText
+                        text: cleanText,
+                        messageType: 'ai'
                     }];
                 });
             }
@@ -391,11 +391,11 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     setOnboardingProgress(pMap[wType] || 0);
 
                     setMessages(prev => [...prev, {
-                        sender: CARE_MANAGER.name,
+                        sender: 'Vita-AI',
                         role: CARE_MANAGER.role,
-                        avatar: CARE_MANAGER.avatar,
                         color: CARE_MANAGER.color,
-                        widget: { type: wType, isComplete: false }
+                        widget: { type: wType, isComplete: false },
+                        messageType: 'ai'
                     }]);
                 }
             }
@@ -603,12 +603,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     console.log("Error Fallback triggering next widget:", nextWidget);
                     setTimeout(() => {
                         setMessages(prev => [...prev, {
-                            sender: CARE_MANAGER.name,
+                            sender: 'Vita-AI',
                             role: CARE_MANAGER.role,
-                            avatar: CARE_MANAGER.avatar,
                             color: CARE_MANAGER.color,
                             text: "System: Connection unstable. Proceeding to next step manually.",
-                            widget: { type: nextWidget, isComplete: false }
+                            widget: { type: nextWidget, isComplete: false },
+                            messageType: 'ai'
                         }]);
                     }, 1000);
                 }
@@ -624,12 +624,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 console.log("Fallback triggering next widget:", nextWidget);
                 setTimeout(() => {
                     setMessages(prev => [...prev, {
-                        sender: CARE_MANAGER.name,
+                        sender: 'Vita-AI',
                         role: CARE_MANAGER.role,
-                        avatar: CARE_MANAGER.avatar,
                         color: CARE_MANAGER.color,
                         text: "Data recorded. Let's move to the next section.",
-                        widget: { type: nextWidget, isComplete: false }
+                        widget: { type: nextWidget, isComplete: false },
+                        messageType: 'ai'
                     }]);
                 }, 1000);
             }
@@ -687,11 +687,13 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="text-right hidden sm:block">
-                        <p className="text-sm font-bold text-gray-900">{CARE_MANAGER.name}</p>
-                        <p className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Lead Coordinator</p>
+                        <p className="text-sm font-bold text-gray-900">Vita-AI</p>
+                        <p className="text-[10px] font-bold text-brand-purple uppercase tracking-wider">AI Assistant</p>
                     </div>
-                    <div className={`w-11 h-11 rounded-full border-2 border-brand-cyan/20 overflow-hidden shadow-sm`}>
-                        <img src={CARE_MANAGER.avatar} className="w-full h-full object-cover" alt={CARE_MANAGER.name} />
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shadow-sm border-2 border-white">
+                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
                     </div>
                 </div>
             </header>
@@ -708,13 +710,22 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 <div className="max-w-2xl mx-auto flex flex-col gap-6 w-full overflow-x-hidden">
                     {messages.map((msg, idx) => (
                         <div key={idx} className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
-                            {msg.avatar && <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />}
+                            {/* AI Icon or Avatar */}
+                            {msg.messageType === 'ai' && msg.sender !== 'You' ? (
+                                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shrink-0 shadow-md border-2 border-white">
+                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                </div>
+                            ) : msg.avatar ? (
+                                <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
+                            ) : null}
                             <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
-                                {/* Show sender name for CareTeam messages, role for AI messages */}
+                                {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
                                 {msg.messageType === 'careteam' && msg.sender !== 'You' && (
                                     <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
                                 )}
-                                {msg.messageType === 'ai' && msg.role && <span className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${msg.color}`}>{msg.role}</span>}
+                                {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
 
                                 {msg.text && (
                                     <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
@@ -834,20 +845,20 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     <button
                         onClick={() => handleSendMessage()}
                         disabled={!inputValue.trim()}
-                        className="px-4 h-12 rounded-2xl bg-brand-purple text-white flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-xs font-bold"
-                        title="Send to AI Assistant"
+                        className="px-3 sm:px-4 h-12 rounded-2xl bg-brand-purple text-white flex items-center justify-center gap-1.5 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-[10px] sm:text-xs font-bold"
+                        title="Send to Vita-AI Assistant"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                        <span className="hidden sm:inline">to AI</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        <span>AI</span>
                     </button>
                     <button
                         onClick={handleSendToCareTeam}
                         disabled={!inputValue.trim()}
-                        className="px-4 h-12 rounded-2xl bg-brand-cyan text-gray-900 flex items-center justify-center gap-2 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-xs font-bold"
+                        className="px-3 sm:px-4 h-12 rounded-2xl bg-brand-cyan text-gray-900 flex items-center justify-center gap-1.5 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-[10px] sm:text-xs font-bold"
                         title="Send to Care Team"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                        <span className="hidden sm:inline">to CareTeam</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <span>Team</span>
                     </button>
                 </div>
             </div>

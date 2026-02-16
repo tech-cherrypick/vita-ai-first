@@ -198,7 +198,8 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                 onBack={handleBackToList}
                 onUpdatePatient={handleUpdatePatientWrapper}
                 onCompleteTask={handleTaskCompletion}
-                onSendMessage={handleSendMessage}
+                chatHistory={globalChatHistory}
+                onSendMessage={handleSendChatMessage}
                 userName={userName}
             />;
         }
