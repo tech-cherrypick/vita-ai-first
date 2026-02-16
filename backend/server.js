@@ -5,11 +5,49 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 const { initializeFirebase, admin } = require('./config/firebaseAdmin');
 
-// Initialize Firebase
-initializeFirebase();
-const db = admin.firestore();
 
 const app = express();
+
+// CORS Configuration
+const allowedOrigins = [
+  /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
+  'https://vita-ai-first.vercel.app',          // Production Vercel domain
+  'http://localhost:3000',
+  'http://localhost:19006',                     // Expo web
+  'http://localhost:8081'                       // React Native
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin matches any pattern (string or regex)
+    const isAllowed = allowedOrigins.some(pattern => {
+      if (pattern instanceof RegExp) {
+        return pattern.test(origin);
+      }
+      return pattern === origin;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({ limit: '11mb' }));
+app.use(express.urlencoded({ limit: '11mb', extended: true }));
+
+// Initialize Firebase Admin
+initializeFirebase();
+const db = admin.firestore();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -18,9 +56,6 @@ const io = new Server(server, {
   }
 });
 
-app.use(cors());
-app.use(express.json({ limit: '11mb' }));
-app.use(express.urlencoded({ limit: '11mb', extended: true }));
 
 // Socket.io Logic
 io.on('connection', (socket) => {
