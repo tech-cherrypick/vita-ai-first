@@ -372,7 +372,14 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
 
                                 <div className="flex-1 pt-1">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>{step.label}</h4>
+                                        <div className="flex items-center gap-2">
+                                            <h4 className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>{step.label}</h4>
+                                            {(sectionId === 'metabolic' || sectionId === 'clinical') && (trackData.date || loopData.date) && (
+                                                <span className="text-[10px] text-gray-900 font-bold">
+                                                    {new Date(trackData.date || loopData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                            )}
+                                        </div>
                                         {isActive && <span className="text-[9px] font-bold bg-brand-cyan/10 text-brand-cyan px-2 py-0.5 rounded uppercase">Current</span>}
                                     </div>
 
