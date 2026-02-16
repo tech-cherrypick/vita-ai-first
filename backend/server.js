@@ -12,7 +12,7 @@ const app = express();
 const allowedOrigins = [
   /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
   'https://vita-ai-first.vercel.app',          // Production Vercel domain
-  'http://localhost:3000',
+  'http://localhost:5174',
   'http://localhost:19006',                     // Expo web
   'http://localhost:8081'                       // React Native
 ];

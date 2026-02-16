@@ -60,47 +60,49 @@ const CareCoordinatorTriageScreen: React.FC<CareCoordinatorTriageScreenProps> = 
 
                         return (
                             <div key={task.id} className={`group hover:bg-gray-50 transition-colors border-l-[6px] ${borderClass}`}>
-                                <button onClick={() => onTaskSelect(task)} className="w-full flex items-center justify-between p-5 text-left">
-                                    <div className="flex items-center gap-5 flex-1 min-w-0">
+                                <button onClick={() => onTaskSelect(task)} className="w-full flex items-center justify-between p-3 sm:p-5 text-left">
+                                    <div className="flex items-start sm:items-center gap-3 sm:gap-5 flex-1 min-w-0">
                                         {/* Avatar */}
-                                        <div className="relative">
+                                        <div className="relative flex-shrink-0">
                                             <img
                                                 src={task.patientImageUrl || 'https://via.placeholder.com/150'}
                                                 alt={task.patientName}
-                                                className="w-12 h-12 rounded-full object-cover border border-gray-100 shadow-sm"
+                                                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border border-gray-100 shadow-sm"
                                             />
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 overflow-hidden">
                                             {/* Row 1: Name + Status Badge */}
-                                            <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-base font-bold text-gray-900 truncate">{task.patientName}</h3>
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-2">
+                                                <h3 className="text-sm sm:text-base font-bold text-gray-900">{task.patientName}</h3>
                                                 {task.patientStatus && (
-                                                    <span className={`px-2.5 py-0.5 inline-flex text-[11px] font-bold rounded-md uppercase tracking-wide ${patientStatusStyle}`}>
+                                                    <span className={`px-2.5 py-0.5 inline-flex text-[10px] sm:text-[11px] font-bold rounded-md uppercase tracking-wide ${patientStatusStyle} w-fit`}>
                                                         {task.patientStatus}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            {/* Row 2: Task Badges (Multiple) */}
-                                            <div className="flex flex-wrap gap-2 items-center">
-                                                {task.types.map((type, idx) => {
-                                                    const typeStyle = typeStyles[type];
-                                                    return (
-                                                        <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100/80 text-gray-600 border border-gray-200 text-xs font-semibold">
-                                                            <span className="text-sm">{typeStyle?.icon}</span>
-                                                            {type}
-                                                        </span>
-                                                    );
-                                                })}
+                                            {/* Row 2: Task Badges (Horizontal Scroll on Mobile) */}
+                                            <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+                                                <div className="flex gap-2 items-center min-w-max">
+                                                    {task.types.map((type, idx) => {
+                                                        const typeStyle = typeStyles[type];
+                                                        return (
+                                                            <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100/80 text-gray-600 border border-gray-200 text-xs font-semibold whitespace-nowrap">
+                                                                <span className="text-sm">{typeStyle?.icon}</span>
+                                                                {type}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Right Side: Time + Chevron */}
-                                    <div className="text-right flex items-center gap-6 ml-4 flex-shrink-0">
-                                        <span className="text-xs font-medium text-gray-400">{task.timestamp}</span>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <div className="text-right flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-6 ml-3 sm:ml-4 flex-shrink-0">
+                                        <span className="text-[10px] sm:text-xs font-medium text-gray-400 whitespace-nowrap">{task.timestamp}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </div>
