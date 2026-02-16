@@ -113,7 +113,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
             case 'patients':
             default:
                 if (selectedPatient) {
-                    return <PatientDetailView patient={selectedPatient} onBack={handleBackToList} onUpdatePatient={onUpdatePatient} onSendMessage={handleSendMessage} />;
+                    return <PatientDetailView patient={selectedPatient} onBack={handleBackToList} onUpdatePatient={onUpdatePatient} chatHistory={globalChatHistory} onSendMessage={handleSendChatMessage} userName={userName} />;
                 }
                 return (
                     <>

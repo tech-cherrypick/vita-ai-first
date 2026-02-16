@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { Patient, TimelineEvent, CareCoordinatorTask } from '../../constants';
+import { Patient, TimelineEvent, CareCoordinatorTask, GlobalChatMessage } from '../../constants';
 import ConsultationTimeline from '../doctor/ConsultationTimeline';
 import PatientProgressTracker from '../doctor/PatientProgressTracker';
 import CareCoordinationCenter from './CaregiverActions';
 import CareCoordinatorPatientProfile from './CaregiverPatientProfile';
 import MedicalReports from '../doctor/MedicalReports';
+import PatientMessagePanel from '../messaging/PatientMessagePanel';
 
 interface CareCoordinatorPatientDetailViewProps {
     patient: Patient;
@@ -13,11 +14,12 @@ interface CareCoordinatorPatientDetailViewProps {
     onBack: () => void;
     onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
     onCompleteTask: (taskId: string) => void;
-    onSendMessage: (patientId: string | number) => void;
+    chatHistory: GlobalChatMessage[];
+    onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
     userName: string;
 }
 
-const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailViewProps> = ({ patient, tasks, onBack, onUpdatePatient, onCompleteTask, onSendMessage, userName }) => {
+const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailViewProps> = ({ patient, tasks, onBack, onUpdatePatient, onCompleteTask, chatHistory, onSendMessage, userName }) => {
     return (
         <div className="animate-fade-in">
             <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 mb-6">
@@ -26,19 +28,12 @@ const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailVie
             </button>
 
             <header className="mb-8">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-5">
-                        <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
-                            <p className="text-gray-600 mt-1">{patient.age} years old • Goal: {patient.goal}</p>
-                        </div>
+                <div className="flex items-center gap-5">
+                    <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
+                        <p className="text-gray-600 mt-1">{patient.age} years old • Goal: {patient.goal}</p>
                     </div>
-                    <button
-                        onClick={() => onSendMessage(patient.id)}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-brand-cyan rounded-lg hover:opacity-90 shadow-sm">
-                        View Messages
-                    </button>
                 </div>
             </header>
 
@@ -63,8 +58,17 @@ const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailVie
                     <PatientProgressTracker logs={patient.weeklyLogs} />
                 </div>
 
-                {/* Sidebar: Profile & Info */}
+                {/* Sidebar: Messages, Profile & Reports */}
                 <div className="space-y-6 lg:sticky lg:top-28">
+                    <PatientMessagePanel
+                        patientId={patient.id}
+                        chatHistory={chatHistory}
+                        onSendMessage={onSendMessage}
+                        userName={userName}
+                        userRole="careCoordinator"
+                        patientName={patient.name}
+                        patientImageUrl={patient.imageUrl}
+                    />
                     <CareCoordinatorPatientProfile patient={patient} />
 
                     {/* Shared Medical Reports Module */}

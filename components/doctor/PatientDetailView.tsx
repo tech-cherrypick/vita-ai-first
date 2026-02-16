@@ -1,22 +1,25 @@
 
 import React from 'react';
-import { Patient, TimelineEvent } from '../../constants';
+import { Patient, TimelineEvent, GlobalChatMessage } from '../../constants';
 import MedicalReports from './MedicalReports';
 import PatientProgressTracker from './PatientProgressTracker';
 import PatientScorecard from './PatientScorecard';
 import ClinicalActionCenter from './ClinicalActionCenter';
 import DoctorChatAssistant from './DoctorChatAssistant';
 import ConsultationTimeline from './ConsultationTimeline';
+import PatientMessagePanel from '../messaging/PatientMessagePanel';
 
 
 interface PatientDetailViewProps {
     patient: Patient;
     onBack: () => void;
     onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'>, updates: Partial<Patient>) => void;
-    onSendMessage: (patientId: string | number) => void;
+    chatHistory: GlobalChatMessage[];
+    onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
+    userName: string;
 }
 
-const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, onSendMessage }) => {
+const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, chatHistory, onSendMessage, userName }) => {
     return (
         <div className="animate-fade-in relative">
             {/* AI Assistant */}
@@ -28,19 +31,12 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
             </button>
 
             <header className="mb-8">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-5">
-                        <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
-                            <p className="text-gray-600 mt-1">{patient.age} years old • Goal: {patient.goal}</p>
-                        </div>
+                <div className="flex items-center gap-5">
+                    <img className="h-20 w-20 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
+                        <p className="text-gray-600 mt-1">{patient.age} years old • Goal: {patient.goal}</p>
                     </div>
-                    <button
-                        onClick={() => onSendMessage(patient.id)}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-brand-purple rounded-lg hover:opacity-90 shadow-sm">
-                        Send Message
-                    </button>
                 </div>
             </header>
 
@@ -64,8 +60,17 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
                     />
                 </div>
 
-                {/* Right: Medical Reports */}
-                <div className="space-y-8">
+                {/* Right: Messages & Medical Reports */}
+                <div className="space-y-6">
+                    <PatientMessagePanel
+                        patientId={patient.id}
+                        chatHistory={chatHistory}
+                        onSendMessage={onSendMessage}
+                        userName={userName}
+                        userRole="doctor"
+                        patientName={patient.name}
+                        patientImageUrl={patient.imageUrl}
+                    />
                     <MedicalReports reports={patient.reports} patientId={patient.id} onUpdatePatient={onUpdatePatient} />
                 </div>
             </div>
