@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import UserDashboard from './screens/UserDashboard';
-import DoctorDashboard from './screens/DoctorDashboard';
-import CareCoordinatorDashboard from './screens/CaregiverDashboard';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Patient, TimelineEvent, CareCoordinatorTask, createNewPatient } from './constants';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
-import UnifiedLoginPage from './screens/UnifiedLoginPage';
-import AdminDashboard from './screens/AdminDashboard';
-import LandingPage from './screens/LandingPage';
+
+// Lazy load all dashboard components for better performance
+const UserDashboard = lazy(() => import('./screens/UserDashboard'));
+const DoctorDashboard = lazy(() => import('./screens/DoctorDashboard'));
+const CareCoordinatorDashboard = lazy(() => import('./screens/CaregiverDashboard'));
+const UnifiedLoginPage = lazy(() => import('./screens/UnifiedLoginPage'));
+const AdminDashboard = lazy(() => import('./screens/AdminDashboard'));
+const LandingPage = lazy(() => import('./screens/LandingPage'));
 
 type UserRole = 'patient' | 'doctor' | 'careCoordinator' | 'trainer' | 'nutritionist' | 'admin';
 
@@ -191,14 +193,6 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log("🛠️ App Mounted");
 
-    // Set a timeout to stop the loading screen if Firebase takes too long
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log("⏳ Auth timeout reached");
-        setIsLoading(false);
-      }
-    }, 5000);
-
     const handleRedirect = async () => {
       try {
         const result = await getRedirectResult(auth);
@@ -213,7 +207,6 @@ const App: React.FC = () => {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("🔥 onAuthStateChanged:", user ? `${user.email} (${user.uid})` : "NO USER");
-      clearTimeout(timeout);
 
       if (user) {
         setFirebaseUser(user);
@@ -249,7 +242,6 @@ const App: React.FC = () => {
 
     return () => {
       unsubscribe();
-      clearTimeout(timeout);
     };
   }, []);
 
@@ -413,10 +405,16 @@ const App: React.FC = () => {
     }
   };
 
-
   return (
     <div className="bg-brand-bg text-brand-text font-sans antialiased relative overflow-x-hidden">
-      {renderContent()}
+      <Suspense fallback={
+        <div className="p-10 text-center flex flex-col items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-purple mb-4"></div>
+          <p className="text-xl font-bold text-brand-purple">Loading...</p>
+        </div>
+      }>
+        {renderContent()}
+      </Suspense>
     </div>
   );
 };

@@ -48,6 +48,8 @@ interface Message {
     color?: string;
     isConnecting?: boolean;
     messageType?: 'ai' | 'careteam'; // NEW: Track message destination
+    createdAt?: string; // ISO Date String
+    timestamp?: string; // Legacy: For old messages with just time string
     widget?: {
         type: WidgetType;
         isComplete: boolean;
@@ -75,6 +77,31 @@ interface PatientLiveProps {
 }
 
 const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdatePatient, onSignOut }) => {
+    // Helper function to format date separators like WhatsApp
+    const getDateSeparator = (isoString?: string) => {
+        if (!isoString) return null;
+        const msgDate = new Date(isoString);
+        if (isNaN(msgDate.getTime())) return null; // Handle invalid dates
+
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (msgDate.toDateString() === today.toDateString()) return 'Today';
+        if (msgDate.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const getDisplayTime = (msg: Message) => {
+        if (msg.createdAt) {
+            const date = new Date(msg.createdAt);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+        }
+        return msg.timestamp || '';
+    };
+
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -84,7 +111,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             color: CARE_MANAGER.color,
             text: "Establishing secure connection...",
             isConnecting: true,
-            messageType: 'ai'
+            messageType: 'ai',
+            createdAt: new Date().toISOString()
         }
     ]);
     const [inputValue, setInputValue] = useState('');
@@ -131,7 +159,16 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 if (response.ok) {
                     const cloudData = await response.json();
                     if (cloudData.chat_history && Array.isArray(cloudData.chat_history.messages) && cloudData.chat_history.messages.length > 0) {
-                        setMessages(cloudData.chat_history.messages);
+                        const mappedMessages = cloudData.chat_history.messages.map((msg: any) => {
+                            // If timestamp is a valid date string (not just time), treat it as createdAt
+                            const isTimestampDate = msg.timestamp && !isNaN(new Date(msg.timestamp).getTime());
+                            return {
+                                ...msg,
+                                createdAt: msg.createdAt || (isTimestampDate ? msg.timestamp : undefined),
+                                timestamp: msg.timestamp // Preserve legacy timestamp
+                            };
+                        });
+                        setMessages(mappedMessages);
                         return true; // Found history
                     }
                 }
@@ -216,7 +253,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         role: message.role,
                         avatar: message.avatar,
                         messageType: 'careteam',
-                        color: message.sender === 'careCoordinator' ? 'text-brand-cyan' : 'text-gray-600'
+                        color: message.sender === 'careCoordinator' ? 'text-brand-cyan' : 'text-gray-600',
+                        createdAt: new Date().toISOString()
                     }]);
                 }
             });
@@ -377,7 +415,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         role: CARE_MANAGER.role,
                         color: CARE_MANAGER.color,
                         text: cleanText,
-                        messageType: 'ai'
+                        messageType: 'ai',
+                        createdAt: new Date().toISOString()
                     }];
                 });
             }
@@ -395,7 +434,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         role: CARE_MANAGER.role,
                         color: CARE_MANAGER.color,
                         widget: { type: wType, isComplete: false },
-                        messageType: 'ai'
+                        messageType: 'ai',
+                        createdAt: new Date().toISOString()
                     }]);
                 }
             }
@@ -410,7 +450,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
         const text = inputValue;
         setInputValue('');
-        setMessages(prev => [...prev, { sender: 'You', text, messageType: 'ai' }]);
+        setMessages(prev => [...prev, { sender: 'You', text, messageType: 'ai', createdAt: new Date().toISOString() }]);
         setIsTyping(true);
 
         try {
@@ -437,7 +477,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             senderId: patient.id,
             senderName: patient.name,
             senderRole: 'patient',
-            avatar: patient.imageUrl || patient.photoURL
+            avatar: patient.imageUrl || patient.photoURL,
+            createdAt: new Date().toISOString()
         };
 
         // Add to local state immediately
@@ -445,7 +486,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             sender: 'You',
             text,
             messageType: 'careteam',
-            avatar: patient.imageUrl || patient.photoURL
+            avatar: patient.imageUrl || patient.photoURL,
+            createdAt: new Date().toISOString()
         }]);
 
         // Emit to socket
@@ -708,79 +750,106 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 no-scrollbar bg-gray-50/50">
                 <div className="max-w-2xl mx-auto flex flex-col gap-6 w-full overflow-x-hidden">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
-                            {/* AI Icon or Avatar */}
-                            {msg.messageType === 'ai' && msg.sender !== 'You' ? (
-                                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shrink-0 shadow-md border-2 border-white">
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                    </svg>
-                                </div>
-                            ) : msg.avatar ? (
-                                <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
-                            ) : null}
-                            <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
-                                {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
-                                {msg.messageType === 'careteam' && msg.sender !== 'You' && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
-                                )}
-                                {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
+                    {messages.map((msg, idx) => {
+                        // Check if we need to show a date separator
+                        const showDateSeparator = idx === 0 || (
+                            messages[idx - 1]?.createdAt && msg.createdAt &&
+                            getDateSeparator(messages[idx - 1].createdAt) !== getDateSeparator(msg.createdAt)
+                        );
 
-                                {msg.text && (
-                                    <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
-                                        <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
-                                    </div>
-                                )}
-
-                                {msg.audioUrl && (
-                                    <div className="mt-2 bg-brand-purple text-white p-3 rounded-2xl rounded-tr-none flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" /></svg>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold uppercase tracking-wider opacity-80">Voice Note</span>
-                                            <audio src={msg.audioUrl} controls className="h-6 w-32 opacity-80" />
+                        return (
+                            <React.Fragment key={idx}>
+                                {/* Date Separator */}
+                                {showDateSeparator && msg.createdAt && (
+                                    <div className="flex justify-center my-4">
+                                        <div className="bg-gray-200/80 text-gray-600 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm">
+                                            {getDateSeparator(msg.createdAt)}
                                         </div>
                                     </div>
                                 )}
 
-                                {msg.widget && (
-                                    <div className="mt-3 w-full max-w-full">
-                                        {msg.widget.isComplete ? (
-                                            <div className="bg-white border border-gray-100 p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-2 group relative">
-                                                <button onClick={() => handleWidgetEdit(idx)} className="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-brand-purple transition-colors">Edit</button>
-                                                <div className="flex items-center gap-3 pr-8">
-                                                    <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>
-                                                    <div><p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Captured</p><p className="text-xs sm:text-sm font-bold text-gray-800 capitalize">{msg.widget.type} Data</p></div>
+                                {/* Message */}
+                                <div className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
+                                    {/* AI Icon or Avatar */}
+                                    {msg.messageType === 'ai' && msg.sender !== 'You' ? (
+                                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shrink-0 shadow-md border-2 border-white">
+                                            <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                            </svg>
+                                        </div>
+                                    ) : msg.avatar ? (
+                                        <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
+                                    ) : null}
+                                    <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
+                                        {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
+                                        {msg.messageType === 'careteam' && msg.sender !== 'You' && (
+                                            <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
+                                        )}
+                                        {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
+
+                                        {msg.text && (
+                                            <div>
+                                                <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
+                                                    <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
                                                 </div>
-                                                {msg.widget.data && <div className="pl-11 text-xs text-gray-600 font-medium">Data saved to secure profile.</div>}
+                                                {(msg.createdAt || msg.timestamp) && (
+                                                    <span className={`text-[10px] text-gray-400 mt-1 block ${msg.sender === 'You' ? 'text-right' : 'text-left'}`}>
+                                                        {getDisplayTime(msg)}
+                                                    </span>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <div className="animate-slide-in-up w-full overflow-x-hidden">
-                                                {msg.widget.type === 'vitals' && <VitalsWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('vitals', d, idx)} />}
-                                                {msg.widget.type === 'medical' && <MedicalOnboardingWidget initialData={msg.widget.data} patientSex={patientSex} onSubmit={(d) => handleWidgetSubmit('medical', d, idx)} />}
-                                                {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
-                                                {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
-                                                {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
-                                                {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} />}
-                                                {msg.widget.type === 'consultation' && (
-                                                    <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
-                                                        <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 7: Doctor Consultation</h3>
-                                                        <ConsultationScheduler
-                                                            onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
-                                                            minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
-                                                            buttonText="Confirm Consultation"
-                                                        />
+                                        )}
+
+                                        {msg.audioUrl && (
+                                            <div className="mt-2 bg-brand-purple text-white p-3 rounded-2xl rounded-tr-none flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" /></svg>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold uppercase tracking-wider opacity-80">Voice Note</span>
+                                                    <audio src={msg.audioUrl} controls className="h-6 w-32 opacity-80" />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {msg.widget && (
+                                            <div className="mt-3 w-full max-w-full">
+                                                {msg.widget.isComplete ? (
+                                                    <div className="bg-white border border-gray-100 p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-2 group relative">
+                                                        <button onClick={() => handleWidgetEdit(idx)} className="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-brand-purple transition-colors">Edit</button>
+                                                        <div className="flex items-center gap-3 pr-8">
+                                                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>
+                                                            <div><p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Captured</p><p className="text-xs sm:text-sm font-bold text-gray-800 capitalize">{msg.widget.type} Data</p></div>
+                                                        </div>
+                                                        {msg.widget.data && <div className="pl-11 text-xs text-gray-600 font-medium">Data saved to secure profile.</div>}
+                                                    </div>
+                                                ) : (
+                                                    <div className="animate-slide-in-up w-full overflow-x-hidden">
+                                                        {msg.widget.type === 'vitals' && <VitalsWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('vitals', d, idx)} />}
+                                                        {msg.widget.type === 'medical' && <MedicalOnboardingWidget initialData={msg.widget.data} patientSex={patientSex} onSubmit={(d) => handleWidgetSubmit('medical', d, idx)} />}
+                                                        {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
+                                                        {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
+                                                        {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
+                                                        {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} />}
+                                                        {msg.widget.type === 'consultation' && (
+                                                            <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
+                                                                <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 7: Doctor Consultation</h3>
+                                                                <ConsultationScheduler
+                                                                    onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
+                                                                    minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
+                                                                    buttonText="Confirm Consultation"
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                                </div>
+                            </React.Fragment>
+                        );
+                    })}
                     {isTyping && (
                         <div className="flex gap-4 animate-fade-in">
                             <img src={CARE_MANAGER.avatar} className="w-10 h-10 rounded-full object-cover grayscale-[30%] opacity-50" />
@@ -825,21 +894,6 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             </svg>
                         </button>
                     </form>
-
-                    {/* Async Voice Message Button */}
-                    <button
-                        type="button"
-                        onMouseDown={startRecording}
-                        onMouseUp={stopRecording}
-                        onTouchStart={startRecording}
-                        onTouchEnd={stopRecording}
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-95 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-brand-cyan text-black hover:bg-brand-cyan/80'}`}
-                        title="Hold to send voice note"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                    </button>
 
                     {/* NEW: Dual Send Buttons */}
                     <button

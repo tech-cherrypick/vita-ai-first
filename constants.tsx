@@ -125,7 +125,7 @@ export const whyGlp1Benefits = [
 // --- Types ---
 export type PatientStatus = 'Assessment Review' | 'Labs Ordered' | 'Awaiting Lab Confirmation' | 'Awaiting Lab Results' | 'Ready for Consult' | 'Consultation Scheduled' | 'Follow-up Required' | 'Awaiting Shipment' | 'Ongoing Treatment' | 'Monitoring Loop' | 'Action Required' | 'Additional Testing Required';
 
-export type CareCoordinatorView = 'triage' | 'schedule' | 'messages' | 'patients';
+export type CareCoordinatorView = 'triage' | 'schedule' | 'patients';
 
 export interface Prescription {
     name: string;
@@ -347,6 +347,7 @@ export interface GlobalChatMessage {
     sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system';
     text: string;
     timestamp: string;
+    createdAt?: string;
     senderName?: string;
     role?: string;
     avatar?: string;

@@ -1,3 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom background gradient styles */
+.bg-blur-gradient-wrapper {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.bg-blur-gradient-wrapper::before,
+.bg-blur-gradient-wrapper::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  z-index: -1;
+  filter: blur(120px);
+  opacity: 0.15;
+}
+
+.bg-blur-gradient-wrapper::before {
+  background-color: #A259FF;
+  top: -100px;
+  left: -150px;
+}
+
+.bg-blur-gradient-wrapper::after {
+  background-color: #00D1FF;
+  bottom: -100px;
+  right: -150px;
+}
+
 /* Utility class to hide scrollbars while maintaining scroll functionality */
 .scrollbar-hide {
     -ms-overflow-style: none;

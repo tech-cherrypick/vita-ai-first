@@ -19,5 +19,34 @@ export default defineConfig({
     // We fallback to 8080 if not set.
     port: Number(process.env.PORT) || 8080,
     allowedHosts: true, // Allow the random Cloud Run domains
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          'socket-vendor': ['socket.io-client'],
+          
+          // Large component chunks
+          'dashboard-patient': ['./screens/UserDashboard'],
+          'dashboard-doctor': ['./screens/DoctorDashboard'],
+          'dashboard-caregiver': ['./screens/CaregiverDashboard'],
+          'dashboard-admin': ['./screens/AdminDashboard'],
+          'landing': ['./screens/LandingPage'],
+        }
+      }
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs in production
+        drop_debugger: true
+      }
+    }
   }
 });
