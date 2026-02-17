@@ -24,10 +24,46 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Filter messages for this patient
+    // Helper to format date separators
+    const getDateSeparator = (isoString?: string) => {
+        if (!isoString) return null;
+        const msgDate = new Date(isoString);
+        if (isNaN(msgDate.getTime())) return null;
+
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (msgDate.toDateString() === today.toDateString()) return 'Today';
+        if (msgDate.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const getDisplayTime = (msg: GlobalChatMessage) => {
+        if (msg.createdAt) {
+            const date = new Date(msg.createdAt);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+        }
+        // Fallback for legacy messages with just time string
+        return msg.timestamp || '';
+    };
+
     const patientMessages = chatHistory
         .filter(m => String(m.patientId) === String(patientId))
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        .sort((a, b) => {
+            const getValidTime = (dateStr?: string) => {
+                if (!dateStr) return 0;
+                const d = new Date(dateStr).getTime();
+                return isNaN(d) ? 0 : d;
+            };
+
+            const timeA = getValidTime(a.createdAt) || getValidTime(a.timestamp);
+            const timeB = getValidTime(b.createdAt) || getValidTime(b.timestamp);
+
+            return timeA - timeB;
+        });
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -46,7 +82,8 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
             text: inputValue,
             avatar: userRole === 'doctor'
                 ? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop'
-                : 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop'
+                : 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop',
+            createdAt: new Date().toISOString()
         };
 
         onSendMessage(messageData);
@@ -83,17 +120,33 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                         <p>No messages yet. Start the conversation!</p>
                     </div>
                 ) : (
-                    patientMessages.map((msg) => (
-                        <div key={msg.id} className={`max-w-[85%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
-                            {msg.sender !== userRole && msg.sender !== 'patient' && msg.sender !== 'system' && (
-                                <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.senderName || msg.role}</p>
-                            )}
-                            <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
-                            <p className="text-[10px] mt-1 text-right opacity-60">
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                        </div>
-                    ))
+                    patientMessages.map((msg, idx) => {
+                        const showDateSeparator = idx === 0 || (
+                            patientMessages[idx - 1]?.createdAt && msg.createdAt &&
+                            getDateSeparator(patientMessages[idx - 1].createdAt) !== getDateSeparator(msg.createdAt)
+                        );
+
+                        return (
+                            <React.Fragment key={msg.id}>
+                                {showDateSeparator && msg.createdAt && (
+                                    <div className="flex justify-center my-4">
+                                        <div className="bg-gray-100 text-gray-500 text-[10px] font-bold px-3 py-1 rounded-full">
+                                            {getDateSeparator(msg.createdAt)}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
+                                    {msg.sender !== userRole && msg.sender !== 'patient' && msg.sender !== 'system' && (
+                                        <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.senderName || msg.role}</p>
+                                    )}
+                                    <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
+                                    <p className="text-[10px] mt-1 text-right opacity-60">
+                                        {getDisplayTime(msg)}
+                                    </p>
+                                </div>
+                            </React.Fragment>
+                        );
+                    })
                 )}
                 <div ref={messagesEndRef} />
             </div>

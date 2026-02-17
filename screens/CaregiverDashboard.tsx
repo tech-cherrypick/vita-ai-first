@@ -4,7 +4,6 @@ import { Patient, CareCoordinatorTask, TimelineEvent, CareCoordinatorView, mockC
 import CareCoordinatorHeader from '../components/caregiver/CaregiverHeader';
 import CareCoordinatorTriageScreen from './caregiver/CaregiverTriageScreen';
 import CareCoordinatorScheduleScreen from './caregiver/CaregiverScheduleScreen';
-import CareCoordinatorMessagesScreen from './caregiver/CaregiverMessagesScreen';
 import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverPatientDetailView';
 import PatientList from '../components/doctor/PatientList';
 import { getSocket } from '../socket';
@@ -21,7 +20,6 @@ interface CareCoordinatorDashboardProps {
 const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask, userName }) => {
     const [view, setView] = useState<CareCoordinatorView>('triage');
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
-    const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const socket = getSocket();
 
@@ -46,7 +44,14 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    setGlobalChatHistory(data);
+                    const mappedData = data.map((msg: GlobalChatMessage) => {
+                        const isTimestampDate = msg.timestamp && !isNaN(new Date(msg.timestamp).getTime());
+                        return {
+                            ...msg,
+                            createdAt: msg.createdAt || (isTimestampDate ? msg.timestamp : undefined)
+                        };
+                    });
+                    setGlobalChatHistory(mappedData);
                 }
             } catch (err) {
                 console.error('Failed to fetch global chat history', err);
@@ -162,12 +167,6 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         setSelectedPatientId(null);
     };
 
-    const handleSendMessage = (patientId: string | number) => {
-        setActiveThreadId(patientId.toString());
-        setView('messages');
-        setSelectedPatientId(null);
-    };
-
     const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
         const messageData = {
             ...msg,
@@ -207,16 +206,6 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         switch (view) {
             case 'schedule':
                 return <CareCoordinatorScheduleScreen />;
-            case 'messages':
-                return (
-                    <CareCoordinatorMessagesScreen
-                        initialSelectedThreadId={activeThreadId}
-                        chatHistory={globalChatHistory}
-                        allPatients={allPatients}
-                        onSendMessage={handleSendChatMessage}
-                        userName={userName}
-                    />
-                );
             case 'patients':
                 return (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

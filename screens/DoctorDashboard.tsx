@@ -5,10 +5,9 @@ import PatientList from '../components/doctor/PatientList';
 import PatientDetailView from '../components/doctor/PatientDetailView';
 import { Patient, TimelineEvent, GlobalChatMessage } from '../constants';
 import DoctorScheduleScreen from './doctor/DoctorScheduleScreen';
-import DoctorMessagesScreen from './doctor/DoctorMessagesScreen';
 import { getSocket } from '../socket';
 
-export type DoctorView = 'patients' | 'schedule' | 'messages';
+export type DoctorView = 'patients' | 'schedule';
 
 interface DoctorDashboardProps {
     onSignOut: () => void;
@@ -21,7 +20,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     // Store ID instead of object to prevent stale data
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [view, setView] = useState<DoctorView>('patients');
-    const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const socket = getSocket();
 
@@ -46,7 +44,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    setGlobalChatHistory(data);
+                    const mappedData = data.map((msg: GlobalChatMessage) => {
+                        const isTimestampDate = msg.timestamp && !isNaN(new Date(msg.timestamp).getTime());
+                        return {
+                            ...msg,
+                            createdAt: msg.createdAt || (isTimestampDate ? msg.timestamp : undefined)
+                        };
+                    });
+                    setGlobalChatHistory(mappedData);
                 }
             } catch (err) {
                 console.error('Failed to fetch global chat history', err);
@@ -82,12 +87,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         setSelectedPatientId(null);
     };
 
-    const handleSendMessage = (patientId: string | number) => {
-        // Direct navigation to message thread for this patient
-        setActiveThreadId(patientId.toString());
-        setView('messages');
-    };
-
     const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
         const messageData = {
             ...msg,
@@ -100,16 +99,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         switch (view) {
             case 'schedule':
                 return <DoctorScheduleScreen allPatients={allPatients} onPatientSelect={handlePatientSelect} />;
-            case 'messages':
-                return (
-                    <DoctorMessagesScreen
-                        initialSelectedThreadId={activeThreadId}
-                        chatHistory={globalChatHistory}
-                        allPatients={allPatients}
-                        onSendMessage={handleSendChatMessage}
-                        userName={userName}
-                    />
-                );
             case 'patients':
             default:
                 if (selectedPatient) {
