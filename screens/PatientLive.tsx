@@ -126,6 +126,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         return ['Ongoing Treatment', 'Monitoring Loop', 'Awaiting Shipment'].includes(patient.status);
     });
     const [patientSex, setPatientSex] = useState<string>(''); // Lifted state for conditional logic
+    const [isLoading, setIsLoading] = useState(true); // NEW: Track initial loading state
 
     // Chat State
     const [chatSession, setChatSession] = useState<any>(null);
@@ -174,6 +175,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 }
             } catch (err) {
                 console.error("Failed to fetch chat history:", err);
+            } finally {
+                setIsLoading(false); // Stop loading regardless of success/failure
             }
             return false;
         };
@@ -185,6 +188,9 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             try {
                 const hasHistory = await fetchHistory();
                 if (ignore) return;
+                // If no history found, isLoading will be set to false in finally block of fetchHistory. 
+                // However, if we didn't fetch history (e.g. no user), we should also stop loading.
+                if (!auth.currentUser) setIsLoading(false);
 
                 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
                 const chat = ai.chats.create({
@@ -232,6 +238,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             } catch (e) {
                 console.error("Chat Init Error", e);
                 setMessages(prev => [...prev, { sender: 'System', text: 'Connection failed. Please refresh.', messageType: 'ai' }]);
+                setIsLoading(false);
             }
         };
 
@@ -708,6 +715,32 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     };
 
     const starterChips = ["What should I eat?", "Side effects?", "How do GLP-1s work?", "My next steps?"];
+
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 z-50 bg-white flex flex-col font-sans overflow-hidden animate-fade-in">
+                <header className="bg-white border-b border-gray-100 p-6 flex justify-between items-center shrink-0 z-20 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => onNavigate('dashboard')} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <div className="text-brand-purple">
+                                <VitaLogo />
+                            </div>
+                            <span className="font-bold text-gray-900 tracking-tight">Live Lounge</span>
+                        </div>
+                    </div>
+                </header>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 border-4 border-brand-purple/20 border-t-brand-purple rounded-full animate-spin"></div>
+                        <p className="text-sm text-gray-500 font-medium animate-pulse">Connecting to secure health channel...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-50 bg-brand-bg flex flex-col font-sans overflow-hidden animate-fade-in">
