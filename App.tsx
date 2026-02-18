@@ -105,11 +105,21 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error("☁️ Failed to fetch cloud data:", err);
+      // Fallback to ensure we don't show "User not found"
       const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '');
       setPatients([fallbackPatient]);
       setCurrentPatientId(fallbackPatient.id);
     } finally {
       setIsLoading(false);
+      // Double check: if patients is still empty for some reason, add one
+      setPatients(prev => {
+        if (prev.length === 0) {
+          const fallback = createNewPatient(user.displayName || 'User', user.email || '', '');
+          setCurrentPatientId(fallback.id);
+          return [fallback];
+        }
+        return prev;
+      });
     }
   };
 
