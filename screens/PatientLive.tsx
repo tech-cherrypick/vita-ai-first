@@ -192,47 +192,77 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 // However, if we didn't fetch history (e.g. no user), we should also stop loading.
                 if (!auth.currentUser) setIsLoading(false);
 
+                // Determine context based on what data is present
+                const completedSteps = [];
+                if (patient.vitals && patient.vitals.length > 0) completedSteps.push('vitals');
+                if (patient.medical && Object.keys(patient.medical).length > 0) completedSteps.push('medical');
+                if (patient.psych && Object.keys(patient.psych).length > 0) completedSteps.push('psych');
+                // Check tracking for labs/consult/payment
+                if (patient.tracking?.labs?.status && patient.tracking.labs.status !== 'Pending') completedSteps.push('labs');
+                if (patient.tracking?.consultation?.status && patient.tracking.consultation.status !== 'Pending') completedSteps.push('consultation');
+                if (patient.shippingAddress?.line1) completedSteps.push('profile');
+                // Payment is harder to track without explicit flag, assuming if Consult is booked, Payment is done or not needed yet for this flow
+                if (completedSteps.includes('consultation')) completedSteps.push('payment');
+
+                const contextString = `
+                    **CURRENT_CONTEXT**:
+                    - Patient Name: ${patient.name}
+                    - Status: ${patient.status}
+                    - Completed Steps: ${completedSteps.join(', ')}
+                    - Onboarding Progress: ${onboardingProgress}%
+                    `;
+
                 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-                const chat = ai.chats.create({
-                    model: 'gemini-3-flash-preview',
+                const newChatSession = ai.chats.create({
+                    model: 'gemini-2.0-flash',
                     config: {
                         systemInstruction: `You are Alex Ray, the Vita Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
 
+                        ${contextString}
+
                         **TONE:** Professional, warm, efficient. Indian English nuance (use "Kindly", "Right then", "Please do the needful").
-                        
-                        **PROTOCOL:**
-                        1. **EXPLAIN FIRST**: Always explain *why* we need data before asking for it.
-                        2. **TRIGGER WIDGET**: Call the \`triggerWidget\` tool to show the form. 
-                           - **IMPORTANT**: Do not print the JSON. You must EXECUTE the function \`triggerWidget\`. 
-                           - If you need to verify vitals, call triggerWidget({ widgetType: 'vitals' }).
-                        3. **WAIT**: Once a widget is triggered, stop generating and wait for the system to confirm capture.
-                        
-                        **SEQUENCE:**
-                        1. **INTRO -> VITALS**: Explain BMI, Visceral Fat, and Body Composition. Ask for age, sex, and detailed measurements including neck, hip, and waist for accurate analysis. Tool: 'vitals'.
-                        2. **MEDICAL**: Explain safety/contraindications. Tool: 'medical'.
+
+                        **CRITICAL PROTOCOL - READ FIRST**:
+                        1. **CHECK CONTEXT**: Before asking for ANY data, check 'Completed Steps' above. **NEVER** ask for a step that is already in 'Completed Steps'.
+                        2. **NO LOOPS**: If the user just completed a step (e.g., Consultation), CONFIRM it ("Excellent, consultation updated") and then **STOP**. Do NOT automatically loop back to Step 1 (Vitals) or ask for things you already have.
+                        3. **ONE-OFF UPDATES**: If the user asks to update a specific item (like "Change consultation"), do ONLY that. After the widget is processed, simply say "I've updated that for you. Is there anything else?" and WAIT.
+                        4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects.
+
+                        **INTAKE SEQUENCE (Only for MISSING items):**
+                        1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
+                        2. **MEDICAL**: Explain safety. Tool: 'medical'.
                         3. **PSYCH**: Explain brain-gut connection. Tool: 'psych'.
                         4. **LABS**: Explain baseline safety. Tool: 'labs'.
-                        5. **PROFILE**: Explain shipping logistics. Tool: 'profile'.
+                        5. **PROFILE**: Explain shipping. Tool: 'profile'.
                         6. **PAYMENT**: Explain commitment. Tool: 'payment'.
                         7. **CONSULT**: Explain doctor review. Tool: 'consultation'.
-                        8. **DONE**: Open Q&A.
-                        
-                        Do not hallucinate that steps are done. Wait for "SYSTEM: Captured..." messages.
+
+                        **RULES**:
+                        - **EXPLAIN FIRST**: Always explain *why* we need data before asking.
+                        - **TRIGGER WIDGET**: Use the \`triggerWidget\` tool to show the form.
+                        - **WAIT**: After triggering a widget, stop generating.
                         `,
                         tools: [{ functionDeclarations: [triggerWidgetTool] }],
                     },
                 });
 
-                setChatSession(chat);
+                setChatSession(newChatSession);
 
                 if (!hasHistory) {
-                    // Kickoff for new user
-                    setIsTyping(true);
-                    const res = await chat.sendMessage({ message: "SYSTEM: Session Start. Introduce yourself and start Step 1." });
-                    if (!ignore) processResponse(res);
+                    // Kickoff for new user ONLY if they really have nothing done
+                    if (completedSteps.length === 0) {
+                        setIsTyping(true);
+                        const res = await newChatSession.sendMessage({ message: "SYSTEM: Session Start. Introduce yourself and start Step 1." });
+                        if (!ignore) processResponse(res);
+                    } else {
+                        // If we have some history/data but no chat history, just greet.
+                        setIsTyping(true);
+                        const res = await newChatSession.sendMessage({ message: "SYSTEM: Session Start. User has some data. Greet them and ask how to help." });
+                        if (!ignore) processResponse(res);
+                    }
                 } else {
                     // For existing users, we inform the AI about current state
-                    const res = await chat.sendMessage({ message: `SYSTEM: Session Load. User is returning. Current progress is ${onboardingProgress}%. Check messages for context.` });
+                    const res = await newChatSession.sendMessage({ message: `SYSTEM: Session Load. User is returning. Current progress is ${onboardingProgress}%. Check messages for context.` });
                     // We don't necessarily need to process the response if we just want it to be ready
                 }
             } catch (e) {
@@ -671,16 +701,29 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             if (currentIndex !== -1 && currentIndex < widgetOrder.length - 1) {
                 const nextWidget = widgetOrder[currentIndex + 1];
                 console.log("Fallback triggering next widget:", nextWidget);
-                setTimeout(() => {
-                    setMessages(prev => [...prev, {
-                        sender: 'Vita-AI',
-                        role: CARE_MANAGER.role,
-                        color: CARE_MANAGER.color,
-                        text: "Data recorded. Let's move to the next section.",
-                        widget: { type: nextWidget, isComplete: false },
-                        messageType: 'ai'
-                    }]);
-                }, 1000);
+                // Only auto-advance if we are early in the process. If it's a late stage (like consult), don't auto-advance blindly.
+                if (wType !== 'consultation') {
+                    setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            sender: 'Vita-AI',
+                            role: CARE_MANAGER.role,
+                            color: CARE_MANAGER.color,
+                            text: "Data recorded. Moving to the next step.",
+                            widget: { type: nextWidget, isComplete: false },
+                            messageType: 'ai'
+                        }]);
+                    }, 1000);
+                } else {
+                    setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            sender: 'Vita-AI',
+                            role: CARE_MANAGER.role,
+                            color: CARE_MANAGER.color,
+                            text: "Consultation booked successfully. Your care team will review your profile shortly.",
+                            messageType: 'ai'
+                        }]);
+                    }, 1000);
+                }
             }
         }
 
