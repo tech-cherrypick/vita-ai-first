@@ -6,6 +6,7 @@ import { Patient, VitaLogo } from '../constants';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
 import SideMenu from '../components/dashboard/SideMenu';
+import PaymentComponent from '../components/dashboard/PaymentComponent';
 import { getSocket } from '../socket';
 
 // --- Type Definitions for Speech API ---
@@ -490,6 +491,23 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         setMessages(prev => [...prev, { sender: 'You', text, messageType: 'ai', createdAt: new Date().toISOString() }]);
         setIsTyping(true);
 
+        // --- TEST PAYMENT TRIGGER ---
+        if (text.toLowerCase().includes("provide me the test payment option")) {
+            setTimeout(() => {
+                setMessages(prev => [...prev, {
+                    sender: 'Vita-AI',
+                    role: CARE_MANAGER.role,
+                    color: CARE_MANAGER.color,
+                    text: "Here is the test payment option for ₹1. Please verify the gateway.",
+                    widget: { type: 'payment', isComplete: false, data: { amount: 1 } },
+                    messageType: 'ai',
+                    createdAt: new Date().toISOString()
+                }]);
+                setIsTyping(false);
+            }, 1000);
+            return;
+        }
+
         try {
             const res = await chatSession.sendMessage({ message: text });
             processResponse(res);
@@ -906,7 +924,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                                         {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
                                                         {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
                                                         {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
-                                                        {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} />}
+                                                        {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} patient={patient} initialData={msg.widget.data} />}
                                                         {msg.widget.type === 'consultation' && (
                                                             <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
                                                                 <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 7: Doctor Consultation</h3>
@@ -1349,24 +1367,20 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
     );
 }
 
-const PaymentWidget: React.FC<{ onSubmit: (d: any) => void }> = ({ onSubmit }) => {
-    const [isProcessing, setIsProcessing] = useState(false);
-    const handlePay = () => {
-        setIsProcessing(true);
-        setTimeout(() => onSubmit({ amount: 3999, status: 'success' }), 2000);
-    };
-
-    if (isProcessing) return <div className="p-8 text-center bg-white rounded-[32px] border border-gray-100 shadow-xl"><p className="animate-pulse font-bold text-brand-purple">Processing Secure Payment...</p></div>;
-
+const PaymentWidget: React.FC<{ onSubmit: (d: any) => void; patient: Patient; initialData?: any }> = ({ onSubmit, patient, initialData }) => {
+    // PaymentComponent now handles the complete flow
     return (
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-xl w-full">
-            <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tighter">Phase 6: Secure Spot</h3>
-            <div className="bg-gray-50 p-4 rounded-2xl mb-6 space-y-2">
-                <div className="flex justify-between text-sm font-medium text-gray-600"><span>Metabolic Lab Panel</span><span>₹2,499</span></div>
-                <div className="flex justify-between text-sm font-medium text-gray-600"><span>Doctor Consultation</span><span>₹1,500</span></div>
-                <div className="border-t border-gray-200 pt-2 flex justify-between text-base font-bold text-brand-text"><span>Total</span><span>₹3,999</span></div>
-            </div>
-            <button onClick={handlePay} className="w-full py-4 bg-green-500 text-white font-black rounded-2xl uppercase tracking-widest text-[9px] shadow-lg hover:bg-green-600 transition-all">Pay & Finish</button>
+            <PaymentComponent
+                onPaymentSuccess={(orderId) => onSubmit({ amount: initialData?.amount || 3999, status: 'success', orderId })}
+                patientDetails={{
+                    id: String(patient.id),
+                    name: patient.name,
+                    email: patient.email,
+                    phone: patient.phone ? String(patient.phone) : "9999999999" // Fallback if phone not in object
+                }}
+                amount={initialData?.amount}
+            />
         </div>
     );
 }

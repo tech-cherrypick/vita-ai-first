@@ -13,6 +13,7 @@ const allowedOrigins = [
   /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
   'https://vita-ai-first.vercel.app',          // Production Vercel domain
   'http://localhost:5174',
+  'http://localhost:5173',
   'http://localhost:19006',                     // Expo web
   'http://localhost:8081'                       // React Native
 ];
@@ -114,6 +115,7 @@ app.use('/api/user', userRoutes);
 app.use('/api', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctor', doctorRoutes);
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // Health Check
 app.get('/', (req, res) => {
