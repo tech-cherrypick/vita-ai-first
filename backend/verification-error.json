@@ -1,0 +1,12 @@
+{
+  "status": 500,
+  "data": {
+    "message": "Error creating payment order",
+    "error": {
+      "code": "_invalid",
+      "help": "Check latest errors and resolution from Merchant Dashboard API logs: https://bit.ly/4glEd0W Help Document: https://bit.ly/4eeZYO9",
+      "message": " should be request.CreateOrderRequest",
+      "type": "invalid_request_error"
+    }
+  }
+}
