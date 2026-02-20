@@ -1,62 +1,35 @@
-const { Cashfree, CFEnvironment } = require('cashfree-pg');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
 require('dotenv').config();
 
-// Static configuration removed - using instance-based config in methods
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 exports.createPaymentOrder = async (req, res) => {
     try {
         const { orderAmount, customerId, customerPhone, customerName, customerEmail } = req.body;
 
-        const cashfree = new Cashfree();
-        cashfree.XClientId = process.env.CASHFREE_APP_ID;
-        cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
-        
-        // Map string from env to CFEnvironment enum
-        if (process.env.CASHFREE_ENVIRONMENT === 'PRODUCTION') {
-            cashfree.XEnvironment = CFEnvironment.PRODUCTION;
-        } else {
-            cashfree.XEnvironment = CFEnvironment.SANDBOX;
-        }
-        
-        console.log("Cashfree Configured:", { 
-            id: cashfree.XClientId ? 'Set' : 'Missing', 
-            env: cashfree.XEnvironment 
-        });
-
-        const request = {
-            order_amount: orderAmount,
-            order_currency: "INR",
-            customer_details: {
-                customer_id: customerId,
-                customer_phone: customerPhone,
-                customer_name: customerName,
-                customer_email: customerEmail
-            },
-            order_meta: {
-                return_url: "https://your-app-url.com/payment/status?order_id={order_id}"
+        const options = {
+            amount: orderAmount * 100, // Amount in paise
+            currency: "INR",
+            receipt: `receipt_${Date.now()}`,
+            notes: {
+                customerId,
+                customerPhone,
+                customerName,
+                customerEmail
             }
         };
 
-        // Set API Version
-        cashfree.XApiVersion = "2023-08-01";
+        const order = await razorpay.orders.create(options);
 
-        console.log("Creating Order with Request:", JSON.stringify(request, null, 2));
+        console.log("Razorpay Order Created:", order);
+        res.status(200).json(order);
 
-        // Call PGCreateOrder with just the request object (signature is (request, id, idempotency, options))
-        const response = await cashfree.PGCreateOrder(request);
-        
-        console.log("Order Created Successfully:", response.data);
-        res.status(200).json(response.data);
     } catch (error) {
-        console.error("Error creating order:", error.message);
-        if (error.response) {
-            console.error("API Error Response:", JSON.stringify(error.response.data, null, 2));
-            // Send the full error data from Cashfree
-            return res.status(500).json({ 
-                message: "Error creating payment order", 
-                error: error.response.data 
-            });
-        }
+        console.error("Error creating Razorpay order:", error);
         res.status(500).json({ 
             message: "Error creating payment order", 
             error: error.message 
@@ -66,9 +39,23 @@ exports.createPaymentOrder = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
     try {
-        const { orderId } = req.body;
-        const response = await Cashfree.PGOrderFetchPayments("2023-08-01", orderId);
-        res.status(200).json(response.data);
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(body.toString())
+            .digest('hex');
+
+        if (expectedSignature === razorpay_signature) {
+            console.log("Payment Verification Successful");
+            res.status(200).json({ status: "success", message: "Payment verified successfully" });
+        } else {
+            console.error("Payment Verification Failed: Signature Mismatch");
+            res.status(400).json({ status: "failure", message: "Invalid signature" });
+        }
+
     } catch (error) {
         console.error("Error verifying payment:", error);
         res.status(500).json({ message: "Error verifying payment", error: error.message });
