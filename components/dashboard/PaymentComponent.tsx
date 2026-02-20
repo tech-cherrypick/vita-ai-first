@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 
-// Declare global Cashfree variable
+// Declare global Razorpay variable
 declare global {
     interface Window {
-        Cashfree: any;
+        Razorpay: any;
     }
 }
 
@@ -35,19 +34,17 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({ onPaymentSuccess, p
     const handlePayment = async () => {
         setIsProcessing(true);
         try {
-            // Check if Cashfree SDK is loaded
-            if (!window.Cashfree) {
-                console.error("Cashfree SDK not loaded");
+            // Check if Razorpay SDK is loaded
+            if (!window.Razorpay) {
+                console.error("Razorpay SDK not loaded");
                 alert("Payment system not ready. Please refresh the page.");
                 setIsProcessing(false);
                 return;
             }
 
-            const cashfree = new window.Cashfree({
-                mode: import.meta.env.VITE_CASHFREE_MODE || "sandbox"
-            });
-
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+            // 1. Create Order
             const res = await fetch(`${API_BASE_URL}/api/payment/create-order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -60,31 +57,75 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({ onPaymentSuccess, p
                 })
             });
 
-            const data = await res.json();
+            const order = await res.json();
 
-            if (data.payment_session_id) {
-                const checkoutOptions = {
-                    paymentSessionId: data.payment_session_id,
-                    redirectTarget: "_modal",
+            if (order.id) {
+                const options = {
+                    key: import.meta.env.VITE_RAZORPAY_KEY_ID || "YOUR_RAZORPAY_KEY_ID", // Enter the Key ID generated from the Dashboard
+                    amount: order.amount,
+                    currency: order.currency,
+                    name: "Vita AI",
+                    description: "Doctor Consultation & Lab Panel",
+                    // image: "https://your-logo-url.com/logo.png", // Optional
+                    order_id: order.id,
+                    handler: async function (response: any) {
+                        console.log("Payment Successful:", response);
+
+                        // 2. Verify Payment
+                        try {
+                            const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-order`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature
+                                })
+                            });
+
+                            const verifyData = await verifyRes.json();
+
+                            if (verifyData.status === 'success') {
+                                onPaymentSuccess(order.id);
+                            } else {
+                                alert("Payment verification failed!");
+                            }
+                        } catch (verifyError) {
+                            console.error("Verification Error:", verifyError);
+                            alert("Payment verification failed due to network error.");
+                        } finally {
+                            setIsProcessing(false);
+                        }
+                    },
+                    prefill: {
+                        name: patientDetails.name || '',
+                        email: patientDetails.email || '',
+                        contact: patientDetails.phone || ''
+                    },
+                    notes: {
+                        address: "Razorpay Corporate Office"
+                    },
+                    theme: {
+                        color: "#9F7AEA" // brand-purple roughly
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            console.log("Checkout form closed");
+                            setIsProcessing(false);
+                        }
+                    }
                 };
 
-                cashfree.checkout(checkoutOptions).then((result: any) => {
-                    if (result.error) {
-                        console.log("User cancelled payment or error occured", result.error);
-                        setIsProcessing(false);
-                    }
-                    if (result.redirect) {
-                        console.log("Payment redirection");
-                        setIsProcessing(false);
-                    }
-                    if (result.paymentDetails) {
-                        console.log("Payment completed", result.paymentDetails);
-                        onPaymentSuccess(data.order_id);
-                    }
+                const rzp1 = new window.Razorpay(options);
+                rzp1.on('payment.failed', function (response: any) {
+                    console.error("Payment Failed:", response.error);
+                    alert(`Payment Failed: ${response.error.description || "Unknown error"}`);
+                    setIsProcessing(false);
                 });
+                rzp1.open();
 
             } else {
-                console.error("Failed to create payment session", data);
+                console.error("Failed to create payment order", order);
                 setIsProcessing(false);
                 alert("Failed to initiate payment. Please try again.");
             }
@@ -143,7 +184,7 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({ onPaymentSuccess, p
             </GradientButton>
             <p className="text-xs text-gray-400 mt-4 flex justify-center items-center gap-1">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14h-2v-2h2v2zm0-4h-2V7h2v5z" /></svg>
-                Secured by Cashfree Payments
+                Secured by Razorpay
             </p>
 
         </div>
