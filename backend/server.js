@@ -3,6 +3,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
+const path = require('path');
 const { initializeFirebase, admin } = require('./config/firebaseAdmin');
 
 
@@ -118,8 +119,17 @@ app.use('/api/doctor', doctorRoutes);
 app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // Health Check
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).send('🚀 Vita AI Backend is running with WebSockets!');
+});
+
+// Serve static files from the frontend build
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Catch-all route to serve index.html for client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
