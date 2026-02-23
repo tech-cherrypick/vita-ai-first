@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+.env
+.env.local
+service-account.json
+backend/service-account.json
+backend/.env
+# dist and node_modules are already listed above, so not adding them again to avoid redundancy.
+# dist
+# node_modules
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
