@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 const { initializeFirebase, admin } = require('./config/firebaseAdmin');
 
 
