@@ -83,6 +83,7 @@ io.on('connection', (socket) => {
         senderName,
         role: role === 'careCoordinator' ? 'Care Coordinator' : (role === 'doctor' ? 'Physician' : 'Patient'),
         text,
+        attachment: data.attachment || null,
         avatar,
         timestamp: admin.firestore.FieldValue.serverTimestamp()
       };

@@ -7,7 +7,10 @@ import LabScheduler from '../components/dashboard/LabScheduler';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
 import SideMenu from '../components/dashboard/SideMenu';
 import PaymentComponent from '../components/dashboard/PaymentComponent';
+import FileUploadButton from '../components/messaging/FileUploadButton';
+import ChatAttachment from '../components/messaging/ChatAttachment';
 import { getSocket } from '../socket';
+import { ChatAttachment as ChatAttachmentType } from '../constants';
 
 // --- Type Definitions for Speech API ---
 interface SpeechRecognition extends EventTarget {
@@ -56,6 +59,7 @@ interface Message {
         isComplete: boolean;
         data?: any;
     };
+    attachment?: ChatAttachmentType;
 }
 
 const triggerWidgetTool: FunctionDeclaration = {
@@ -117,6 +121,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
     ]);
     const [inputValue, setInputValue] = useState('');
+    const [attachment, setAttachment] = useState<ChatAttachmentType | null>(null);
     const [onboardingProgress, setOnboardingProgress] = useState(() => {
         if (patient.status === 'Ongoing Treatment' || patient.status === 'Monitoring Loop') return 100;
         const pMap: Record<string, number> = { 'Assessment Review': 20, 'Labs Ordered': 60, 'Ready for Consult': 90 };
@@ -292,6 +297,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         avatar: message.avatar,
                         messageType: 'careteam',
                         color: message.sender === 'careCoordinator' ? 'text-brand-cyan' : 'text-gray-600',
+                        attachment: message.attachment,
                         createdAt: new Date().toISOString()
                     }]);
                 }
@@ -482,13 +488,21 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!inputValue.trim() || !chatSession) return;
+        if ((!inputValue.trim() && !attachment) || !chatSession) return;
 
         if (isListening) toggleDictation(); // Stop listening if sending
 
         const text = inputValue;
+        const currentAttachment = attachment;
         setInputValue('');
-        setMessages(prev => [...prev, { sender: 'You', text, messageType: 'ai', createdAt: new Date().toISOString() }]);
+        setAttachment(null);
+        setMessages(prev => [...prev, {
+            sender: 'You',
+            text,
+            attachment: currentAttachment || undefined,
+            messageType: 'ai',
+            createdAt: new Date().toISOString()
+        }]);
         setIsTyping(true);
 
         // --- TEST PAYMENT TRIGGER ---
@@ -519,16 +533,19 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     // NEW: Handle CareTeam message sending
     const handleSendToCareTeam = () => {
-        if (!inputValue.trim() || !socketRef.current) return;
+        if ((!inputValue.trim() && !attachment) || !socketRef.current) return;
 
         if (isListening) toggleDictation();
 
         const text = inputValue;
+        const currentAttachment = attachment;
         setInputValue('');
+        setAttachment(null);
 
         const messageData = {
             patientUid: patient.id,
             text,
+            attachment: currentAttachment,
             senderId: patient.id,
             senderName: patient.name,
             senderRole: 'patient',
@@ -540,6 +557,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         setMessages(prev => [...prev, {
             sender: 'You',
             text,
+            attachment: currentAttachment || undefined,
             messageType: 'careteam',
             avatar: patient.imageUrl || patient.photoURL,
             createdAt: new Date().toISOString()
@@ -884,7 +902,13 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                         {msg.text && (
                                             <div>
                                                 <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
-                                                    <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
+                                                    {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />}
+                                                    {msg.attachment && (
+                                                        <ChatAttachment
+                                                            attachment={msg.attachment}
+                                                            isMine={msg.sender === 'You'}
+                                                        />
+                                                    )}
                                                 </div>
                                                 {(msg.createdAt || msg.timestamp) && (
                                                     <span className={`text-[10px] text-gray-400 mt-1 block ${msg.sender === 'You' ? 'text-right' : 'text-left'}`}>
@@ -960,6 +984,33 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
             {/* Input Area */}
             <div className="p-4 sm:p-6 bg-white border-t border-gray-100 shrink-0 relative z-20">
+                {attachment && (
+                    <div className="max-w-2xl mx-auto mb-3 p-2 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between animate-slide-in-up">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 border border-gray-100">
+                                {attachment.type.startsWith('image/') ? (
+                                    <img src={attachment.url} className="w-full h-full object-cover rounded" />
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                )}
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-xs font-bold truncate text-gray-700">{attachment.name}</p>
+                                <p className="text-[10px] text-gray-400 uppercase font-black">{attachment.type.split('/')[1]}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setAttachment(null)}
+                            className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
                 {isOnboardingComplete && (
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 -mt-2 justify-start sm:justify-center">
                         {starterChips.map(chip => (
@@ -970,11 +1021,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
                 <div className="max-w-2xl mx-auto flex items-end gap-2">
                     <form onSubmit={handleSendMessage} className="flex-1 bg-gray-50 rounded-2xl border border-gray-200 px-4 py-3 flex items-center focus-within:ring-2 focus-within:ring-brand-purple/20 transition-all overflow-hidden relative">
+                        <FileUploadButton
+                            onUploadComplete={(att) => setAttachment(att)}
+                            onUploadError={(err) => alert(err)}
+                        />
                         <input
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             placeholder={isListening ? "Listening..." : "Type or speak..."}
-                            className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400"
+                            className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400 ml-2"
                         />
                         {/* Dictation Button */}
                         <button
@@ -992,7 +1047,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     {/* NEW: Dual Send Buttons */}
                     <button
                         onClick={() => handleSendMessage()}
-                        disabled={!inputValue.trim()}
+                        disabled={!inputValue.trim() && !attachment}
                         className="px-3 sm:px-4 h-12 rounded-2xl bg-brand-purple text-white flex items-center justify-center gap-1.5 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-[10px] sm:text-xs font-bold"
                         title="Send to Vita-AI Assistant"
                     >
@@ -1001,7 +1056,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     </button>
                     <button
                         onClick={handleSendToCareTeam}
-                        disabled={!inputValue.trim()}
+                        disabled={!inputValue.trim() && !attachment}
                         className="px-3 sm:px-4 h-12 rounded-2xl bg-brand-cyan text-gray-900 flex items-center justify-center gap-1.5 shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 shrink-0 text-[10px] sm:text-xs font-bold"
                         title="Send to Care Team"
                     >

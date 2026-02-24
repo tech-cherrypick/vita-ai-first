@@ -335,10 +335,18 @@ export interface CareCoordinatorAppointment {
     type: 'Onboarding' | 'Support' | 'Lab Follow-up';
 }
 
+export interface ChatAttachment {
+    url: string;
+    name: string;
+    type: string;
+    size?: number;
+}
+
 export interface Message {
     sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system' | 'trainer' | 'nutritionist';
     text: string;
     timestamp: string;
+    attachment?: ChatAttachment;
 }
 
 export interface GlobalChatMessage {
@@ -351,6 +359,7 @@ export interface GlobalChatMessage {
     senderName?: string;
     role?: string;
     avatar?: string;
+    attachment?: ChatAttachment;
 }
 
 export interface MessageThread {

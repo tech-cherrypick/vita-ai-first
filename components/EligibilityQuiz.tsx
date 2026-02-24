@@ -13,8 +13,8 @@ type ResultsData = {
     unit: Unit;
 };
 
-const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, type?: "button" | "submit" | "reset", className?: string, disabled?: boolean }> = ({ children, onClick, type="button", className="", disabled=false }) => (
-    <button 
+const GradientButton: React.FC<{ children: React.ReactNode, onClick?: () => void, type?: "button" | "submit" | "reset", className?: string, disabled?: boolean }> = ({ children, onClick, type = "button", className = "", disabled = false }) => (
+    <button
         type={type}
         onClick={onClick}
         disabled={disabled}
@@ -28,7 +28,7 @@ const BmiScale: React.FC<{ bmi: number; isSouthAsian?: boolean }> = ({ bmi, isSo
     // Standard: Healthy 18.5-25, Overweight 25-30, Obese >30
     // South Asian (WHO/ADA guidelines): Healthy 18.5-23, Overweight 23-27.5 (approx), Obese >27.5 (approx)
     // We map these to the visual bar for better user feedback.
-    
+
     const range = 30; // Scale from BMI 15 to 45
     const start = 15;
 
@@ -46,7 +46,7 @@ const BmiScale: React.FC<{ bmi: number; isSouthAsian?: boolean }> = ({ bmi, isSo
         return ((clampedBmi - 15) / 30) * 100;
     };
     const position = getBmiPosition();
-    
+
     return (
         <div className="w-full my-8 animate-fade-in">
             <div className="relative h-6 rounded-full flex overflow-hidden">
@@ -55,7 +55,7 @@ const BmiScale: React.FC<{ bmi: number; isSouthAsian?: boolean }> = ({ bmi, isSo
                 <div style={{ width: `${w3}%` }} className="bg-yellow-400 transition-all duration-500"></div>
                 <div style={{ width: `${w4}%` }} className="flex-1 bg-red-400 transition-all duration-500"></div>
                 <div className="absolute top-0 h-full" style={{ left: `calc(${position}% - 2px)` }}>
-                     <div className="w-1 h-full bg-purple-600 ring-2 ring-white"></div>
+                    <div className="w-1 h-full bg-purple-600 ring-2 ring-white"></div>
                 </div>
             </div>
             <div className="flex justify-between text-xs text-gray-500 mt-2 px-1">
@@ -64,7 +64,7 @@ const BmiScale: React.FC<{ bmi: number; isSouthAsian?: boolean }> = ({ bmi, isSo
                 <span>Overweight</span>
                 <span>Obese</span>
             </div>
-             {isSouthAsian && (
+            {isSouthAsian && (
                 <p className="text-[10px] text-gray-400 text-center mt-1">*Scale adjusted for South Asian metabolic risk factors</p>
             )}
         </div>
@@ -72,14 +72,18 @@ const BmiScale: React.FC<{ bmi: number; isSouthAsian?: boolean }> = ({ bmi, isSo
 };
 
 
-const EligibilityQuiz: React.FC = () => {
+interface EligibilityQuizProps {
+    className?: string;
+}
+
+const EligibilityQuiz: React.FC<EligibilityQuizProps> = ({ className = "" }) => {
     const [isVideoMode, setIsVideoMode] = useState(false);
     const [step, setStep] = useState(1); // 1: Vitals, 2: Results, 3: Schedule, 4: Confirmed
     const [heightFt, setHeightFt] = useState<string>('5');
     const [heightIn, setHeightIn] = useState<string>('9');
     const [weight, setWeight] = useState<string>('85');
     const [unit] = useState<Unit>('kg');
-    
+
     // New state for phenotype checks
     const [isSouthAsian, setIsSouthAsian] = useState(false);
     const [hasAbdominalFat, setHasAbdominalFat] = useState(false);
@@ -111,20 +115,20 @@ const EligibilityQuiz: React.FC = () => {
             if (totalInches > 0) {
                 const heightInMeters = totalInches * 0.0254;
                 const calculatedBmi = wt / (heightInMeters * heightInMeters);
-                
+
                 // Eligibility Logic
                 // Standard: BMI >= 27
                 // South Asian: BMI >= 25 (Lower threshold due to higher visceral adiposity risk)
                 let threshold = 27;
                 if (isSouthAsian) {
-                    threshold = 25; 
+                    threshold = 25;
                 }
 
                 if (calculatedBmi >= threshold) {
                     const currentWt = parseFloat(weight);
                     const weightLoss = currentWt * 0.20;
                     const projectedWeight = currentWt - weightLoss;
-                    
+
                     setResults({ bmi: calculatedBmi, currentWeight: currentWt, projectedWeight, weightLoss, unit });
                     setIsEligible(true);
                 } else {
@@ -135,7 +139,7 @@ const EligibilityQuiz: React.FC = () => {
             }
         }
     };
-    
+
     const handleSchedule = async (dateTime: { date: Date; time: string }) => {
         setIsConfirming(true);
         const formattedDateTime = `${dateTime.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at ${dateTime.time}`;
@@ -145,7 +149,7 @@ const EligibilityQuiz: React.FC = () => {
         setIsConfirming(false);
         setStep(4);
     };
-    
+
     const resetQuiz = () => {
         setStep(1);
         setHeightFt('5');
@@ -163,18 +167,18 @@ const EligibilityQuiz: React.FC = () => {
     const handleScreenerComplete = (details: { date: string; time: string; vitals: any }) => {
         setIsVideoMode(false);
         if (details.date !== 'Pending' && details.time !== 'Pending') {
-             let dateStr = details.date;
-             if (dateStr.toLowerCase() === 'tomorrow') {
-                 const d = new Date();
-                 d.setDate(d.getDate() + 1);
-                 dateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-             }
-             
-             const formatted = `${dateStr} at ${details.time}`;
-             setConfirmedDateTime(formatted);
-             setStep(4); // Confirmed step
+            let dateStr = details.date;
+            if (dateStr.toLowerCase() === 'tomorrow') {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                dateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            }
+
+            const formatted = `${dateStr} at ${details.time}`;
+            setConfirmedDateTime(formatted);
+            setStep(4); // Confirmed step
         }
-        
+
         if (details.vitals) {
             if (details.vitals.weight) setWeight(details.vitals.weight.toString());
             if (details.vitals.heightFt) setHeightFt(details.vitals.heightFt.toString());
@@ -251,8 +255,8 @@ const EligibilityQuiz: React.FC = () => {
                             <div className="space-y-3 pt-2">
                                 <label className="flex items-start gap-3 cursor-pointer group">
                                     <div className="relative flex items-center mt-1">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 transition-all checked:border-brand-purple checked:bg-brand-purple"
                                             checked={isSouthAsian}
                                             onChange={(e) => setIsSouthAsian(e.target.checked)}
@@ -268,9 +272,9 @@ const EligibilityQuiz: React.FC = () => {
                                 </label>
 
                                 <label className="flex items-start gap-3 cursor-pointer group">
-                                     <div className="relative flex items-center mt-1">
-                                        <input 
-                                            type="checkbox" 
+                                    <div className="relative flex items-center mt-1">
+                                        <input
+                                            type="checkbox"
                                             className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 transition-all checked:border-brand-purple checked:bg-brand-purple"
                                             checked={hasAbdominalFat}
                                             onChange={(e) => setHasAbdominalFat(e.target.checked)}
@@ -297,17 +301,17 @@ const EligibilityQuiz: React.FC = () => {
                         <h2 className="text-3xl md:text-4xl font-extrabold tracking-tighter text-brand-text">Your Result</h2>
                         <BmiScale bmi={results.bmi} isSouthAsian={isSouthAsian} />
                         {isEligible ? (
-                             <>
+                            <>
                                 <div className="bg-green-50 text-green-800 p-4 rounded-2xl text-center animate-slide-in-up">
                                     <p className="font-bold text-lg"><span className="text-2xl mr-2">🎉</span>Congrats! You're likely eligible.</p>
                                     <p className="mt-1 text-green-700">Your BMI of {results.bmi.toFixed(1)} falls within the qualifying range.</p>
-                                    
+
                                     {isSouthAsian && results.bmi < 27 && (
                                         <div className="mt-3 text-xs bg-green-100 p-2 rounded-lg text-green-800 border border-green-200">
                                             <span className="font-bold">Note:</span> We adjusted your eligibility criteria based on your South Asian phenotype, which has different metabolic risk factors associated with BMI.
                                         </div>
                                     )}
-                                     {hasAbdominalFat && (
+                                    {hasAbdominalFat && (
                                         <div className="mt-2 text-xs bg-brand-purple/10 p-2 rounded-lg text-brand-purple border border-brand-purple/20">
                                             <span className="font-bold">Targeting Belly Fat:</span> GLP-1 therapy is particularly effective at reducing visceral abdominal fat.
                                         </div>
@@ -317,24 +321,24 @@ const EligibilityQuiz: React.FC = () => {
                                     <WeightLossGraph startWeight={results.currentWeight} endWeight={results.projectedWeight} unit={results.unit} />
                                 </div>
                                 <GradientButton className="mt-8" onClick={() => setStep(3)}>Schedule Free Consult</GradientButton>
-                             </>
+                            </>
                         ) : (
-                             <div className="mt-6 text-center text-red-600 bg-red-50 p-4 rounded-lg">
+                            <div className="mt-6 text-center text-red-600 bg-red-50 p-4 rounded-lg">
                                 <p className="font-semibold">You may not be a candidate yet.</p>
                                 <p className="text-sm">Your BMI is {results.bmi.toFixed(1)}. Please consult your doctor for other options.</p>
-                             </div>
+                            </div>
                         )}
                         <button onClick={() => setStep(1)} className="mt-4 text-sm text-brand-purple hover:underline">Edit Vitals</button>
                     </div>
                 );
             case 3:
-                 return (
+                return (
                     <div className="animate-fade-in">
                         <h2 className="text-3xl md:text-4xl font-extrabold tracking-tighter text-center mb-2 text-brand-text">Schedule Your Free Consult</h2>
                         <p className="text-center text-brand-text-light mb-6 max-w-md mx-auto">First, tell us who you are. Then book a no-obligation call with our care team.</p>
-                        
+
                         <div className="space-y-4 mb-6">
-                             <div>
+                            <div>
                                 <label htmlFor="name" className="block text-sm font-semibold text-brand-text mb-1">Full Name</label>
                                 <input type="text" name="name" id="name" value={name} onChange={e => setName(e.target.value)} required placeholder="Jane Doe" className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" />
                             </div>
@@ -354,22 +358,22 @@ const EligibilityQuiz: React.FC = () => {
                                 <p className="font-semibold text-brand-text">Confirming your appointment...</p>
                             </div>
                         ) : (
-                            <ConsultationScheduler 
-                                onSchedule={handleSchedule} 
+                            <ConsultationScheduler
+                                onSchedule={handleSchedule}
                                 minBookingNoticeDays={0}
                                 isButtonDisabled={!name || !email || !phone}
-                             />
+                            />
                         )}
                     </div>
                 );
             case 4:
                 return (
-                     <div className="animate-fade-in text-center min-h-[300px] flex flex-col justify-center">
-                         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <div className="animate-fade-in text-center min-h-[300px] flex flex-col justify-center">
+                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                             <svg className="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                         </div>
                         <h2 className="text-3xl md:text-4xl font-extrabold tracking-tighter text-brand-text">Appointment Booked!</h2>
-                        <p className="mt-4 text-lg text-brand-text-light max-w-md mx-auto">Your consultation is confirmed for:<br/><span className="font-semibold text-brand-purple">{confirmedDateTime}</span></p>
+                        <p className="mt-4 text-lg text-brand-text-light max-w-md mx-auto">Your consultation is confirmed for:<br /><span className="font-semibold text-brand-purple">{confirmedDateTime}</span></p>
                         <p className="mt-2 text-brand-text-light max-w-md mx-auto">You'll receive an email with a meeting link at <span className="font-semibold text-brand-text">{email}</span>. A care coordinator will provide you with login details after your call.</p>
                         <button onClick={resetQuiz} className="mt-8 w-full px-6 py-3 text-base font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors">
                             Start Over
@@ -386,7 +390,7 @@ const EligibilityQuiz: React.FC = () => {
     }
 
     return (
-        <section id="eligibility-quiz" className="py-20 sm:py-28 bg-blur-gradient-wrapper">
+        <section id="eligibility-quiz" className={`py-20 sm:py-28 bg-blur-gradient-wrapper ${className}`}>
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="max-w-xl mx-auto bg-white/80 backdrop-blur-xl p-8 sm:p-12 rounded-3xl shadow-2xl shadow-gray-300/30 border border-gray-200">
                     <div className="flex justify-around mb-8 border-b border-gray-200">
