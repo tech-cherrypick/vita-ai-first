@@ -25,11 +25,11 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'vita-app' # Replace with your actual service name if different
+      - 'vita-ai-first-git-15159842002' # <-- Matches your URL service name
       - '--image'
       - 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA'
       - '--region'
-      - 'asia-south1' # Matches your URL
+      - 'asia-south1' # <-- Matches your URL region
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
