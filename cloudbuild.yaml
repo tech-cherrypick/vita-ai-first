@@ -1,0 +1,38 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '--build-arg', 'VITE_FIREBASE_API_KEY=$_VITE_FIREBASE_API_KEY',
+      '--build-arg', 'VITE_FIREBASE_AUTH_DOMAIN=$_VITE_FIREBASE_AUTH_DOMAIN',
+      '--build-arg', 'VITE_FIREBASE_PROJECT_ID=$_VITE_FIREBASE_PROJECT_ID',
+      '--build-arg', 'VITE_FIREBASE_STORAGE_BUCKET=$_VITE_FIREBASE_STORAGE_BUCKET',
+      '--build-arg', 'VITE_FIREBASE_MESSAGING_SENDER_ID=$_VITE_FIREBASE_MESSAGING_SENDER_ID',
+      '--build-arg', 'VITE_FIREBASE_APP_ID=$_VITE_FIREBASE_APP_ID',
+      '--build-arg', 'VITE_API_BASE_URL=$_VITE_API_BASE_URL',
+      '--build-arg', 'VITE_RAZORPAY_KEY_ID=$_VITE_RAZORPAY_KEY_ID',
+      '-t', 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA',
+      '.'
+    ]
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'vita-app' # Replace with your actual service name if different
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA'
+      - '--region'
+      - 'asia-south1' # Matches your URL
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA'
