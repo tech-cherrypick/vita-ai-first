@@ -14,6 +14,7 @@ const app = express();
 const allowedOrigins = [
   /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
   'https://vita-ai-first.vercel.app',          // Production Vercel domain
+  /^https:\/\/vita-ai-first.*\.run\.app$/,     // Cloud Run domains
   'http://localhost:5174',
   'http://localhost:5173',
   'http://localhost:19006',                     // Expo web
@@ -125,16 +126,26 @@ app.get('/health', (req, res) => {
 });
 
 // Serve static files from the frontend build
-const distPath = path.join(__dirname, '../dist');
-console.log('📂 Static files path:', distPath);
+const distPath = path.resolve(__dirname, '../dist');
+console.log('📂 Static files path (resolved):', distPath);
 
 if (fs.existsSync(distPath)) {
-  console.log('✅ Static directory found. Contents:', fs.readdirSync(distPath));
-  app.use(express.static(distPath));
+  const files = fs.readdirSync(distPath);
+  console.log('✅ Static directory found. Contents:', files);
+  
+  // Serve files from dist root
+  app.use(express.static(distPath, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      }
+    }
+  }));
 } else {
   console.error('❌ CRITICAL: Static directory NOT found at:', distPath);
   try {
-    const parentDir = path.join(__dirname, '..');
+    const parentDir = path.resolve(__dirname, '..');
     console.log('📂 Parent directory contents:', fs.readdirSync(parentDir));
   } catch (e) {
     console.error('❌ Failed to read parent directory:', e.message);
@@ -143,7 +154,18 @@ if (fs.existsSync(distPath)) {
 
 // Catch-all route to serve index.html for client-side routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  // Only serve index.html if it's not a request for an asset-like path
+  if (req.path.includes('.') && !req.path.endsWith('.html')) {
+    console.log(`⚠️ Asset not found: ${req.path}`);
+    return res.status(404).send('Asset not found');
+  }
+  
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(500).send('Frontend build (index.html) missing');
+  }
 });
 
 const PORT = process.env.PORT || 8080;
