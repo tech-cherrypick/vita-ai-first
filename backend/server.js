@@ -132,7 +132,9 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server starting...`);
+  console.log(`📡 Attempting to listen on port: ${PORT}`);
+  console.log(`🌍 URL: http://0.0.0.0:${PORT}`);
 });
