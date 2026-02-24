@@ -125,7 +125,20 @@ app.get('/health', (req, res) => {
 
 // Serve static files from the frontend build
 const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+console.log('📂 Static files path:', distPath);
+
+if (fs.existsSync(distPath)) {
+  console.log('✅ Static directory found. Contents:', fs.readdirSync(distPath));
+  app.use(express.static(distPath));
+} else {
+  console.error('❌ CRITICAL: Static directory NOT found at:', distPath);
+  try {
+    const parentDir = path.join(__dirname, '..');
+    console.log('📂 Parent directory contents:', fs.readdirSync(parentDir));
+  } catch (e) {
+    console.error('❌ Failed to read parent directory:', e.message);
+  }
+}
 
 // Catch-all route to serve index.html for client-side routing
 app.get('*', (req, res) => {
