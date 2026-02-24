@@ -34,7 +34,7 @@ COPY backend/package*.json ./
 RUN npm install --production
 COPY backend/ .
 
-# Copy the built frontend from Stage 1
+# Copy the built frontend from Stage 1 into the backend's expected location
 COPY --from=frontend-builder /app/dist /app/dist
 
 # Expose the port (Cloud Run defaults to 8080)
