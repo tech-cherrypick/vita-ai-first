@@ -13,6 +13,8 @@ const firebaseConfig = {
 
 if (!firebaseConfig.apiKey) {
     console.warn("⚠️ Firebase API Key is missing! Check your build arguments.");
+} else {
+    console.log("🛠️ Firebase initialized with API Key starting with:", firebaseConfig.apiKey.substring(0, 5) + "...");
 }
 
 const app = initializeApp(firebaseConfig);
