@@ -36,3 +36,6 @@ steps:
 
 images:
   - 'gcr.io/$PROJECT_ID/vita-app:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
