@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Patient, GlobalChatMessage } from '../../constants';
+import { Patient, GlobalChatMessage, ChatAttachment as ChatAttachmentType } from '../../constants';
 import { getSocket } from '../../socket';
+import FileUploadButton from '../../components/messaging/FileUploadButton';
+import ChatAttachment from '../../components/messaging/ChatAttachment';
 
 interface PatientMessagesScreenProps {
     patient: Patient;
@@ -9,6 +11,7 @@ interface PatientMessagesScreenProps {
 const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }) => {
     const [messages, setMessages] = useState<GlobalChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
+    const [attachment, setAttachment] = useState<ChatAttachmentType | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const socket = getSocket();
 
@@ -61,11 +64,12 @@ const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!inputValue.trim()) return;
+        if (!inputValue.trim() && !attachment) return;
 
         const messageData = {
             patientUid: patient.id,
             text: inputValue,
+            attachment: attachment || undefined,
             senderId: patient.id,
             senderName: patient.name,
             senderRole: 'patient',
@@ -74,6 +78,7 @@ const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }
 
         socket.emit('send_message', messageData);
         setInputValue('');
+        setAttachment(null);
     };
 
     const senderStyles: Record<string, string> = {
@@ -113,7 +118,13 @@ const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }
                         {(msg.sender === 'doctor' || msg.sender === 'careCoordinator') && (
                             <p className="text-[10px] font-black opacity-60 mb-1 uppercase tracking-wider">{msg.senderName || (msg.sender === 'doctor' ? 'Doctor' : 'Coordinator')}</p>
                         )}
-                        <p className="leading-relaxed">{msg.text}</p>
+                        {msg.text && <p className="leading-relaxed">{msg.text}</p>}
+                        {msg.attachment && (
+                            <ChatAttachment
+                                attachment={msg.attachment}
+                                isMine={msg.sender === 'patient'}
+                            />
+                        )}
                         <p className="text-[9px] mt-2 text-right opacity-50 font-medium">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -123,7 +134,27 @@ const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }
             </div>
 
             <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100">
+                {attachment && (
+                    <div className="mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden text-xs">
+                            <span className="font-bold truncate max-w-[200px]">{attachment.name}</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setAttachment(null)}
+                            className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
                 <div className="flex items-center gap-3">
+                    <FileUploadButton
+                        onUploadComplete={(att) => setAttachment(att)}
+                        onUploadError={(err) => alert(err)}
+                    />
                     <input
                         type="text"
                         value={inputValue}
@@ -133,7 +164,7 @@ const PatientMessagesScreen: React.FC<PatientMessagesScreenProps> = ({ patient }
                     />
                     <button
                         type="submit"
-                        disabled={!inputValue.trim()}
+                        disabled={!inputValue.trim() && !attachment}
                         className="w-12 h-12 flex items-center justify-center text-white bg-brand-purple rounded-2xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-brand-purple/20 disabled:opacity-50 disabled:grayscale"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transform rotate-90" viewBox="0 0 20 20" fill="currentColor">
