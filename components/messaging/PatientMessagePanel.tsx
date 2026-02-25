@@ -144,12 +144,16 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                                     {msg.sender !== userRole && msg.sender !== 'patient' && msg.sender !== 'system' && (
                                         <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.senderName || msg.role}</p>
                                     )}
-                                    {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />}
-                                    {msg.attachment && (
-                                        <ChatAttachment
-                                            attachment={msg.attachment}
-                                            isMine={msg.sender === (userRole === 'doctor' ? 'doctor' : 'careCoordinator')}
-                                        />
+                                    {(msg.text || msg.attachment) && (
+                                        <>
+                                            {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />}
+                                            {msg.attachment && (
+                                                <ChatAttachment
+                                                    attachment={msg.attachment}
+                                                    isMine={msg.sender === (userRole === 'doctor' ? 'doctor' : 'careCoordinator')}
+                                                />
+                                            )}
+                                        </>
                                     )}
                                     <p className="text-[10px] mt-1 text-right opacity-60">
                                         {getDisplayTime(msg)}
@@ -166,9 +170,22 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
             <form onSubmit={handleSend} className="p-3 border-t bg-gray-50">
                 {attachment && (
                     <div className="mb-2 p-2 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="text-xs font-bold truncate max-w-[200px]">{attachment.name}</span>
-                            <span className="text-[10px] text-gray-400">({attachment.type.split('/')[1].toUpperCase()})</span>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            {attachment.type.startsWith('image/') ? (
+                                <div className="w-10 h-10 rounded overflow-hidden shrink-0 border border-gray-100">
+                                    <img src={attachment.url} className="w-full h-full object-cover" alt="Preview" />
+                                </div>
+                            ) : (
+                                <div className="w-10 h-10 bg-gray-50 rounded flex items-center justify-center shrink-0 border border-gray-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    </svg>
+                                </div>
+                            )}
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="text-xs font-bold truncate max-w-[150px]">{attachment.name}</span>
+                                <span className="text-[10px] text-gray-400 capitalize">{attachment.type.split('/')[1]} file</span>
+                            </div>
                         </div>
                         <button
                             type="button"

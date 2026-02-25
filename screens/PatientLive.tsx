@@ -35,11 +35,19 @@ type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_te
 
 const CARE_MANAGER = {
     id: 'coordinator',
-    name: 'Alex Ray',
+    name: 'Vita-AI',
     role: 'Care Manager',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop',
     color: 'text-brand-cyan'
 };
+
+const AIIcon: React.FC<{ className?: string }> = ({ className = "w-9 h-9 sm:w-10 sm:h-10" }) => (
+    <div className={`${className} rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shrink-0 shadow-md border-2 border-white`}>
+        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+    </div>
+);
 
 type WidgetType = 'vitals' | 'medical' | 'psych' | 'labs' | 'profile' | 'payment' | 'consultation';
 
@@ -222,7 +230,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 const newChatSession = ai.chats.create({
                     model: 'gemini-2.0-flash',
                     config: {
-                        systemInstruction: `You are Alex Ray, the Vita Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
+                        systemInstruction: `You are the Vita AI Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
 
                         ${contextString}
 
@@ -884,11 +892,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                 <div className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
                                     {/* AI Icon or Avatar */}
                                     {msg.messageType === 'ai' && msg.sender !== 'You' ? (
-                                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shrink-0 shadow-md border-2 border-white">
-                                            <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                            </svg>
-                                        </div>
+                                        <AIIcon />
                                     ) : msg.avatar ? (
                                         <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
                                     ) : null}
@@ -899,7 +903,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                         )}
                                         {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
 
-                                        {msg.text && (
+                                        {(msg.text || msg.attachment) && (
                                             <div>
                                                 <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
                                                     {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />}
@@ -970,7 +974,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     })}
                     {isTyping && (
                         <div className="flex gap-4 animate-fade-in">
-                            <img src={CARE_MANAGER.avatar} className="w-10 h-10 rounded-full object-cover grayscale-[30%] opacity-50" />
+                            <AIIcon className="w-10 h-10 opacity-70" />
                             <div className="bg-gray-100 p-4 rounded-3xl rounded-tl-none border border-gray-200 flex items-center gap-1.5">
                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></span>

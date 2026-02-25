@@ -28,7 +28,7 @@ const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage 
             name: patient.careTeam.coordinator,
             specialty: 'Patient Support Specialist',
             imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            bio: `Alex is your go-to for any non-medical questions, including shipping, billing, or scheduling. They are here to ensure you have a smooth and positive experience with Evolv.`
+            bio: `Your Care Manager is your go-to for any non-medical questions, including shipping, billing, or scheduling. They are here to ensure you have a smooth and positive experience with Vita.`
         }
     ];
 

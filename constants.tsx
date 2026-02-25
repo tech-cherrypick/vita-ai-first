@@ -353,7 +353,7 @@ export interface GlobalChatMessage {
     id: string;
     patientId: string | number;
     sender: 'patient' | 'doctor' | 'careCoordinator' | 'bot' | 'system';
-    text: string;
+    text?: string;
     timestamp: string;
     createdAt?: string;
     senderName?: string;
