@@ -113,12 +113,14 @@ io.on('connection', (socket) => {
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
+const leadRoutes = require('./routes/leadRoutes');
 
 app.use('/api/user', userRoutes);
 app.use('/api', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api', leadRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
