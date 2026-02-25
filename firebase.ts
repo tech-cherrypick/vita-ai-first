@@ -12,12 +12,6 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-if (!firebaseConfig.apiKey) {
-    console.warn("⚠️ Firebase API Key is missing! Check your build arguments.");
-} else {
-    console.log("🛠️ Firebase initialized with API Key starting with:", firebaseConfig.apiKey.substring(0, 5) + "...");
-}
-
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

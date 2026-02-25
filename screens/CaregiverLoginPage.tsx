@@ -26,31 +26,31 @@ const CareCoordinatorLoginPage: React.FC<CareCoordinatorLoginPageProps> = ({ onS
                         <div>
                             <label htmlFor="email" className="block text-sm font-semibold text-gray-700">Email Address</label>
                             <div className="mt-1">
-                                <input 
-                                    type="email" 
-                                    id="email" 
-                                    name="email" 
-                                    required 
-                                    defaultValue="alex.ray@vita.health"
-                                    className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" 
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    required
+                                    defaultValue="support@vita.health"
+                                    className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label htmlFor="password"className="block text-sm font-semibold text-gray-700">Password</label>
+                            <label htmlFor="password" className="block text-sm font-semibold text-gray-700">Password</label>
                             <div className="mt-1">
-                                <input 
-                                    type="password" 
-                                    id="password" 
-                                    name="password" 
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
                                     required
                                     defaultValue="password123"
-                                    className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple" 
+                                    className="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 py-3 px-4 focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
                                 />
                             </div>
                         </div>
                         <div>
-                            <button 
+                            <button
                                 type="submit"
                                 className="w-full flex items-center justify-center px-6 py-3 text-lg font-bold text-white bg-brand-cyan rounded-xl transition-all duration-300 hover:opacity-90 shadow-lg shadow-brand-cyan/30">
                                 Sign In

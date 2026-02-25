@@ -14,7 +14,6 @@ const app = express();
 const allowedOrigins = [
   /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
   'https://vita-ai-first.vercel.app',          // Production Vercel domain
-  /^https:\/\/vita-ai-first.*\.run\.app$/,     // Cloud Run domains
   'http://localhost:5174',
   'http://localhost:5173',
   'http://localhost:19006',                     // Expo web
@@ -73,7 +72,7 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (data) => {
     const { patientUid, text, senderName, senderRole, avatar } = data;
 
-    if (!patientUid || !text) return;
+    if (!patientUid || (!text && !data.attachment)) return;
 
     try {
       const role = senderRole || data.sender;

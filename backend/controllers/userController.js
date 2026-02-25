@@ -219,8 +219,8 @@ const getData = async (req, res) => {
           if (ccSnap.exists) {
             data.profile.careTeam.coordinator = ccSnap.data().name || 'Vita Care Team';
           } else {
-            // Fallback to a fixed coordinator name found in previous sessions (Alex Ray)
-            data.profile.careTeam.coordinator = 'Alex Ray'; 
+            // Fallback to a fixed coordinator name
+            data.profile.careTeam.coordinator = 'Vita Care Team'; 
           }
         }
       }

@@ -176,7 +176,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ patient, isOpen, onClose, onOpe
                 } else {
                     setMessages(prev => [...prev, {
                         sender: 'careCoordinator',
-                        text: "Hi, this is Alex, your Care Manager. I've received your request and will get that sorted out for you right away."
+                        text: "Hi, this is your Care Manager. I've received your request and will get that sorted out for you right away."
                     }]);
                 }
                 setIsLoading(false);

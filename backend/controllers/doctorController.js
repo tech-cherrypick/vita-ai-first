@@ -167,7 +167,7 @@ const getAllPatients = async (req, res) => {
           safeProfile.careTeam = { physician: 'Pending Assignment', coordinator: defaultCoordinatorName };
       } else {
           // Check for legacy/default values and override
-          if (safeProfile.careTeam.coordinator === 'Alex Ray' || safeProfile.careTeam.coordinator === 'Unassigned') {
+          if (safeProfile.careTeam.coordinator === 'Alex Ray' || safeProfile.careTeam.coordinator === 'Unassigned' || safeProfile.careTeam.coordinator === 'Vita-AI') {
                safeProfile.careTeam.coordinator = defaultCoordinatorName;
           }
       }

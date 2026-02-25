@@ -15,10 +15,7 @@ export default defineConfig({
   },
   preview: {
     host: '0.0.0.0',
-    // Cloud Run injects the PORT environment variable, usually 8080.
-    // We fallback to 8080 if not set.
-    port: Number(process.env.PORT) || 8080,
-    allowedHosts: true, // Allow the random Cloud Run domains
+    port: 8080,
   },
   build: {
     rollupOptions: {
@@ -28,7 +25,7 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom'],
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           'socket-vendor': ['socket.io-client'],
-          
+
           // Large component chunks
           'dashboard-patient': ['./screens/UserDashboard'],
           'dashboard-doctor': ['./screens/DoctorDashboard'],
