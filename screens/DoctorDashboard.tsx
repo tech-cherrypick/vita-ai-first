@@ -6,6 +6,7 @@ import PatientDetailView from '../components/doctor/PatientDetailView';
 import { Patient, TimelineEvent, GlobalChatMessage } from '../constants';
 import DoctorScheduleScreen from './doctor/DoctorScheduleScreen';
 import { getSocket } from '../socket';
+import ConsultationCall from '../components/dashboard/ConsultationCall';
 
 export type DoctorView = 'patients' | 'schedule';
 
@@ -16,11 +17,32 @@ interface DoctorDashboardProps {
     userName: string;
 }
 
+const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-4xl" }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
+            <div className={`bg-white w-full ${maxWidth} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col animate-slide-in-up max-h-[95vh]`}>
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+                    <h3 className="font-black text-xl text-gray-900 tracking-tight">{title}</h3>
+                    <button onClick={onClose} className="p-2.5 hover:bg-gray-200 rounded-full transition-all hover:rotate-90">
+                        <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div className="p-8 overflow-y-auto bg-white flex-1">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, userName }) => {
     // Store ID instead of object to prevent stale data
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [view, setView] = useState<DoctorView>('patients');
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
+    const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
     const socket = getSocket();
 
     useEffect(() => {
@@ -95,10 +117,30 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         socket.emit('send_message', messageData);
     };
 
+    const handleJoinCall = (patientId: string) => {
+        setActiveCallPatientId(patientId);
+        // Signaling: Inform the patient that the doctor is joining
+        socket.emit('initiate_call', { patientId, doctorName: userName, doctorId: 'doctor' });
+    };
+
+    const handleCallEnd = (data?: { transcript: string; summary: string }) => {
+        if (activeCallPatientId && data) {
+            // Update patient timeline with the summary
+            onUpdatePatient(activeCallPatientId, {
+                type: 'Consultation',
+                title: 'Consultation Summary Generated',
+                description: data.summary,
+                doctor: userName,
+                context: { transcript: data.transcript, summary: data.summary }
+            }, { status: 'Awaiting Shipment' });
+        }
+        setActiveCallPatientId(null);
+    };
+
     const renderContent = () => {
         switch (view) {
             case 'schedule':
-                return <DoctorScheduleScreen allPatients={allPatients} onPatientSelect={handlePatientSelect} />;
+                return <DoctorScheduleScreen allPatients={allPatients} onPatientSelect={handlePatientSelect} onJoinCall={handleJoinCall} />;
             case 'patients':
             default:
                 if (selectedPatient) {
@@ -118,6 +160,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         }
     };
 
+    const activeCallPatient = allPatients.find(p => p.id === activeCallPatientId);
+
     return (
         <div className="min-h-screen bg-gray-50">
             <DoctorHeader onSignOut={onSignOut} currentView={view} setView={setView} userName={userName} />
@@ -126,6 +170,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                     {renderContent()}
                 </div>
             </main>
+
+            {/* Video Call Modal */}
+            <ModalWrapper
+                isOpen={!!activeCallPatientId}
+                onClose={() => handleCallEnd()}
+                title={`Consultation with ${activeCallPatient?.name || 'Patient'}`}
+            >
+                {activeCallPatientId && (
+                    <ConsultationCall
+                        patientId={activeCallPatientId}
+                        otherPartyName={activeCallPatient?.name || 'Patient'}
+                        role="doctor"
+                        onCallEnd={handleCallEnd}
+                    />
+                )}
+            </ModalWrapper>
         </div>
     );
 };

@@ -5,10 +5,11 @@ import { DoctorAppointment, Patient } from '../../constants';
 interface DoctorScheduleScreenProps {
     allPatients: Patient[];
     onPatientSelect: (patient: Patient) => void;
+    onJoinCall?: (patientId: string) => void;
 }
 
 
-const DoctorScheduleScreen: React.FC<DoctorScheduleScreenProps> = ({ allPatients, onPatientSelect }) => {
+const DoctorScheduleScreen: React.FC<DoctorScheduleScreenProps> = ({ allPatients, onPatientSelect, onJoinCall }) => {
     const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
 
     // Derive appointments from real patient data
@@ -164,7 +165,10 @@ const DoctorScheduleScreen: React.FC<DoctorScheduleScreenProps> = ({ allPatients
                                     </div>
 
                                     {activeTab === 'upcoming' && (
-                                        <button className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold text-white bg-brand-purple rounded-xl hover:bg-brand-purple/90 transition-all shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 group">
+                                        <button
+                                            onClick={() => onJoinCall && onJoinCall(String(apt.patientId))}
+                                            className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold text-white bg-brand-purple rounded-xl hover:bg-brand-purple/90 transition-all shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 group"
+                                        >
                                             <span>Join Call</span>
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

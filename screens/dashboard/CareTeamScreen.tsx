@@ -50,7 +50,7 @@ const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage 
                                     onClick={onSendMessage}
                                     className="flex-1 px-4 py-3 text-sm font-bold text-white bg-brand-purple rounded-lg hover:opacity-90 transition-opacity"
                                 >
-                                    Send a Message
+                                    Enter Live Lounge
                                 </button>
                                 <button className="flex-1 px-4 py-3 text-sm font-bold text-brand-purple bg-brand-purple/10 rounded-lg hover:bg-brand-purple/20 transition-colors">
                                     Schedule a Call
