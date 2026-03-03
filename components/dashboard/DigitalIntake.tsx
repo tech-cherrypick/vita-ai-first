@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowRightIcon } from '../../constants';
+import { ArrowRightIcon, Patient } from '../../constants';
 
 interface DigitalIntakeProps {
     onComplete: (data: any) => void;
     onProgress?: (progress: number) => void;
     initialSection?: IntakeSection;
+    type?: 'medical' | 'psych';
+    patient?: Patient;
 }
 
 // --- Data Definitions ---

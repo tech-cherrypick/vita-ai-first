@@ -72,8 +72,6 @@ const MAINTENANCE_LOOP = [
 
 const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient, tasks, onUpdatePatient, onCompleteTask, userName }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [actionNote, setActionNote] = useState('');
-    const [actionCategory, setActionCategory] = useState<string>('Note');
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     const currentCycle = patient.currentCycle || 1;
@@ -251,24 +249,7 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
         }
     };
 
-    const submitQuickLog = () => {
-        if (!actionNote.trim()) return;
-        setIsLoading(true);
-        const event: Omit<TimelineEvent, 'id' | 'date'> = {
-            type: 'Note',
-            title: `${actionCategory} Logged`,
-            description: actionNote,
-            doctor: physicianName,
-            updater: userName
-        };
-        setTimeout(() => {
-            onUpdatePatient(patient.id, event, {});
-            setIsLoading(false);
-            setActionNote('');
-            setSuccessMessage('Log saved.');
-            setTimeout(() => setSuccessMessage(null), 2000);
-        }, 800);
-    };
+
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
@@ -293,27 +274,7 @@ const CareCoordinationCenter: React.FC<CareCoordinationCenterProps> = ({ patient
                 </div>
             </div>
 
-            <div className="bg-gray-50 border-b border-gray-200 p-6">
-                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                    <textarea
-                        value={actionNote}
-                        onChange={(e) => setActionNote(e.target.value)}
-                        placeholder="Log a note..."
-                        className="w-full p-2 text-sm outline-none bg-transparent min-h-[40px] resize-none"
-                    />
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
-                        <select value={actionCategory} onChange={(e) => setActionCategory(e.target.value)} className="text-xs font-bold text-gray-400 bg-transparent outline-none">
-                            <option value="Note">General Note</option>
-                            <option value="Call">Call</option>
-                            <option value="Lab">Labs</option>
-                        </select>
-                        <button onClick={submitQuickLog} disabled={isLoading || !actionNote.trim()} className="text-xs font-bold text-white bg-gray-900 px-4 py-1.5 rounded-lg">
-                            {isLoading ? 'Saving...' : 'Log Note'}
-                        </button>
-                    </div>
-                </div>
-                {successMessage && <p className="text-[10px] text-green-600 font-bold mt-2 text-center">{successMessage}</p>}
-            </div>
+
 
             <div className="p-6">
                 {alertTasks.length > 0 && (

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Patient } from '../../constants';
 
 const ScreenHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
     <div className="text-center mb-10">
@@ -21,7 +22,7 @@ const SectionCard: React.FC<{ title: string; children: React.ReactNode, actionBu
 );
 
 
-const PaymentsScreen: React.FC = () => {
+const PaymentsScreen: React.FC<{ patient: Patient }> = ({ patient }) => {
     const billingHistory = [
         { date: "September 18, 2024", description: "Monthly Subscription", amount: "₹9,999.00" },
         { date: "August 18, 2024", description: "Monthly Subscription", amount: "₹9,999.00" },
@@ -32,7 +33,7 @@ const PaymentsScreen: React.FC = () => {
     return (
         <div>
             <ScreenHeader title="Payments & Subscriptions" subtitle="Manage your plan, payment method, and view billing history." />
-            
+
             <div className="max-w-3xl mx-auto space-y-8">
                 <SectionCard title="Current Plan">
                     <div>
@@ -43,20 +44,20 @@ const PaymentsScreen: React.FC = () => {
                         <p className="text-sm font-semibold text-brand-text-light">Next Billing Date</p>
                         <p className="text-brand-text">October 18, 2024</p>
                     </div>
-                     <div>
+                    <div>
                         <p className="text-sm font-semibold text-brand-text-light">Amount</p>
                         <p className="text-brand-text">₹9,999.00</p>
                     </div>
                 </SectionCard>
-                
-                 <SectionCard 
+
+                <SectionCard
                     title="Payment Method"
                     actionButton={<button className="text-sm font-semibold text-brand-purple hover:underline">Edit</button>}
                 >
                     <div className="flex items-center gap-4">
-                         <img src="https://js.stripe.com/v3/fingerprinted/img/visa-729c05c240c49733439f1b6352936e63.svg" alt="Visa" className="h-8"/>
+                        <img src="https://js.stripe.com/v3/fingerprinted/img/visa-729c05c240c49733439f1b6352936e63.svg" alt="Visa" className="h-8" />
                         <div>
-                             <p className="font-semibold text-brand-text">Visa ending in 4242</p>
+                            <p className="font-semibold text-brand-text">Visa ending in 4242</p>
                             <p className="text-sm text-brand-text-light">Expires 12/2026</p>
                         </div>
                     </div>

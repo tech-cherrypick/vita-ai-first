@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { VitaLogo } from '../../constants';
+import { VitaLogo, DashboardView } from '../../constants';
 
 interface UserHeaderProps {
     onOpenMenu: () => void;
-    onGoHome: () => void;
+    onNavigate: (view: DashboardView) => void;
     userName: string;
+    currentView: DashboardView;
 }
 
 const HamburgerIcon = () => (
@@ -15,12 +16,12 @@ const HamburgerIcon = () => (
 );
 
 
-const UserHeader: React.FC<UserHeaderProps> = ({ onOpenMenu, onGoHome, userName }) => {
+const UserHeader: React.FC<UserHeaderProps> = ({ onOpenMenu, onNavigate, userName, currentView }) => {
     return (
         <header className="bg-brand-bg/80 backdrop-blur-lg sticky top-0 z-40">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20 border-b border-gray-200">
-                    <button onClick={onGoHome} aria-label="Go to dashboard">
+                    <button onClick={() => onNavigate('dashboard')} aria-label="Go to dashboard">
                         <VitaLogo />
                     </button>
                     <div className="flex items-center gap-4">

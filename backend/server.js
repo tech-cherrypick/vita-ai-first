@@ -104,6 +104,31 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Call Signaling Logic
+  socket.on('initiate_call', (data) => {
+    const { patientId, doctorName, doctorId } = data;
+    console.log(`📞 Call initiated for patient ${patientId} by doctor ${doctorName}`);
+    io.to(`room_${patientId}`).emit('incoming_call', { doctorName, doctorId, patientId });
+  });
+
+  socket.on('accept_call', (data) => {
+    const { patientId, patientName } = data;
+    console.log(`✅ Call accepted by patient ${patientName} (${patientId})`);
+    io.to(`room_${patientId}`).emit('call_accepted', { patientName, patientId });
+  });
+
+  socket.on('end_call', (data) => {
+    const { patientId, senderRole } = data;
+    console.log(`🛑 Call ended by ${senderRole} for patient ${patientId}`);
+    io.to(`room_${patientId}`).emit('call_ended', { patientId, senderRole });
+  });
+
+  socket.on('signal', (data) => {
+    const { patientId, signalData, senderRole } = data;
+    // Relay WebRTC signaling data (offer, answer, candidates) to the other party in the room
+    socket.to(`room_${patientId}`).emit('signal', { signalData, senderRole });
+  });
+
   socket.on('disconnect', () => {
     console.log('🔌 User disconnected:', socket.id);
   });
@@ -114,12 +139,14 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const consultationRoutes = require('./routes/consultationRoutes');
 
 app.use('/api/user', userRoutes);
 app.use('/api', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api/consultation', consultationRoutes);
 app.use('/api', leadRoutes);
 
 // Health Check
