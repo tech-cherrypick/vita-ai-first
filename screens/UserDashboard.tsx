@@ -274,9 +274,16 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             setShowCallNotification(false);
         });
 
+        const handleJoinTelehealth = () => {
+            setFocusMode('telehealth');
+            setShowCallNotification(false);
+        };
+        window.addEventListener('joinTelehealth', handleJoinTelehealth);
+
         return () => {
             socket.off('incoming_call');
             socket.off('call_ended');
+            window.removeEventListener('joinTelehealth', handleJoinTelehealth);
         };
     }, [patient.id]);
 
@@ -429,50 +436,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         }
     };
 
-    if (currentView === 'live') {
-        return (
-            <PatientLive
-                patient={patient}
-                onNavigate={(v: any) => setCurrentView(v)}
-                onUpdatePatient={onUpdatePatient}
-                onSignOut={onSignOut}
-            />
-        );
-    }
-
-    if (focusMode === 'intake_medical_ai' || focusMode === 'intake_psych_ai') {
-        return (
-            <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
-                {focusMode === 'intake_medical_ai' ? (
-                    <MedicalProfiler patient={patient} onClose={closeFocusMode} onComplete={handleMedicalHistoryComplete} />
-                ) : (
-                    <PsychoProfiler patient={patient} onClose={closeFocusMode} onComplete={handlePsychProfileComplete} />
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-[#FDFDFF] text-brand-text font-serif selection:bg-brand-purple/20">
-            <UserHeader
-                userName={userName}
-                currentView={currentView}
-                onOpenMenu={() => setIsMenuOpen(true)}
-                onNavigate={setCurrentView}
-            />
-
-            <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                {renderMainContent()}
-            </main>
-
-            <SideMenu
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                onSignOut={onSignOut}
-                onNavigate={(v) => { setCurrentView(v); setIsMenuOpen(false); }}
-                currentView={currentView}
-            />
-
+    const renderOverlays = () => (
+        <>
             <CallNotificationPopup
                 isOpen={showCallNotification && focusMode !== 'telehealth'}
                 doctorName={patient.careTeam.physician}
@@ -512,6 +477,60 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             <ModalWrapper isOpen={focusMode === 'intake_psych_form'} onClose={closeFocusMode} title="Psychographic Form">
                 <DigitalIntake type="psych" patient={patient} onComplete={handlePsychProfileComplete} />
             </ModalWrapper>
+        </>
+    );
+
+    if (currentView === 'live') {
+        return (
+            <>
+                <PatientLive
+                    patient={patient}
+                    onNavigate={(v: any) => setCurrentView(v)}
+                    onUpdatePatient={onUpdatePatient}
+                    onSignOut={onSignOut}
+                />
+                {renderOverlays()}
+            </>
+        );
+    }
+
+    if (focusMode === 'intake_medical_ai' || focusMode === 'intake_psych_ai') {
+        return (
+            <>
+                <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+                    {focusMode === 'intake_medical_ai' ? (
+                        <MedicalProfiler patient={patient} onClose={closeFocusMode} onComplete={handleMedicalHistoryComplete} />
+                    ) : (
+                        <PsychoProfiler patient={patient} onClose={closeFocusMode} onComplete={handlePsychProfileComplete} />
+                    )}
+                </div>
+                {renderOverlays()}
+            </>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[#FDFDFF] text-brand-text selection:bg-brand-purple/20">
+            <UserHeader
+                userName={userName}
+                currentView={currentView}
+                onOpenMenu={() => setIsMenuOpen(true)}
+                onNavigate={setCurrentView}
+            />
+
+            <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                {renderMainContent()}
+            </main>
+
+            <SideMenu
+                isOpen={isMenuOpen}
+                onClose={() => setIsMenuOpen(false)}
+                onSignOut={onSignOut}
+                onNavigate={(v) => { setCurrentView(v); setIsMenuOpen(false); }}
+                currentView={currentView}
+            />
+
+            {renderOverlays()}
         </div>
     );
 };

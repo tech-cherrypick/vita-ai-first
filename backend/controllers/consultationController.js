@@ -37,10 +37,14 @@ const saveTranscriptAndSummary = async (req, res) => {
     await db.collection('users').doc(patientId).collection('patient_history').add({
       type: 'Consultation',
       title: 'Consultation Summary Available',
-      description: 'The video call transcript and summary have been generated.',
+      description: summary || 'No summary provided',
       date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      context: { consultationId: consultationRef.id, summarySnippet: summary ? summary.substring(0, 100) + '...' : '' }
+      context: { 
+        consultationId: consultationRef.id, 
+        summary: summary || 'No summary provided',
+        transcript: transcript 
+      }
     });
 
     res.status(200).json({ status: 'success', consultationId: consultationRef.id });

@@ -22,7 +22,7 @@ const ConsultationRecord: React.FC<{ consultation: TimelineEvent, idx: number }>
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">AI Summary</p>
                         <p className="text-sm text-gray-700 leading-relaxed font-medium">
-                            {consultation.context?.summary || consultation.description}
+                            {consultation.context?.summary || (consultation.description !== 'The video call transcript and summary have been generated.' ? consultation.description : 'Summary is being processed...')}
                         </p>
                     </div>
                     {consultation.context?.transcript && (
@@ -54,12 +54,25 @@ const ConsultationRecord: React.FC<{ consultation: TimelineEvent, idx: number }>
 };
 
 const ConsultationsScreen: React.FC<ConsultationsScreenProps> = ({ patient, isDoctorInCall, onJoinCall }) => {
-    // Filter consultations from history
-    const consultations = patient.timeline.filter(e => e.type === 'Consultation');
+    // Both timeline and patient_history might contain Consultation events.
+    const allEvents = [...(patient.timeline || []), ...(patient.patient_history || [])];
+    const consultations = allEvents.filter(e => e.type === 'Consultation');
 
     // Check for an upcoming consult (scheduled but not reviewed/completed)
     const upcomingConsult = consultations.find(e => e.title.includes('Scheduled'));
-    const completedConsultations = consultations.filter(e => !e.title.includes('Scheduled')).reverse();
+    const completedConsultations = consultations
+        .filter(e => !e.title.includes('Scheduled'))
+        .reverse();
+
+    // Additional check: filter out duplicates if they appear in both lists by using ID as key
+    const uniqueMap = new Map();
+    completedConsultations.forEach(c => {
+        // Prefer events that have context.summary/transcript
+        if (!uniqueMap.has(c.id) || (c.context?.summary && !uniqueMap.get(c.id).context?.summary)) {
+            uniqueMap.set(c.id, c);
+        }
+    });
+    const finalConsultations = Array.from(uniqueMap.values());
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -124,14 +137,14 @@ const ConsultationsScreen: React.FC<ConsultationsScreenProps> = ({ patient, isDo
                     Past Records
                 </h2>
 
-                {completedConsultations.length === 0 ? (
+                {finalConsultations.length === 0 ? (
                     <div className="bg-gray-50 rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
                         <p className="text-gray-400 font-bold">No past consultation records found.</p>
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {completedConsultations.map((c, idx) => (
-                            <ConsultationRecord key={idx} consultation={c} idx={idx} />
+                        {finalConsultations.map((c, idx) => (
+                            <ConsultationRecord key={c.id || idx} consultation={c} idx={idx} />
                         ))}
                     </div>
                 )}

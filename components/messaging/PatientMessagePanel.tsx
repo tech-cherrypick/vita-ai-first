@@ -146,7 +146,7 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                                     )}
                                     {(msg.text || msg.attachment) && (
                                         <>
-                                            {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />}
+                                            {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\[JOIN_CALL\]/g, '<button class="mt-2 w-full py-2 bg-brand-cyan/20 text-cyan-900 font-bold text-xs rounded-xl border border-brand-cyan/50 cursor-pointer text-center pointer-events-none">Join Video Session (Patient View)</button>').replace(/\n/g, '<br/>') }} />}
                                             {msg.attachment && (
                                                 <ChatAttachment
                                                     attachment={msg.attachment}

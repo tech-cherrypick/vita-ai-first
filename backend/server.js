@@ -69,6 +69,54 @@ io.on('connection', (socket) => {
     socket.join(roomName);
     console.log(`👤 User joined room: ${roomName}`);
   });
+
+  socket.on('join_call_room', (data) => {
+    const { patientId, role, isRemoteStreamAdded } = data;
+    const roomName = `call_room_${patientId}`;
+    socket.join(roomName);
+    console.log(`🎥 ${role} joined call room: ${roomName}`);
+    
+    // Notify others in the room
+    socket.to(roomName).emit('user_joined_call', { role });
+
+    // Inform the newly joined user if someone is already in the room
+    const clients = io.sockets.adapter.rooms.get(roomName);
+    if (clients && clients.size > 1) {
+       const otherRole = role === 'doctor' ? 'patient' : 'doctor';
+       socket.emit('user_joined_call', { role: otherRole });
+    }
+  });
+
+  socket.on('leave_call_room', (data) => {
+    const { patientId, role } = data;
+    const roomName = `call_room_${patientId}`;
+    socket.leave(roomName);
+    console.log(`👋 ${role} left call room: ${roomName}`);
+    socket.to(roomName).emit('user_left_call', { role });
+  });
+
+  // WebRTC Signaling
+  socket.on('webrtc_signal', (data) => {
+    const { patientId, signalData, role } = data;
+    const roomName = `call_room_${patientId}`;
+    // Forward the signal to the other peer in the room
+    socket.to(roomName).emit('webrtc_signal', { signalData, role });
+  });
+
+  // Media Status (Muted/Video Off)
+  socket.on('media_status_changed', (data) => {
+    const { patientId, role, isMuted, isVideoOff } = data;
+    const roomName = `call_room_${patientId}`;
+    socket.to(roomName).emit('media_status_changed', { role, isMuted, isVideoOff });
+  });
+
+  // Speaking Status
+  socket.on('speaking_status_changed', (data) => {
+    const { patientId, role, isSpeaking } = data;
+    const roomName = `call_room_${patientId}`;
+    socket.to(roomName).emit('speaking_status_changed', { role, isSpeaking });
+  });
+
   socket.on('send_message', async (data) => {
     const { patientUid, text, senderName, senderRole, avatar } = data;
 
