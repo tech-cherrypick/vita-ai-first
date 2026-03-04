@@ -60,9 +60,24 @@ const ConsultationTimeline: React.FC<ConsultationTimelineProps> = ({ patient, ti
         context: { rx }
     }));
 
-    // 2. Merge all sources and de-duplicate
-    const allEvents = [...timeline, ...history, ...prescriptionEvents];
-    const uniqueEvents = Array.from(new Map(allEvents.map(e => [`${e.title}-${e.date}-${e.description?.slice(0, 20)}`, e])).values());
+    // 2. Merge all sources, prioritizing official consultations sub-collection
+    const officialConsults: TimelineEvent[] = (patient.consultations || []).map(c => ({
+        id: c.id,
+        type: 'Consultation',
+        title: c.title || 'Consultation Summary Available',
+        description: c.summary || c.description,
+        date: c.date || (c.timestamp ? new Date(c.timestamp.seconds * 1000).toLocaleDateString() : ''),
+        doctor: c.doctor,
+        context: { ...c.context, summary: c.summary, transcript: c.transcript }
+    }));
+
+    // Filter out old/stale Consultation type items from legacy sources to avoid duplicates
+    const legacyEvents = [...timeline, ...history].filter(e => e.type !== 'Consultation');
+
+    const allEvents = [...legacyEvents, ...officialConsults, ...prescriptionEvents];
+
+    // 3. De-duplicate and sort
+    const uniqueEvents = Array.from(new Map(allEvents.map(e => [e.id || `${e.title}-${e.date}`, e])).values());
 
     // 3. Sort with the most recent event first
     const sortedTimeline = uniqueEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

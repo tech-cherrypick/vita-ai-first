@@ -282,6 +282,7 @@ export interface Patient {
     };
     patient_history?: TimelineEvent[]; // Unified history events
     prescriptions?: any[]; // Multi-prescription subcollection
+    consultations?: any[]; // Official consultation records
 
     // Unified Persistent Loop State
     current_loop?: {
