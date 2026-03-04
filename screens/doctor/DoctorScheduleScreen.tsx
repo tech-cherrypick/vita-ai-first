@@ -165,15 +165,31 @@ const DoctorScheduleScreen: React.FC<DoctorScheduleScreenProps> = ({ allPatients
                                     </div>
 
                                     {activeTab === 'upcoming' && (
-                                        <button
-                                            onClick={() => onJoinCall && onJoinCall(String(apt.patientId))}
-                                            className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold text-white bg-brand-purple rounded-xl hover:bg-brand-purple/90 transition-all shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 group"
-                                        >
-                                            <span>Join Call</span>
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </button>
+                                        <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText('[JOIN_CALL]');
+                                                    alert('Invite link copied! Paste it in the chat for the patient to join.');
+                                                }}
+                                                className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-semibold text-brand-purple bg-purple-50 rounded-xl hover:bg-purple-100 transition-all border border-purple-200 flex items-center justify-center gap-2"
+                                                title="Copy invite link for chat"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                </svg>
+                                                <span className="sm:hidden">Copy Link</span>
+                                            </button>
+                                            <button
+                                                onClick={() => onJoinCall && onJoinCall(String(apt.patientId))}
+                                                className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold text-white bg-brand-purple rounded-xl hover:bg-brand-purple/90 transition-all shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 group"
+                                            >
+                                                <span>Join Call</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     )}
 
                                     {activeTab === 'completed' && (

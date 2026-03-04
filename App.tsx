@@ -321,6 +321,7 @@ const App: React.FC = () => {
 
     if (newEvent) {
       savePatientToCloud('timeline', { events: updatedPatient.timeline }, updatedPatient.id);
+      savePatientToCloud('patient_history', { events: updatedPatient.patient_history }, updatedPatient.id);
     }
 
     if (updates.vitals) {

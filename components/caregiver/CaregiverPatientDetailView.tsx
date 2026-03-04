@@ -7,7 +7,7 @@ import CareCoordinationCenter from './CaregiverActions';
 import CareCoordinatorPatientProfile from './CaregiverPatientProfile';
 import MedicalReports from '../doctor/MedicalReports';
 import PatientMessagePanel from '../messaging/PatientMessagePanel';
-import ConsultationsScreen from '../../screens/dashboard/ConsultationsScreen';
+import ConsultationDetailsTab from '../dashboard/ConsultationDetailsTab';
 
 interface CareCoordinatorPatientDetailViewProps {
     patient: Patient;
@@ -132,11 +132,8 @@ const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailVie
 
                     {activeSection === 'consultation_details' && (
                         <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                            <ConsultationsScreen
-                                patient={patient}
-                                isDoctorInCall={false}
-                                onJoinCall={() => { }}
-                            />
+                            <h3 className="text-xl font-bold text-gray-900 mb-6">Past Sessions</h3>
+                            <ConsultationDetailsTab patient={patient} />
                         </div>
                     )}
                 </div>
