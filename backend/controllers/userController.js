@@ -153,14 +153,15 @@ const getData = async (req, res) => {
     const historyColRef = db.collection('users').doc(uid).collection('patient_history').orderBy('timestamp', 'desc');
     const loopRef = db.collection('users').doc(uid).collection('current_loop');
 
-    const [dataSnap, trackingSnap, clinicSnap, historyColSnap, mediaSnap, rxSnap, loopSnap] = await Promise.all([
+    const [dataSnap, trackingSnap, clinicSnap, historyColSnap, mediaSnap, rxSnap, loopSnap, consultsSnap] = await Promise.all([
         dataRef.get(),
         trackingRef.get(),
         clinicRef.get(),
         historyColRef.get(),
         db.collection('users').doc(uid).collection('media_reports').get(),
         rxRef.get(),
-        loopRef.get()
+        loopRef.get(),
+        db.collection('users').doc(uid).collection('consultations').orderBy('timestamp', 'desc').get()
     ]);
 
     const data = {};
@@ -251,8 +252,18 @@ const getData = async (req, res) => {
         prescriptions.push(data.clinic.prescription);
     }
     
+    // 8. Consultations (From subcollection)
+    const consultations = [];
+    consultsSnap.forEach(doc => {
+        consultations.push({
+            id: doc.id,
+            ...doc.data()
+        });
+    });
+    
     data.patient_history = patient_history;
     data.prescriptions = prescriptions;
+    data.consultations = consultations;
     
     data.current_loop = {};
     loopSnap.forEach(doc => {

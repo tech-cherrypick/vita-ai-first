@@ -7,7 +7,7 @@ interface ConsultationsScreenProps {
     onJoinCall: () => void;
 }
 
-const ConsultationRecord: React.FC<{ consultation: TimelineEvent, idx: number }> = ({ consultation, idx }) => {
+const ConsultationRecord: React.FC<{ consultation: any, idx: number }> = ({ consultation, idx }) => {
     const [showTranscript, setShowTranscript] = React.useState(false);
 
     return (
@@ -22,10 +22,10 @@ const ConsultationRecord: React.FC<{ consultation: TimelineEvent, idx: number }>
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">AI Summary</p>
                         <p className="text-sm text-gray-700 leading-relaxed font-medium">
-                            {consultation.context?.summary || (consultation.description !== 'The video call transcript and summary have been generated.' ? consultation.description : 'Summary is being processed...')}
+                            {consultation.summary || consultation.context?.summary || (consultation.description !== 'The video call transcript and summary have been generated.' ? consultation.description : 'Summary is being processed...')}
                         </p>
                     </div>
-                    {consultation.context?.transcript && (
+                    {(consultation.transcript || consultation.context?.transcript) && (
                         <div className="space-y-3">
                             <button
                                 onClick={() => setShowTranscript(!showTranscript)}
@@ -36,12 +36,11 @@ const ConsultationRecord: React.FC<{ consultation: TimelineEvent, idx: number }>
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
-
                             {showTranscript && (
                                 <div className="p-4 bg-gray-900 rounded-xl border border-gray-800 animate-fade-in">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-brand-cyan mb-2">Full Transcription</p>
                                     <p className="text-xs text-brand-bg/80 leading-relaxed font-mono whitespace-pre-wrap">
-                                        {consultation.context.transcript}
+                                        {consultation.transcript || consultation.context?.transcript}
                                     </p>
                                 </div>
                             )}
@@ -60,19 +59,19 @@ const ConsultationsScreen: React.FC<ConsultationsScreenProps> = ({ patient, isDo
 
     // Check for an upcoming consult (scheduled but not reviewed/completed)
     const upcomingConsult = consultations.find(e => e.title.includes('Scheduled'));
-    const completedConsultations = consultations
-        .filter(e => !e.title.includes('Scheduled'))
-        .reverse();
+    // Use consultations sub-collection as THE single source of truth.
+    // We no longer fallback to patient_history/timeline for 'Consultation' types
+    // to ensure that deletions in the DB are reflected immediately in the UI.
+    const allConsults = patient.consultations || [];
 
-    // Additional check: filter out duplicates if they appear in both lists by using ID as key
-    const uniqueMap = new Map();
-    completedConsultations.forEach(c => {
-        // Prefer events that have context.summary/transcript
-        if (!uniqueMap.has(c.id) || (c.context?.summary && !uniqueMap.get(c.id).context?.summary)) {
-            uniqueMap.set(c.id, c);
-        }
-    });
-    const finalConsultations = Array.from(uniqueMap.values());
+    // Past records are those not marked as 'Scheduled'
+    const finalConsultations = allConsults
+        .filter(c => !String(c.title || '').includes('Scheduled'))
+        .sort((a, b) => {
+            const dateA = a.timestamp ? (a.timestamp.seconds || new Date(a.date).getTime()) : 0;
+            const dateB = b.timestamp ? (b.timestamp.seconds || new Date(b.date).getTime()) : 0;
+            return dateB - dateA;
+        });
 
     return (
         <div className="space-y-8 animate-fade-in">

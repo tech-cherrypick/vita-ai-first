@@ -107,6 +107,10 @@ const getAllPatients = async (req, res) => {
       // Fetch current_loop subcollections for each user
       ...patientUsers.map(user => 
         db.collection('users').doc(user.uid).collection('current_loop').get()
+      ),
+      // Fetch consultations subcollections for each user
+      ...patientUsers.map(user => 
+        db.collection('users').doc(user.uid).collection('consultations').orderBy('timestamp', 'desc').get()
       )
     ]); 
 
@@ -122,7 +126,8 @@ const getAllPatients = async (req, res) => {
     const historySubCollections = results.slice(9, 9 + patientUsers.length);
     const prescriptionSubCollections = results.slice(9 + patientUsers.length, 9 + 2 * patientUsers.length);
     const mediaSubCollections = results.slice(9 + 2 * patientUsers.length, 9 + 3 * patientUsers.length);
-    const currentLoopSubCollections = results.slice(9 + 3 * patientUsers.length);
+    const currentLoopSubCollections = results.slice(9 + 3 * patientUsers.length, 9 + 4 * patientUsers.length);
+    const consultationCollections = results.slice(9 + 4 * patientUsers.length);
 
     // 6. Map results
     const patients = patientUsers.map((user, index) => {
@@ -224,6 +229,17 @@ const getAllPatients = async (req, res) => {
           });
       }
 
+      // Consultations from subcollection
+      const consultations = [];
+      if (consultationCollections[index]) {
+          consultationCollections[index].forEach(doc => {
+              consultations.push({
+                  id: doc.id,
+                  ...doc.data()
+              });
+          });
+      }
+
       // Status Derived
       let status = profile.status || 'Action Required';
       
@@ -238,6 +254,7 @@ const getAllPatients = async (req, res) => {
         clinic,
         prescriptions: prescriptions.length > 0 ? prescriptions : (legacyRx ? [legacyRx] : []),
         patient_history,
+        consultations,
         current_loop,
         medical: medicalData,
         id: user.uid // Ensure Auth UID overrides any numeric ID in profile

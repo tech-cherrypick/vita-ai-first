@@ -6,9 +6,15 @@ interface ConsultationDetailsTabProps {
 }
 
 const ConsultationDetailsTab: React.FC<ConsultationDetailsTabProps> = ({ patient }) => {
-    // Both timeline and patient_history might contain Consultation events. We prefer patient_history if it contains the summaries.
-    const allEvents = [...(patient.timeline || []), ...(patient.patient_history || [])];
-    const consultations = allEvents.filter(e => e.type === 'Consultation' && !e.title.includes('Scheduled')).reverse();
+    // Use consultations sub-collection as the single source of truth.
+    const allConsults = patient.consultations || [];
+    const consultations = allConsults
+        .filter(e => !String(e.title || '').includes('Scheduled'))
+        .sort((a, b) => {
+            const dateA = a.timestamp ? (a.timestamp.seconds || new Date(a.date).getTime()) : 0;
+            const dateB = b.timestamp ? (b.timestamp.seconds || new Date(b.date).getTime()) : 0;
+            return dateB - dateA;
+        });
 
     if (consultations.length === 0) {
         return (
@@ -37,11 +43,11 @@ const ConsultationDetailsTab: React.FC<ConsultationDetailsTabProps> = ({ patient
                     <div className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">AI Summary</p>
                         <p className="text-xs text-gray-700 leading-relaxed font-medium">
-                            {consultation.context?.summary || (consultation.description !== 'The video call transcript and summary have been generated.' ? consultation.description : 'Summary is being processed...')}
+                            {consultation.summary || consultation.context?.summary || (consultation.description !== 'The video call transcript and summary have been generated.' ? consultation.description : 'Summary is being processed...')}
                         </p>
                     </div>
 
-                    {consultation.context?.transcript && (
+                    {(consultation.transcript || consultation.context?.transcript) && (
                         <details className="mt-3 group">
                             <summary className="text-[10px] font-black text-brand-purple cursor-pointer hover:underline list-none flex items-center gap-1">
                                 <span>View Transcript</span>
@@ -51,7 +57,7 @@ const ConsultationDetailsTab: React.FC<ConsultationDetailsTabProps> = ({ patient
                             </summary>
                             <div className="mt-2 p-3 bg-gray-900 rounded-lg border border-gray-800">
                                 <p className="text-[10px] text-brand-bg/80 leading-relaxed font-mono whitespace-pre-wrap">
-                                    {consultation.context.transcript}
+                                    {consultation.transcript || consultation.context?.transcript}
                                 </p>
                             </div>
                         </details>

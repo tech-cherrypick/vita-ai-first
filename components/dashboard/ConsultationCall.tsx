@@ -363,24 +363,28 @@ ${fullTranscript}`;
         const finalSummary = await generateSummary(currentTranscript);
         setSummary(finalSummary);
 
-        // Save to backend
-        try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-            console.log("Attempting to save transcript to:", `${API_BASE_URL}/api/consultation/save-transcript`);
-            const response = await fetch(`${API_BASE_URL}/api/consultation/save-transcript`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    patientId,
-                    transcript: currentTranscript,
-                    summary: finalSummary,
-                    role
-                })
-            });
-            const result = await response.json();
-            console.log("Full save results from backend:", result);
-        } catch (e) {
-            console.error("Failed to save transcript to backend", e);
+        // Save to backend - ONLY DOCTOR SAVES TO PREVENT DUPLICATES
+        if (role === 'doctor') {
+            try {
+                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+                console.log("Attempting to save transcript to:", `${API_BASE_URL}/api/consultation/save-transcript`);
+                const response = await fetch(`${API_BASE_URL}/api/consultation/save-transcript`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        patientId,
+                        transcript: currentTranscript,
+                        summary: finalSummary,
+                        role
+                    })
+                });
+                const result = await response.json();
+                console.log("Full save results from backend:", result);
+            } catch (e) {
+                console.error("Failed to save transcript to backend", e);
+            }
+        } else {
+            console.log("Patient role detected, skipping backend save (Doctor handles this).");
         }
 
         onCallEnd({ transcript: currentTranscript, summary: finalSummary });

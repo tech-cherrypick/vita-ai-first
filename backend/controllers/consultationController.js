@@ -32,20 +32,14 @@ const saveTranscriptAndSummary = async (req, res) => {
     };
 
     await consultationRef.set(consultationData);
-
-    // Also update the latest consultation in patient history or tracking
+    
+    // REMOVED DUPLICATE SAVE TO PATIENT_HISTORY TO PREVENT STALE DATA
+    // Consultations should now be fetched from the 'consultations' sub-collection only.
+    /*
     await db.collection('users').doc(patientId).collection('patient_history').add({
-      type: 'Consultation',
-      title: 'Consultation Summary Available',
-      description: summary || 'No summary provided',
-      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      context: { 
-        consultationId: consultationRef.id, 
-        summary: summary || 'No summary provided',
-        transcript: transcript 
-      }
+      // settings...
     });
+    */
 
     res.status(200).json({ status: 'success', consultationId: consultationRef.id });
   } catch (error) {
