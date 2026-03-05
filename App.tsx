@@ -32,7 +32,7 @@ const App: React.FC = () => {
   const [currentPatientId, setCurrentPatientId] = useState<string | number | null>(null);
 
   const fetchUserRole = async (user: any) => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
     console.log("🔍 Fetching role from:", `${API_BASE_URL}/api/user/role`);
     try {
       const token = await user.getIdToken();
@@ -58,8 +58,7 @@ const App: React.FC = () => {
   const fetchFromCloud = async (user: any) => {
     console.log("☁️ fetchFromCloud starting for:", user.email);
     setIsLoading(true);
-
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_BASE_URL}/api/data`, {
@@ -126,7 +125,7 @@ const App: React.FC = () => {
   const fetchDoctorPatients = async (user: any) => {
     console.log("👨‍⚕️ fetchDoctorPatients starting");
     setIsLoading(true);
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_BASE_URL}/api/doctor/patients`, {
@@ -160,7 +159,7 @@ const App: React.FC = () => {
   const savePatientToCloud = async (section: string, data: any, targetPatientId?: string | number) => {
     const user = auth.currentUser;
     if (!user) return;
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
     try {
       const token = await user.getIdToken();
 

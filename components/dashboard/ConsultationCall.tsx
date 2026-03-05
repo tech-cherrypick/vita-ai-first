@@ -366,7 +366,7 @@ ${fullTranscript}`;
         // Save to backend - ONLY DOCTOR SAVES TO PREVENT DUPLICATES
         if (role === 'doctor') {
             try {
-                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                 console.log("Attempting to save transcript to:", `${API_BASE_URL}/api/consultation/save-transcript`);
                 const response = await fetch(`${API_BASE_URL}/api/consultation/save-transcript`, {
                     method: 'POST',
