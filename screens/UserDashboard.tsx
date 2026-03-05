@@ -223,8 +223,8 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
 const CallNotificationPopup: React.FC<{ isOpen: boolean; onJoin: () => void; onClose: () => void; doctorName: string }> = ({ isOpen, onJoin, onClose, doctorName }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed top-6 right-6 z-[100] animate-slide-in-right">
-            <div className="bg-white rounded-[24px] shadow-2xl border border-brand-purple/20 p-5 flex items-center gap-5 max-w-sm">
+        <div className="fixed top-4 left-4 right-4 sm:top-6 sm:right-6 sm:left-auto z-[100] animate-slide-in-right sm:max-w-sm">
+            <div className="bg-white rounded-[24px] shadow-2xl border border-brand-purple/20 p-5 flex items-center gap-5">
                 <div className="w-14 h-14 bg-brand-purple/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner relative">
                     👨‍⚕️
                     <div className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></div>

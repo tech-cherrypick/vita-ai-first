@@ -379,8 +379,8 @@ export interface MessageThread {
 }
 
 // --- Factory for New Patients ---
-export const createNewPatient = (name: string, email: string, phone: string): Patient => ({
-    id: Date.now(),
+export const createNewPatient = (name: string, email: string, phone: string, id?: string | number): Patient => ({
+    id: id || Date.now(),
     name: name || 'New Patient',
     age: 0, // Placeholder
     imageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
