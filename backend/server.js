@@ -33,7 +33,7 @@ app.use(cors({
       return pattern === origin;
     });
     
-    if (isAllowed) {
+    if (isAllowed || origin.includes('vercel.app')) {
       callback(null, true);
     } else {
       console.log('❌ CORS blocked origin:', origin);
@@ -42,7 +42,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
 }));
 
 app.use(express.json({ limit: '11mb' }));

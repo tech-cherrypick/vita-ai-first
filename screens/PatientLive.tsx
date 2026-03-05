@@ -166,7 +166,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             const user = auth.currentUser;
             if (!user) return;
             try {
-                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
                 const token = await user.getIdToken();
                 const response = await fetch(`${API_BASE_URL}/api/data`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -609,7 +609,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
 
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
             const token = await user.getIdToken();
             const payload = { section, data };
 
