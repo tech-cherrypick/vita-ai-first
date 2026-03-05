@@ -72,7 +72,7 @@ const App: React.FC = () => {
         const profile = cloudData.profile || {};
 
         const reconstructedPatient: Patient = {
-          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || ''),
+          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || '', user.uid),
           ...profile,
           age: profile.age || 0,
           // Merge other sections if they exist
@@ -87,25 +87,25 @@ const App: React.FC = () => {
           current_loop: cloudData.current_loop || {},
           dailyLogs: cloudData.dailyLogs || {},
           carePlan: cloudData.carePlan || undefined,
-          id: profile.id || Date.now(),
+          id: user.uid, // Force UID
         };
 
         // If timeline from DB is empty, use the one from createNewPatient
         if (reconstructedPatient.timeline.length === 0) {
-          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone).timeline;
+          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone, user.uid).timeline;
         }
 
         setPatients([reconstructedPatient]);
         setCurrentPatientId(reconstructedPatient.id);
       } else {
-        const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '');
+        const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
         setPatients([fallbackPatient]);
         setCurrentPatientId(fallbackPatient.id);
       }
     } catch (err) {
       console.error("☁️ Failed to fetch cloud data:", err);
       // Fallback to ensure we don't show "User not found"
-      const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '');
+      const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
       setPatients([fallbackPatient]);
       setCurrentPatientId(fallbackPatient.id);
     } finally {
@@ -113,7 +113,7 @@ const App: React.FC = () => {
       // Double check: if patients is still empty for some reason, add one
       setPatients(prev => {
         if (prev.length === 0) {
-          const fallback = createNewPatient(user.displayName || 'User', user.email || '', '');
+          const fallback = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
           setCurrentPatientId(fallback.id);
           return [fallback];
         }
