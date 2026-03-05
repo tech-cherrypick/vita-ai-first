@@ -3,19 +3,29 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' capacitor://localhost http://localhost;
+    script-src 'self' 'unsafe-inline' capacitor://localhost http://localhost https://checkout.razorpay.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com capacitor://localhost http://localhost;
+    font-src https://fonts.gstatic.com;
+    connect-src 'self' capacitor://localhost http://localhost http://localhost:8080
+      https://*.onrender.com
+      https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com
+      https://*.razorpay.com https://*.google.com
+      wss://*.firebaseio.com;
+    img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://images.pexels.com;
+    media-src 'self' blob: mediastream:;
+  " />
   <title>vita+ - Weight Loss Starts Here</title>
 
-  <!-- Resource hints for performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://firebaseapp.com">
   <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
 
-  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Styles -->
   <link rel="stylesheet" href="/index.css">
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
