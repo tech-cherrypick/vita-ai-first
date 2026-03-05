@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import UserHeader from '../components/dashboard/UserHeader';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
@@ -21,6 +21,7 @@ import PsychoProfiler from '../components/PsychoProfiler';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
 import PatientLive from './PatientLive';
 import { getSocket } from '../socket';
+import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 
 
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
@@ -258,6 +259,22 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
     const [isDoctorInCall, setIsDoctorInCall] = useState(false);
     const [showCallNotification, setShowCallNotification] = useState(false);
+
+    useAndroidBackButton(useCallback(() => {
+        if (isMenuOpen) {
+            setIsMenuOpen(false);
+            return true;
+        }
+        if (focusMode !== 'none') {
+            setFocusMode('none');
+            return true;
+        }
+        if (currentView !== 'dashboard') {
+            setCurrentView('dashboard');
+            return true;
+        }
+        return false;
+    }, [isMenuOpen, focusMode, currentView]));
 
     useEffect(() => {
         const socket = getSocket();

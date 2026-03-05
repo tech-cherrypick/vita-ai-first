@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Patient, CareCoordinatorTask, TimelineEvent, CareCoordinatorView, mockCareCoordinatorMessageThreads, GlobalChatMessage } from '../constants';
 import CareCoordinatorHeader from '../components/caregiver/CaregiverHeader';
 import CareCoordinatorTriageScreen from './caregiver/CaregiverTriageScreen';
@@ -7,6 +7,7 @@ import CareCoordinatorScheduleScreen from './caregiver/CaregiverScheduleScreen';
 import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverPatientDetailView';
 import PatientList from '../components/doctor/PatientList';
 import { getSocket } from '../socket';
+import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -22,6 +23,18 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const socket = getSocket();
+
+    useAndroidBackButton(useCallback(() => {
+        if (selectedPatientId) {
+            setSelectedPatientId(null);
+            return true;
+        }
+        if (view !== 'triage') {
+            setView('triage');
+            return true;
+        }
+        return false;
+    }, [selectedPatientId, view]));
 
     useEffect(() => {
         // 1. Join rooms for all assigned patients
