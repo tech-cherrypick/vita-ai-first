@@ -366,13 +366,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         closeFocusMode();
     };
 
-    const handleEndCall = () => {
+    const handleEndCall = (data?: { transcript: string; summary: string }) => {
         const transcriptEvent = {
             type: 'Consultation',
             title: 'Metabolic Fingerprint Review',
             description: 'Doctor reviewed metabolic profile. Patient cleared for GLP-1 therapy + MuscleProtect protocol.',
             doctor: patient.careTeam.physician,
+            context: {
+                transcript: data?.transcript || 'No transcript generated.',
+                summary: data?.summary || 'No summary generated.'
+            }
         } as const;
+
         onUpdatePatient(patient.id, transcriptEvent, { status: 'Awaiting Shipment', nextAction: 'Medication Shipment' });
         closeFocusMode();
     };
