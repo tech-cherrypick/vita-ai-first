@@ -16,13 +16,22 @@ interface CareCoordinatorDashboardProps {
     tasks: CareCoordinatorTask[];
     onCompleteTask: (taskId: string) => void;
     userName: string;
+    initialSelectedPatientId?: string | null;
+    onNotificationConsumed?: () => void;
 }
 
-const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask, userName }) => {
+const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, tasks, onCompleteTask, userName, initialSelectedPatientId, onNotificationConsumed }) => {
     const [view, setView] = useState<CareCoordinatorView>('triage');
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const socket = getSocket();
+
+    useEffect(() => {
+        if (initialSelectedPatientId) {
+            setSelectedPatientId(initialSelectedPatientId);
+            onNotificationConsumed?.();
+        }
+    }, [initialSelectedPatientId]);
 
     useAndroidBackButton(useCallback(() => {
         if (selectedPatientId) {

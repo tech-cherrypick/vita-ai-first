@@ -36,6 +36,8 @@ interface UserDashboardProps {
     chatHistory?: GlobalChatMessage[];
     onSendChatMessage?: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
     userName?: string;
+    notificationPatientId?: string | null;
+    onNotificationConsumed?: () => void;
 }
 
 const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
@@ -226,11 +228,18 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
 };
 
 
-const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, chatHistory, onSendChatMessage }) => {
+const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, chatHistory, onSendChatMessage, notificationPatientId, onNotificationConsumed }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
     const [incomingCall, setIncomingCall] = useState<{ doctorName: string; doctorId: string; patientId: string } | null>(null);
+
+    useEffect(() => {
+        if (notificationPatientId) {
+            setCurrentView('live');
+            onNotificationConsumed?.();
+        }
+    }, [notificationPatientId]);
 
     // Profile Check
     const [isDoctorInCall, setIsDoctorInCall] = useState(false);

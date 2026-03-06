@@ -22,6 +22,7 @@ app.use(express.urlencoded({ limit: '11mb', extended: true }));
 
 // Initialize Firebase Admin
 initializeFirebase();
+const { sendNotificationToUser } = require('./controllers/notificationController');
 const db = admin.firestore();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -119,6 +120,41 @@ io.on('connection', (socket) => {
 
       io.to(`room_${patientUid}`).emit('receive_message', broadcastData);
       console.log(`📩 Message sent in room_${patientUid} by ${senderName}`);
+
+      try {
+        const senderId = data.senderId || null;
+        const recipientIds = new Set();
+
+        recipientIds.add(patientUid);
+
+        const rolesSnapshot = await db.collection('roles')
+          .where('role', 'in', ['doctor', 'careCoordinator'])
+          .get();
+
+        for (const roleDoc of rolesSnapshot.docs) {
+          const email = roleDoc.id;
+          try {
+            const userRecord = await admin.auth().getUserByEmail(email);
+            recipientIds.add(userRecord.uid);
+          } catch {
+          }
+        }
+
+        if (senderId) {
+          recipientIds.delete(senderId);
+        }
+
+        const notificationTitle = `${senderName}`;
+        const notificationBody = text || 'Sent an attachment';
+
+        for (const recipientId of recipientIds) {
+          sendNotificationToUser(recipientId, notificationTitle, notificationBody, {
+            imageUrl: avatar || '',
+            patientUid
+          });
+        }
+      } catch {
+      }
     } catch (err) {
       console.error('❌ Error sending message:', err);
     }
