@@ -10,36 +10,8 @@ const { initializeFirebase, admin } = require('./config/firebaseAdmin');
 
 const app = express();
 
-// CORS Configuration
-const allowedOrigins = [
-  /^https:\/\/vita-ai-first.*\.vercel\.app$/,  // Matches ALL Vercel preview URLs
-  'https://vita-ai-first.vercel.app',          // Production Vercel domain
-  'http://localhost:5174',
-  'http://localhost:5173',
-  'http://localhost:19006',                     // Expo web
-  'http://localhost:8081'                       // React Native
-];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin matches any pattern (string or regex)
-    const isAllowed = allowedOrigins.some(pattern => {
-      if (pattern instanceof RegExp) {
-        return pattern.test(origin);
-      }
-      return pattern === origin;
-    });
-    
-    if (isAllowed || origin.includes('vercel.app')) {
-      callback(null, true);
-    } else {
-      console.log('❌ CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
