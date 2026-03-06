@@ -45,14 +45,3 @@
     display: none;
 }
 
-html.platform-android body {
-    padding-top: env(safe-area-inset-top, 0px);
-}
-
-html.platform-android .sticky {
-    top: env(safe-area-inset-top, 0px);
-}
-
-html.platform-android .fixed.inset-0.flex-col {
-    padding-top: env(safe-area-inset-top, 0px);
-}
