@@ -54,59 +54,55 @@ const getNotificationSettings = async (req, res) => {
 };
 
 const sendTestNotification = async (req, res) => {
-  const { user_id, title, body } = req.body;
+  const { user_id, title, body, imageUrl, patientUid } = req.body;
 
   if (!user_id) {
     return res.status(400).json({ error: 'user_id is required' });
   }
 
   try {
-    const snapshot = await db.collection(COLLECTION)
-      .where('user_id', '==', user_id)
-      .where('enabled', '==', true)
-      .get();
+    await sendNotificationToUser(
+      user_id,
+      title || 'Vita+ Test Notification',
+      body || 'This is a test notification from Vita+',
+      { imageUrl: imageUrl || '', patientUid: patientUid || '' }
+    );
 
-    if (snapshot.empty) {
-      return res.status(404).json({ error: 'No enabled FCM tokens found for this user' });
-    }
-
-    const tokens = snapshot.docs.map(doc => doc.data().fcm_token);
-    const message = {
-      notification: {
-        title: title || 'Vita+ Test Notification',
-        body: body || 'This is a test notification from Vita+'
-      },
-      tokens
-    };
-
-    const response = await admin.messaging().sendEachForMulticast(message);
-
-    const failedTokens = [];
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success) {
-        failedTokens.push(tokens[idx]);
-        console.error('Failed to send to token:', tokens[idx], resp.error?.message);
-      }
-    });
-
-    if (failedTokens.length > 0) {
-      const batch = db.batch();
-      failedTokens.forEach(token => {
-        batch.delete(db.collection(COLLECTION).doc(token));
-      });
-      await batch.commit();
-    }
-
-    res.status(200).json({
-      status: 'success',
-      sent: response.successCount,
-      failed: response.failureCount
-    });
+    res.status(200).json({ status: 'success' });
   } catch (error) {
     console.error('Error sending test notification:', error.message);
     res.status(500).json({ error: 'Failed to send notification' });
   }
 };
 
-module.exports = { updateNotificationSettings, getNotificationSettings, sendTestNotification };
+const sendNotificationToUser = async (userId, title, body, { imageUrl, patientUid } = {}) => {
+  try {
+    const snapshot = await db.collection(COLLECTION)
+      .where('user_id', '==', userId)
+      .where('enabled', '==', true)
+      .get();
+
+    if (snapshot.empty) return;
+
+    const tokens = snapshot.docs.map(doc => doc.data().fcm_token);
+
+    for (const token of tokens) {
+      try {
+        const data = { title, body };
+        if (imageUrl) data.imageUrl = imageUrl;
+        if (patientUid) data.patientUid = patientUid;
+
+        await admin.messaging().send({
+          data,
+          token,
+          android: { priority: 'high' }
+        });
+      } catch {
+      }
+    }
+  } catch {
+  }
+};
+
+module.exports = { updateNotificationSettings, getNotificationSettings, sendTestNotification, sendNotificationToUser };
 

@@ -4,6 +4,8 @@ import { auth } from './firebase';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 import { notificationService } from './services/NotificationService';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 // Lazy load all dashboard components for better performance
 const UserDashboard = lazy(() => import('./screens/UserDashboard'));
@@ -42,6 +44,7 @@ const App: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [careCoordinatorTasks, setCareCoordinatorTasks] = useState<CareCoordinatorTask[]>([]);
   const [currentPatientId, setCurrentPatientId] = useState<string | number | null>(null);
+  const [notificationPatientId, setNotificationPatientId] = useState<string | null>(null);
 
   const fetchUserRole = async (user: any) => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -269,6 +272,21 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+      const patientUid = notification.notification?.data?.patientUid;
+      if (patientUid) {
+        setNotificationPatientId(patientUid);
+      }
+    });
+
+    return () => {
+      listener.then(l => l.remove());
+    };
+  }, []);
+
   const currentPatient = patients.find(p => p.id === currentPatientId) || patients[0] || null;
 
   const handleUpdatePatient = (
@@ -412,7 +430,7 @@ const App: React.FC = () => {
 
         const rawName = firebaseUser?.displayName || "Mitchell";
         const docName = rawName.startsWith("Dr.") ? rawName : `Dr. ${rawName}`;
-        return <DoctorDashboard onSignOut={handleSignOut} allPatients={patients} onUpdatePatient={handleUpdatePatient} userName={docName} />;
+        return <DoctorDashboard onSignOut={handleSignOut} allPatients={patients} onUpdatePatient={handleUpdatePatient} userName={docName} initialSelectedPatientId={notificationPatientId} onNotificationConsumed={() => setNotificationPatientId(null)} />;
       case 'careCoordinator':
       case 'trainer':
       case 'nutritionist':
@@ -424,13 +442,15 @@ const App: React.FC = () => {
             tasks={careCoordinatorTasks}
             onCompleteTask={handleCompleteCareCoordinatorTask}
             userName={firebaseUser?.displayName || "Care Manager"}
+            initialSelectedPatientId={notificationPatientId}
+            onNotificationConsumed={() => setNotificationPatientId(null)}
           />
         );
       case 'patient':
       default:
         if (!currentPatient) return <div>User profile not found.</div>;
         if (!currentPatient) return <div>User profile not found.</div>;
-        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} userName={firebaseUser?.displayName || currentPatient.name || "User"} />;
+        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} userName={firebaseUser?.displayName || currentPatient.name || "User"} notificationPatientId={notificationPatientId} onNotificationConsumed={() => setNotificationPatientId(null)} />;
     }
   };
 

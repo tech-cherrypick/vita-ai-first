@@ -16,6 +16,8 @@ interface DoctorDashboardProps {
     allPatients: Patient[];
     onUpdatePatient: (patientId: string | number, newEvent: Omit<TimelineEvent, 'id' | 'date'> | null, updates: Partial<Patient>) => void;
     userName: string;
+    initialSelectedPatientId?: string | null;
+    onNotificationConsumed?: () => void;
 }
 
 const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-4xl" }) => {
@@ -38,13 +40,20 @@ const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
     );
 };
 
-const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, userName }) => {
-    // Store ID instead of object to prevent stale data
+const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatients, onUpdatePatient, userName, initialSelectedPatientId, onNotificationConsumed }) => {
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [view, setView] = useState<DoctorView>('patients');
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
     const socket = getSocket();
+
+    useEffect(() => {
+        if (initialSelectedPatientId) {
+            setSelectedPatientId(initialSelectedPatientId);
+            setView('patients');
+            onNotificationConsumed?.();
+        }
+    }, [initialSelectedPatientId]);
 
     useAndroidBackButton(useCallback(() => {
         if (activeCallPatientId) {
