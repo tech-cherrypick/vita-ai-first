@@ -188,12 +188,38 @@ export interface TimelineEvent {
     context?: any;
 }
 
+export interface MealEntry {
+    time: string;
+    description: string;
+    photoUrl?: string;
+}
+
 export interface DailyLog {
+    bedTimePreviousDay?: string;
+    wakeUpTime?: string;
+    weight?: number;
+    steps?: number;
+    exercise?: string;
+    eatenOutside?: string;
+    eatenOutsidePhotos?: string[];
+    
+    // Structured Meals
+    breakfast?: MealEntry;
+    lunch?: MealEntry;
+    dinner?: MealEntry;
+    snacks?: MealEntry;
+    
+    // Legacy / Shared
     medicationTaken: boolean;
     proteinIntake: number;
     waterIntake: number;
     mindsetCompleted: string[];
     fitnessCompleted: boolean;
+    
+    // Deprecated but kept for compatibility if needed during migration
+    nutriPackEaten?: string;
+    mealTimes?: string;
+    meditation?: boolean;
 }
 
 export interface WeekLogEntry {
