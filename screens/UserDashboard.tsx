@@ -20,6 +20,7 @@ import PsychoProfiler from '../components/PsychoProfiler';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
 import PatientLive from './PatientLive';
 import TreatmentPlanPanel from '../components/dashboard/TreatmentPlanPanel';
+import { getSocket } from '../socket';
 
 export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
@@ -222,6 +223,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
+    const [incomingCall, setIncomingCall] = useState<{ doctorName: string; doctorId: string; patientId: string } | null>(null);
 
     // Profile Check
     const profileStatus = useMemo(() => {
@@ -252,6 +254,33 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         return undefined;
     }, [patient.timeline]);
 
+    // --- Socket listener for incoming calls ---
+    useEffect(() => {
+        const socket = getSocket();
+
+        // Ensure we are in the correct room
+        socket.emit('join_room', patient.id);
+
+        const handleIncomingCall = (data: { doctorName: string; doctorId: string; patientId: string } | undefined | null) => {
+            console.log("Receiving incoming call in UserDashboard:", data);
+            if (data && String(data.patientId) === String(patient.id)) {
+                setIncomingCall(data);
+            }
+        };
+
+        const handleCallEnded = (data: any) => {
+            console.log("Call ended, clearing popup", data);
+            setIncomingCall(null);
+        };
+
+        socket.on('incoming_call', handleIncomingCall);
+        socket.on('call_ended', handleCallEnded);
+
+        return () => {
+            socket.off('incoming_call', handleIncomingCall);
+            socket.off('call_ended', handleCallEnded);
+        };
+    }, [patient.id]);
 
     // --- Handlers for Focus Views ---
 
@@ -349,16 +378,68 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
 
     // --- Renderers ---
 
+    const renderIncomingCallPopup = () => {
+        if (!incomingCall) return null;
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full animate-slide-in-up border border-brand-purple/20">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="w-20 h-20 bg-brand-purple/10 rounded-full flex items-center justify-center mb-4 relative">
+                            <div className="absolute inset-0 bg-brand-purple rounded-full animate-ping opacity-20"></div>
+                            <svg className="w-10 h-10 text-brand-purple animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-1">Incoming Call</h2>
+                        <p className="text-gray-500 font-medium mb-6">
+                            <span className="font-bold text-gray-800">{incomingCall.doctorName}</span> is calling you for a consultation.
+                        </p>
+
+                        <div className="flex w-full gap-3">
+                            <button
+                                onClick={() => {
+                                    setIncomingCall(null);
+                                    // You can emit a 'reject_call' event here if the backend supports it
+                                }}
+                                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-red-50 text-red-600 font-bold rounded-2xl transition-colors border border-transparent hover:border-red-200"
+                            >
+                                Decline
+                            </button>
+                            <button
+                                onClick={() => {
+                                    getSocket().emit('accept_call', { patientId: incomingCall.patientId, patientName: patient.name });
+                                    setIncomingCall(null);
+                                    setCurrentView('dashboard'); // ensure we are on dashboard view
+                                    setFocusMode('telehealth');  // trigger the consultation modal
+                                }}
+                                className="flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     if (currentView === 'live') {
         return (
-            <PatientLive
-                patient={patient}
-                onNavigate={(view: any) => setCurrentView(view)}
-                onUpdatePatient={onUpdatePatient}
-                onSignOut={onSignOut}
-                chatHistory={chatHistory}
-                onSendMessage={onSendChatMessage}
-            />
+            <>
+                <PatientLive
+                    patient={patient}
+                    onNavigate={(view: any) => setCurrentView(view)}
+                    onUpdatePatient={onUpdatePatient}
+                    onSignOut={onSignOut}
+                    chatHistory={chatHistory}
+                    onSendMessage={onSendChatMessage}
+                />
+                {renderIncomingCallPopup()}
+            </>
         );
     }
 
@@ -473,6 +554,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                     {renderMainContent()}
                 </div>
             </main>
+
+            {renderIncomingCallPopup()}
 
             {/* Modals for specific sub-tasks */}
             <ModalWrapper
