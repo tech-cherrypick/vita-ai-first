@@ -14,6 +14,7 @@ interface ConsultationCallProps {
 
 const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPartyName, patientId, role, isFullscreen, setIsFullscreen }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [transcriptSegments, setTranscriptSegments] = useState<{ speaker: string, text: string, time: string }[]>([]);
@@ -200,6 +201,13 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
     useEffect(() => {
         socket.emit('speaking_status_changed', { patientId, role, isSpeaking: isLocalTalking });
     }, [isLocalTalking, patientId, role, socket]);
+
+    // Attach remote stream to video element
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
 
     const setupVoiceActivityDetection = (stream: MediaStream) => {
         try {
@@ -486,11 +494,7 @@ ${fullTranscript}`;
                                     autoPlay
                                     playsInline
                                     className={`w-full h-full object-cover transition-opacity duration-500`}
-                                    ref={(ref) => {
-                                        if (ref && remoteStream) {
-                                            ref.srcObject = remoteStream;
-                                        }
-                                    }}
+                                    ref={remoteVideoRef}
                                 />
                             ) : (
                                 <div className={`w-full h-full flex flex-col items-center justify-center bg-gray-800 transition-opacity duration-500`}>
