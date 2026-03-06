@@ -371,19 +371,26 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     };
 
     const handleEndCall = (data?: { transcript: string; summary: string }) => {
-        const transcriptEvent = {
-            type: 'Consultation',
-            title: 'Metabolic Fingerprint Review',
-            description: 'Doctor reviewed metabolic profile. Patient cleared for GLP-1 therapy + MuscleProtect protocol.',
-            doctor: patient.careTeam.physician,
-            context: {
-                transcript: data?.transcript || 'No transcript generated.',
-                summary: data?.summary || 'No summary generated.'
-            }
-        } as const;
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-        onUpdatePatient(patient.id, transcriptEvent, { status: 'Awaiting Shipment', nextAction: 'Medication Shipment' });
+        const consultationRecord = {
+            id: `consult_${Date.now()}`,
+            date: `${dateStr} at ${timeStr}`,
+            timestamp: now.toISOString(),
+            doctor: patient.careTeam.physician,
+            summary: data?.summary || 'No summary was generated for this session.',
+            transcript: data?.transcript || 'No transcript was recorded for this session.',
+        };
+
+        // Update patient.consultations in-memory so the tab shows immediately
+        const updatedConsultations = [consultationRecord, ...(patient.consultations || [])];
+        onUpdatePatient(patient.id, null, { consultations: updatedConsultations });
+
         closeFocusMode();
+        // Navigate to consultations view to show the result
+        setCurrentView('consultations');
     };
 
     // --- Renderers ---
@@ -545,6 +552,17 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'payments': return <PaymentsScreen patient={patient} />;
             case 'care_team': return <CareTeamScreen patient={patient} />;
             case 'help': return <HelpScreen />;
+            case 'consultations': return (
+                <div className="animate-fade-in">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-black text-gray-900">Past Consultations</h2>
+                        <p className="text-sm text-gray-500 mt-1">Your complete history of doctor consultations with AI-generated summaries and full transcripts.</p>
+                    </div>
+                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                        <ConsultationDetailsTab patient={patient} />
+                    </div>
+                </div>
+            );
             default: return renderDashboardHome();
         }
     }
