@@ -81,6 +81,9 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
                 initPeerConnection(new MediaStream());
             }
 
+            // Emit a basic ping to tell the other person we are here in case they joined before us
+            socket.emit('webrtc_signal', { patientId, role, signalData: { type: 'ping' } });
+
             // Immediately register to the room once local prep is done
             socket.emit('join_call_room', { patientId, role });
         };
@@ -130,6 +133,15 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
                         await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
                     } else if (signalData.candidate) {
                         await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+                    } else if (signalData.type === 'ping') {
+                        // The other party just arrived and pinged us. If we are the doctor, let's initiate an offer.
+                        setIsPartnerJoined(true);
+                        setRemoteRole(data.role);
+                        if (role === 'doctor') {
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            socket.emit('webrtc_signal', { patientId, role, signalData: { offer } });
+                        }
                     }
                 } catch (e) {
                     console.error("WebRTC Error:", e);
@@ -403,7 +415,7 @@ ${fullTranscript}`;
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-white">Live Session</span>
                     </div>
-                    {isTranscribing && (
+                    {isTranscribing && role === 'doctor' && (
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-purple/40 backdrop-blur-md rounded-full border border-brand-purple/20 animate-fade-in">
                             <span className="text-[10px] font-black uppercase tracking-widest text-brand-cyan">Transcribing...</span>
                         </div>
@@ -463,7 +475,7 @@ ${fullTranscript}`;
                 </div>
 
                 {/* Local Video Overlay */}
-                <div className={`absolute bottom-6 right-6 w-1/4 max-w-[200px] aspect-[3/4] bg-gray-800 rounded-2xl overflow-hidden border-2 shadow-2xl z-20 transition-all duration-300 ${isLocalTalking ? 'border-brand-cyan shadow-[0_0_30px_rgba(6,182,212,0.4)] scale-105' : 'border-white/20'}`}>
+                <div className={`absolute bottom-6 right-6 w-1/4 max-w-[200px] aspect-[3/4] bg-gray-800 rounded-2xl overflow-hidden border-2 shadow-2xl z-20 transition-all duration-300 ${isLocalTalking ? 'border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.5)] scale-105' : 'border-white/20'}`}>
                     {error ? (
                         <div className="w-full h-full flex items-center justify-center text-center text-[10px] text-white p-4 bg-gray-800">
                             {error}
@@ -489,23 +501,26 @@ ${fullTranscript}`;
                                 <span className="text-[10px] text-white/60 font-medium font-serif italic">Camera Off</span>
                             </div>
 
-                            <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 rounded text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-brand-cyan/80 border-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.6)]' : 'bg-black/40 border-white/10'}`}>
+                            <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 flex items-center gap-1.5 rounded-full text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-emerald-500/90 border-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]' : 'bg-black/60 border-white/20'}`}>
+                                {isLocalTalking && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
                                 {isLocalTalking ? 'TALKING' : 'YOU'}
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Real-time Transcription Overlay */}
-                <div className="absolute bottom-6 left-6 right-[35%] bg-black/50 backdrop-blur-xl p-5 rounded-2xl border border-white/10 max-h-[140px] overflow-y-auto custom-scrollbar shadow-xl transition-all">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-ping"></div>
-                        <span className="text-brand-cyan font-black uppercase text-[10px] tracking-widest">Live Metadata Transcription</span>
+                {/* Real-time Transcription Overlay (Doctor Only) */}
+                {role === 'doctor' && (
+                    <div className="absolute bottom-6 left-6 right-[35%] bg-black/50 backdrop-blur-xl p-5 rounded-2xl border border-white/10 max-h-[140px] overflow-y-auto custom-scrollbar shadow-xl transition-all">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-ping"></div>
+                            <span className="text-brand-cyan font-black uppercase text-[10px] tracking-widest">Live Metadata Transcription</span>
+                        </div>
+                        <p className="text-white/90 text-sm leading-relaxed font-medium">
+                            {transcript || (isTranscribing ? "Calibrating voice recognition and listening to audio stream..." : "Waiting for speech signal...")}
+                        </p>
                     </div>
-                    <p className="text-white/90 text-sm leading-relaxed font-medium">
-                        {transcript || (isTranscribing ? "Calibrating voice recognition and listening to audio stream..." : "Waiting for speech signal...")}
-                    </p>
-                </div>
+                )}
             </div>
 
             {/* Controls */}

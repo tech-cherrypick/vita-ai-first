@@ -17,10 +17,11 @@ import ConsultationScheduler from '../components/dashboard/ConsultationScheduler
 import PatientActionCenter from '../components/dashboard/PatientActionCenter';
 import MedicalProfiler from '../components/MedicalProfiler';
 import PsychoProfiler from '../components/PsychoProfiler';
-import DigitalIntake from '../components/dashboard/DigitalIntake';
 import PatientLive from './PatientLive';
 import TreatmentPlanPanel from '../components/dashboard/TreatmentPlanPanel';
 import { getSocket } from '../socket';
+import ConsultationCall from '../components/dashboard/ConsultationCall';
+import DigitalIntake from '../components/dashboard/DigitalIntake';
 
 export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
@@ -583,8 +584,16 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 isOpen={focusMode === 'telehealth'}
                 onClose={closeFocusMode}
                 title="Telehealth Session"
+                maxWidth="max-w-4xl"
             >
-                <FirstDoseCall onCallEnd={handleEndCall} doctorName={patient.careTeam.physician} />
+                <div className="h-[75vh] w-full min-h-[500px]">
+                    <ConsultationCall
+                        onCallEnd={handleEndCall}
+                        otherPartyName={patient.careTeam.physician}
+                        patientId={String(patient.id)}
+                        role="patient"
+                    />
+                </div>
             </ModalWrapper>
 
             <ModalWrapper
