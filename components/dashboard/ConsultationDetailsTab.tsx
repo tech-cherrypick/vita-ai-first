@@ -30,7 +30,9 @@ const ConsultationDetailsTab: React.FC<ConsultationDetailsTabProps> = ({ patient
                 <div key={idx} className="bg-gray-50 rounded-xl p-4 border border-gray-100 shadow-sm">
                     <div className="flex justify-between items-start mb-3">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-brand-purple mb-1">{consultation.date}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-brand-purple mb-1">
+                                {consultation.date || new Date(consultation.timestamp?.seconds * 1000).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
                             <h4 className="text-sm font-bold text-gray-900">{consultation.title}</h4>
                         </div>
                         {consultation.doctor && (

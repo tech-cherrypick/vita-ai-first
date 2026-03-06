@@ -14,7 +14,7 @@ const ConsultationRecord: React.FC<{ consultation: any, idx: number }> = ({ cons
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex flex-col md:flex-row gap-6">
                 <div className="md:w-1/3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-purple mb-1">{consultation.date}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-purple mb-1">{consultation.date || new Date(consultation.timestamp?.seconds * 1000).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     <h4 className="text-lg font-black text-gray-900 mb-2">{consultation.title}</h4>
                     <p className="text-sm text-gray-500 font-semibold italic">Physician: {consultation.doctor || 'Assigned Physician'}</p>
                 </div>

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import UserHeader from '../components/dashboard/UserHeader';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import FirstDoseCall from '../components/dashboard/FirstDoseCall';
+import ConsultationCall from '../components/dashboard/ConsultationCall';
 import PrescriptionView from '../components/dashboard/PrescriptionView';
 import TreatmentTimeline from '../components/dashboard/TreatmentTimeline';
 import { Patient, TimelineEvent, GlobalChatMessage } from '../constants';
@@ -12,6 +13,8 @@ import ReportsScreen from './dashboard/ReportsScreen';
 import PaymentsScreen from './dashboard/PaymentsScreen';
 import CareTeamScreen from './dashboard/CareTeamScreen';
 import HelpScreen from './dashboard/HelpScreen';
+import ConsultationsScreen from './dashboard/ConsultationsScreen';
+import { getSocket } from '../socket';
 import PatientOverviewHero from '../components/dashboard/PatientOverviewHero';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
 import PatientActionCenter from '../components/dashboard/PatientActionCenter';
@@ -33,7 +36,7 @@ interface UserDashboardProps {
     userName?: string;
 }
 
-const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
+const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string, headerExtra?: React.ReactNode }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg", headerExtra }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -41,9 +44,12 @@ const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
             <div className={`bg-white w-full ${maxWidth} rounded-2xl shadow-2xl overflow-hidden relative flex flex-col animate-slide-in-up max-h-[90vh]`}>
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
                     <h3 className="font-bold text-lg text-gray-800">{title}</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {headerExtra}
+                        <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
                 </div>
                 <div className="p-6 overflow-y-auto">
                     {children}
@@ -217,11 +223,50 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
     );
 };
 
+interface IncomingCallData {
+    doctorName: string;
+    doctorId: string;
+    patientId: string;
+}
 
 const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, chatHistory, onSendChatMessage }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isDoctorActive, setIsDoctorActive] = useState(false);
+    const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
+
+    useEffect(() => {
+        const socket = getSocket();
+        socket.emit('join_room', patient.id);
+
+        socket.on('user_joined_call', (data: any) => {
+            if (data.role === 'doctor') {
+                setIsDoctorActive(true);
+            }
+        });
+
+        socket.on('user_left_call', (data: any) => {
+            if (data.role === 'doctor') {
+                setIsDoctorActive(false);
+            }
+        });
+
+        const handleIncomingCall = (data: IncomingCallData) => {
+            if (focusMode !== 'telehealth') {
+                setIncomingCall(data);
+            }
+        };
+
+        socket.on('incoming_call', handleIncomingCall);
+
+        return () => {
+            socket.off('user_joined_call');
+            socket.off('user_left_call');
+            socket.off('incoming_call', handleIncomingCall);
+        };
+    }, [patient.id, focusMode]);
 
     // Profile Check
     const profileStatus = useMemo(() => {
@@ -278,7 +323,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
 
     const closeFocusMode = () => setFocusMode('none');
 
-    // --- Task Completion Handlers ---
+    const handleJoinCall = () => {
+        setFocusMode('telehealth');
+    };
 
     const handleMedicalHistoryComplete = (data: any) => {
         const intakeEvent: Omit<TimelineEvent, 'id' | 'date'> = {
@@ -454,6 +501,14 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'payments': return <PaymentsScreen patient={patient} />;
             case 'care_team': return <CareTeamScreen patient={patient} />;
             case 'help': return <HelpScreen />;
+            case 'consultations':
+                return (
+                    <ConsultationsScreen
+                        patient={patient}
+                        isDoctorInCall={isDoctorActive}
+                        onJoinCall={handleJoinCall}
+                    />
+                );
             default: return renderDashboardHome();
         }
     }
@@ -497,12 +552,43 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             </ModalWrapper>
 
             <ModalWrapper
-                isOpen={focusMode === 'telehealth'}
+                isOpen={focusMode === 'telehealth' && !isFullscreen}
                 onClose={closeFocusMode}
                 title="Telehealth Session"
+                maxWidth="max-w-4xl"
+                headerExtra={
+                    <button
+                        onClick={() => setIsFullscreen(true)}
+                        className="p-2 hover:bg-gray-200 rounded-full transition-all text-gray-500"
+                        title="Expand to Full Screen"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6m0 0v6m0-6L14 10M9 21H3m0 0v-6m0 6l7-7" />
+                        </svg>
+                    </button>
+                }
             >
-                <FirstDoseCall onCallEnd={handleEndCall} doctorName={patient.careTeam.physician} />
+                <ConsultationCall
+                    patientId={String(patient.id)}
+                    otherPartyName={patient.careTeam.physician}
+                    role="patient"
+                    onCallEnd={handleEndCall}
+                    isFullscreen={isFullscreen}
+                    setIsFullscreen={setIsFullscreen}
+                />
             </ModalWrapper>
+
+            {/* Fullscreen View (when active) */}
+            {focusMode === 'telehealth' && isFullscreen && (
+                <ConsultationCall
+                    patientId={String(patient.id)}
+                    otherPartyName={patient.careTeam.physician}
+                    role="patient"
+                    onCallEnd={handleEndCall}
+                    isFullscreen={isFullscreen}
+                    setIsFullscreen={setIsFullscreen}
+                />
+            )}
 
             <ModalWrapper
                 isOpen={focusMode === 'view_plan'}
@@ -538,6 +624,49 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 />
             </ModalWrapper>
 
+            {/* Incoming Call Popup */}
+            {incomingCall && focusMode !== 'telehealth' && (
+                <div className="fixed top-4 right-4 sm:top-24 sm:right-8 z-[100] animate-bounce-in max-w-sm w-full mx-auto sm:mx-0">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-brand-purple/20 overflow-hidden relative">
+                        {/* Status bar */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-brand-cyan animate-pulse"></div>
+
+                        <div className="p-5 flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full bg-brand-cyan/10 flex items-center justify-center shrink-0 border border-brand-cyan/30 text-2xl animate-pulse">
+                                📞
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-black text-gray-900 tracking-tight leading-tight">Incoming Video Call</h3>
+                                <p className="text-sm text-gray-600 font-medium mt-1">
+                                    <span className="text-brand-purple font-bold">{incomingCall.doctorName}</span> is calling...
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="px-5 pb-5 flex items-center gap-3">
+                            <button
+                                onClick={() => setIncomingCall(null)}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                                Ignore
+                            </button>
+                            <button
+                                onClick={() => {
+                                    getSocket().emit('accept_call', { patientId: patient.id, patientName: patient.name });
+                                    setFocusMode('telehealth');
+                                    setIncomingCall(null);
+                                }}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-green-500 hover:bg-green-600 shadow-md shadow-green-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                </svg>
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -17,7 +17,7 @@ interface DoctorDashboardProps {
     userName: string;
 }
 
-const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-4xl" }) => {
+const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string, headerExtra?: React.ReactNode }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-4xl", headerExtra }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -25,9 +25,12 @@ const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
             <div className={`bg-white w-full ${maxWidth} rounded-3xl shadow-2xl overflow-hidden relative flex flex-col animate-slide-in-up max-h-[95vh]`}>
                 <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
                     <h3 className="font-black text-xl text-gray-900 tracking-tight">{title}</h3>
-                    <button onClick={onClose} className="p-2.5 hover:bg-gray-200 rounded-full transition-all hover:rotate-90">
-                        <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {headerExtra}
+                        <button onClick={onClose} className="p-2.5 hover:bg-gray-200 rounded-full transition-all hover:rotate-90">
+                            <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
                 </div>
                 <div className="p-8 overflow-y-auto bg-white flex-1">
                     {children}
@@ -43,6 +46,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     const [view, setView] = useState<DoctorView>('patients');
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const socket = getSocket();
 
     useEffect(() => {
@@ -173,9 +177,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
 
             {/* Video Call Modal */}
             <ModalWrapper
-                isOpen={!!activeCallPatientId}
+                isOpen={!!activeCallPatientId && !isFullscreen}
                 onClose={() => handleCallEnd()}
                 title={`Consultation with ${activeCallPatient?.name || 'Patient'}`}
+                headerExtra={
+                    <button
+                        onClick={() => setIsFullscreen(true)}
+                        className="p-2.5 hover:bg-gray-200 rounded-full transition-all text-gray-500"
+                        title="Expand to Full Screen"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6m0 0v6m0-6L14 10M9 21H3m0 0v-6m0 6l7-7" />
+                        </svg>
+                    </button>
+                }
             >
                 {activeCallPatientId && (
                     <ConsultationCall
@@ -183,9 +198,23 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                         otherPartyName={activeCallPatient?.name || 'Patient'}
                         role="doctor"
                         onCallEnd={handleCallEnd}
+                        isFullscreen={isFullscreen}
+                        setIsFullscreen={setIsFullscreen}
                     />
                 )}
             </ModalWrapper>
+
+            {/* Fullscreen View (when active) */}
+            {activeCallPatientId && isFullscreen && (
+                <ConsultationCall
+                    patientId={activeCallPatientId}
+                    otherPartyName={activeCallPatient?.name || 'Patient'}
+                    role="doctor"
+                    onCallEnd={handleCallEnd}
+                    isFullscreen={isFullscreen}
+                    setIsFullscreen={setIsFullscreen}
+                />
+            )}
         </div>
     );
 };

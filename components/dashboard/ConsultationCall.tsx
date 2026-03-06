@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getSocket } from '../../socket';
 import { GoogleGenAI } from '@google/genai';
 
@@ -7,13 +8,16 @@ interface ConsultationCallProps {
     otherPartyName: string;
     patientId: string;
     role: 'doctor' | 'patient';
+    isFullscreen: boolean;
+    setIsFullscreen: (val: boolean) => void;
 }
 
-const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPartyName, patientId, role }) => {
+const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPartyName, patientId, role, isFullscreen, setIsFullscreen }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [transcript, setTranscript] = useState<string>('');
+    const [transcriptSegments, setTranscriptSegments] = useState<{ speaker: string, text: string, time: string }[]>([]);
+    const [interimText, setInterimText] = useState<string>('');
     const transcriptRef = useRef<string>('');
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
@@ -150,6 +154,14 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
             }
         });
 
+        socket.on('transcription_segment', (data: any) => {
+            if (data.role !== role) {
+                const speakerName = data.role === 'doctor' ? 'Physician' : 'Patient';
+                const segmentTime = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                setTranscriptSegments(prev => [...prev, { speaker: speakerName, text: data.text, time: segmentTime }]);
+            }
+        });
+
         socket.on('call_ended', () => {
             handleEndCall();
         });
@@ -175,6 +187,7 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
             socket.off('webrtc_signal');
             socket.off('media_status_changed');
             socket.off('speaking_status_changed');
+            socket.off('transcription_segment');
         };
     }, [patientId]);
 
@@ -281,16 +294,25 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
 
             recognition.onresult = (event: any) => {
                 let finalTranscript = '';
-                let interimTranscript = '';
-                for (let i = 0; i < event.results.length; ++i) {
+                let currentInterim = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript + ' ';
+                        const text = event.results[i][0].transcript.trim();
+                        if (text) {
+                            const segmentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const speakerName = role === 'doctor' ? 'Physician' : 'Patient';
+
+                            // Add locally
+                            setTranscriptSegments(prev => [...prev, { speaker: 'You', text, time: segmentTime }]);
+
+                            // Broadcast to other party
+                            socket.emit('transcription_segment', { patientId, role, text, time: segmentTime });
+                        }
                     } else {
-                        interimTranscript += event.results[i][0].transcript;
+                        currentInterim += event.results[i][0].transcript;
                     }
                 }
-                transcriptRef.current = finalTranscript.trim();
-                setTranscript(finalTranscript + interimTranscript);
+                setInterimText(currentInterim);
             };
 
             recognition.onerror = (event: any) => {
@@ -361,25 +383,38 @@ ${fullTranscript}`;
         stopTranscription();
         socket.emit('end_call', { patientId, senderRole: role });
 
-        const currentTranscript = transcriptRef.current;
-        console.log("Ending call with transcript length:", currentTranscript.length);
+        // Format the segments into a single readable string with timestamps
+        const formattedTranscript = transcriptSegments
+            .map(s => `[${s.time}] ${s.speaker}: ${s.text}`)
+            .join('\n');
 
-        // Finalize transcript and summary
-        const finalSummary = await generateSummary(currentTranscript);
+        console.log("Ending call with formatted transcript length:", formattedTranscript.length);
+
+        // Finalize summary
+        const finalSummary = await generateSummary(formattedTranscript);
         setSummary(finalSummary);
 
         // Save to backend - ONLY DOCTOR SAVES TO PREVENT DUPLICATES
         if (role === 'doctor') {
             try {
                 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+                const fullDateTime = new Date().toLocaleString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
                 console.log("Attempting to save transcript to:", `${API_BASE_URL}/api/consultation/save-transcript`);
                 const response = await fetch(`${API_BASE_URL}/api/consultation/save-transcript`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         patientId,
-                        transcript: currentTranscript,
+                        transcript: formattedTranscript,
                         summary: finalSummary,
+                        date: fullDateTime,
                         role
                     })
                 });
@@ -392,12 +427,35 @@ ${fullTranscript}`;
             console.log("Patient role detected, skipping backend save (Doctor handles this).");
         }
 
-        onCallEnd({ transcript: currentTranscript, summary: finalSummary });
+        onCallEnd({ transcript: formattedTranscript, summary: finalSummary });
     };
 
-    return (
-        <div className="flex flex-col h-full max-h-[80vh]">
-            <div className="flex-1 relative bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-gray-800 min-h-[400px]">
+    const content = (
+        <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? 'fixed inset-0 z-[99999] bg-gray-900 w-screen h-screen overflow-hidden' : 'h-full max-h-[80vh]'}`}>
+            {isFullscreen && (
+                <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900 shrink-0">
+                    <h3 className="font-black text-xl text-white tracking-tight">Consultation with {otherPartyName}</h3>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsFullscreen(false)}
+                            className="p-2.5 hover:bg-gray-800 rounded-full transition-all text-gray-400"
+                            title="Exit Full Screen"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={handleEndCall}
+                            className="p-2.5 hover:bg-red-500/20 rounded-full transition-all text-red-500 hover:rotate-90"
+                            title="End Session"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+            <div className={`flex-1 relative bg-gray-900 shadow-2xl border border-gray-800 transition-all duration-500 ${isFullscreen ? 'rounded-none border-none' : 'rounded-3xl overflow-hidden min-h-[400px]'}`}>
                 <div className="absolute top-4 left-4 z-20 flex gap-2">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
@@ -496,61 +554,52 @@ ${fullTranscript}`;
                     )}
                 </div>
 
-                {/* Real-time Transcription Overlay */}
-                <div className="absolute bottom-6 left-6 right-[35%] bg-black/50 backdrop-blur-xl p-5 rounded-2xl border border-white/10 max-h-[140px] overflow-y-auto custom-scrollbar shadow-xl transition-all">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-ping"></div>
-                        <span className="text-brand-cyan font-black uppercase text-[10px] tracking-widest">Live Metadata Transcription</span>
-                    </div>
-                    <p className="text-white/90 text-sm leading-relaxed font-medium">
-                        {transcript || (isTranscribing ? "Calibrating voice recognition and listening to audio stream..." : "Waiting for speech signal...")}
-                    </p>
+                {/* Controls */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 z-30">
+                    <button
+                        onClick={toggleMic}
+                        className={`w-16 h-16 rounded-full border transition-all shadow-md group flex items-center justify-center ${isMuted ? 'bg-red-500 border-red-400 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                        {isMuted ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" />
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:scale-110 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={toggleVideo}
+                        className={`w-16 h-16 rounded-full border transition-all shadow-md group flex items-center justify-center ${isVideoOff ? 'bg-red-500 border-red-400 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                        {isVideoOff ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" />
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:scale-110 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={handleEndCall}
+                        className="px-12 h-16 bg-red-500 rounded-full flex items-center justify-center text-white font-black gap-3 shadow-xl shadow-red-500/30 hover:bg-red-600 transition-all hover:scale-105 active:scale-95 border border-red-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 8l2-2m0 0l2 2m-2-2v5l-5 5H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-4h4l2 4h3a2 2 0 012 2z" />
+                        </svg>
+                        End Session
+                    </button>
                 </div>
-            </div>
-
-            {/* Controls */}
-            <div className="mt-8 flex justify-center items-center gap-6">
-                <button
-                    onClick={toggleMic}
-                    className={`w-16 h-16 rounded-full border transition-all shadow-md group flex items-center justify-center ${isMuted ? 'bg-red-500 border-red-400 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-                    {isMuted ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                            <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" />
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:scale-110 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                    )}
-                </button>
-
-                <button
-                    onClick={handleEndCall}
-                    className="px-12 h-16 bg-red-500 rounded-full flex items-center justify-center text-white font-black gap-3 shadow-xl shadow-red-500/30 hover:bg-red-600 transition-all hover:scale-105 active:scale-95 border border-red-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 8l2-2m0 0l2 2m-2-2v5l-5 5H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-4h4l2 4h3a2 2 0 012 2z" />
-                    </svg>
-                    End Session
-                </button>
-
-                <button
-                    onClick={toggleVideo}
-                    className={`w-16 h-16 rounded-full border transition-all shadow-md group flex items-center justify-center ${isVideoOff ? 'bg-red-500 border-red-400 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-                    {isVideoOff ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" />
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:scale-110 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    )}
-                </button>
             </div>
         </div>
     );
+
+    return isFullscreen ? createPortal(content, document.body) : content;
 };
 
 export default ConsultationCall;

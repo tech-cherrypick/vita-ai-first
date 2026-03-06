@@ -89,6 +89,13 @@ io.on('connection', (socket) => {
     socket.to(roomName).emit('speaking_status_changed', { role, isSpeaking });
   });
 
+  // Transcription Relay
+  socket.on('transcription_segment', (data) => {
+    const { patientId, role, text, time } = data;
+    const roomName = `call_room_${patientId}`;
+    socket.to(roomName).emit('transcription_segment', { role, text, time });
+  });
+
   socket.on('send_message', async (data) => {
     const { patientUid, text, senderName, senderRole, avatar } = data;
 
