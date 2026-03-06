@@ -28,6 +28,7 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
     const [isRemoteTalking, setIsRemoteTalking] = useState(false);
 
     const recognitionRef = useRef<any>(null);
+    const hasEndedRef = useRef(false);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
@@ -279,16 +280,17 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
             recognition.lang = 'en-US';
 
             recognition.onresult = (event: any) => {
-                let currentTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
+                let finalTranscript = '';
+                let interimTranscript = '';
+                for (let i = 0; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
                 }
-                const newTranscript = transcriptRef.current + ' ' + currentTranscript;
-                transcriptRef.current = newTranscript;
-
-                // Slightly debounce / throttle UI updates if needed, but for now state update is fine
-                // since transcript is typically short.
-                setTranscript(newTranscript);
+                transcriptRef.current = finalTranscript.trim();
+                setTranscript(finalTranscript + interimTranscript);
             };
 
             recognition.onerror = (event: any) => {
@@ -353,6 +355,9 @@ ${fullTranscript}`;
     };
 
     const handleEndCall = async () => {
+        if (hasEndedRef.current) return;
+        hasEndedRef.current = true;
+
         stopTranscription();
         socket.emit('end_call', { patientId, senderRole: role });
 
