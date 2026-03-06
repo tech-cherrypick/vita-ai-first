@@ -21,10 +21,11 @@ import PatientLive from './PatientLive';
 import TreatmentPlanPanel from '../components/dashboard/TreatmentPlanPanel';
 import { getSocket } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
+import ConsultationDetailsTab from '../components/dashboard/ConsultationDetailsTab';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
 
 export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations';
-type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan';
+type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan' | 'view_consultations';
 
 interface UserDashboardProps {
     onSignOut: () => void;
@@ -171,8 +172,11 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
             detail: activeConsultAppointment
                 ? `Booked: ${activeConsultAppointment.context?.consultDateTime || activeConsultAppointment.date}`
                 : 'Video visits with your care team.',
-            actionLabel: activeConsultAppointment ? 'Manage Appointment' : 'Schedule Now',
-            target: 'schedule_consult' as FocusMode
+            dualAction: true,
+            actions: [
+                { label: 'Schedule Now', target: 'schedule_consult' as FocusMode, icon: '📅' },
+                { label: 'Past Sessions', target: 'view_consultations' as FocusMode, icon: '📋' }
+            ]
         }
     ];
 
@@ -608,6 +612,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 maxWidth="max-w-xl"
             >
                 <PrescriptionView patient={patient} />
+            </ModalWrapper>
+
+            <ModalWrapper
+                isOpen={focusMode === 'view_consultations'}
+                onClose={closeFocusMode}
+                title="Past Consultation Sessions"
+                maxWidth="max-w-2xl"
+            >
+                <div>
+                    <p className="text-sm text-gray-500 mb-6">Your complete history of doctor consultations, including AI summaries and transcripts.</p>
+                    <ConsultationDetailsTab patient={patient} />
+                </div>
             </ModalWrapper>
 
             {/* Form Modals */}

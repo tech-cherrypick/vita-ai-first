@@ -78,6 +78,7 @@ const App: React.FC = () => {
           // Merge other sections if they exist
           timeline: cloudData.timeline?.events || [],
           patient_history: cloudData.patient_history || [],
+          consultations: cloudData.consultations || [],
           prescriptions: cloudData.prescriptions || [],
           vitals: cloudData.vitals?.list || [],
           weeklyLogs: cloudData.weeklyLogs?.entries || [],
