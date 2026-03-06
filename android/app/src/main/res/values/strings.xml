@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vita+</string>
+    <string name="title_activity_main">Vita+</string>
+    <string name="package_name">com.vita.app</string>
+    <string name="custom_url_scheme">com.vita.app</string>
+</resources>

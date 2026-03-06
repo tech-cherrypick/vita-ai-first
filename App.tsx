@@ -1,7 +1,9 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import { Patient, TimelineEvent, CareCoordinatorTask, createNewPatient } from './constants';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
+import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+import { notificationService } from './services/NotificationService';
 
 // Lazy load all dashboard components for better performance
 const UserDashboard = lazy(() => import('./screens/UserDashboard'));
@@ -25,6 +27,16 @@ const App: React.FC = () => {
     localStorage.setItem('vita_user_type', userType);
   }, [userType]);
   const [showLogin, setShowLogin] = useState(false);
+
+
+
+  useAndroidBackButton(useCallback(() => {
+    if (!isSignedIn && showLogin) {
+      setShowLogin(false);
+      return true;
+    }
+    return false;
+  }, [isSignedIn, showLogin]));
 
   // Initialize state
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -226,6 +238,7 @@ const App: React.FC = () => {
         // Store token for dashboard components that use sessionStorage
         user.getIdToken().then(token => {
           sessionStorage.setItem('authToken', token);
+          notificationService.initializeOnAppLaunch();
         });
 
         try {

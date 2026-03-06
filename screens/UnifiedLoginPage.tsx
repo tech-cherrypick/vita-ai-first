@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { VitaLogo } from '../constants';
-import { auth, googleProvider } from '../firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { authService } from '../services/AuthService';
 
 interface UnifiedLoginPageProps {
     onSignIn: (user: any) => void;
@@ -22,12 +21,11 @@ const UnifiedLoginPage: React.FC<UnifiedLoginPageProps> = ({ onSignIn }) => {
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            onSignIn(result.user);
+            const user = await authService.signInWithGoogle();
+            onSignIn(user);
         } catch (error: any) {
             console.error("Auth Error:", error.code, error.message);
 
-            // Handle cases where the user intentionally closes the popup or cancels the request
             if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
                 setIsLoading(false);
                 return;

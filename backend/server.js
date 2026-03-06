@@ -160,6 +160,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/user', userRoutes);
 app.use('/api', userRoutes);
@@ -167,6 +168,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/consultation', consultationRoutes);
+app.use('/api/notification', notificationRoutes);
 app.use('/api', leadRoutes);
 
 // Health Check

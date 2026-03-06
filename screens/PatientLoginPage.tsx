@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { VitaLogo } from '../constants';
-import { auth, googleProvider } from '../firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { authService } from '../services/AuthService';
 
 
 interface PatientLoginPageProps {
@@ -27,11 +26,11 @@ const PatientLoginPage: React.FC<PatientLoginPageProps> = ({ onSignIn, onBack })
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
         try {
-            const result = await signInWithPopup(auth, googleProvider);
+            const user = await authService.signInWithGoogle();
             setGoogleUser({
-                name: result.user.displayName || 'User',
-                email: result.user.email || '',
-                uid: result.user.uid
+                name: user.displayName || 'User',
+                email: user.email || '',
+                uid: user.uid
             });
             setStep('phone');
         } catch (error) {

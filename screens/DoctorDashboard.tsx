@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DoctorHeader from '../components/doctor/DoctorHeader';
 import PatientList from '../components/doctor/PatientList';
 import PatientDetailView from '../components/doctor/PatientDetailView';
@@ -7,6 +7,7 @@ import { Patient, TimelineEvent, GlobalChatMessage } from '../constants';
 import DoctorScheduleScreen from './doctor/DoctorScheduleScreen';
 import { getSocket } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
+import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 
 export type DoctorView = 'patients' | 'schedule';
 
@@ -44,6 +45,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
     const socket = getSocket();
+
+    useAndroidBackButton(useCallback(() => {
+        if (activeCallPatientId) {
+            setActiveCallPatientId(null);
+            return true;
+        }
+        if (selectedPatientId) {
+            setSelectedPatientId(null);
+            return true;
+        }
+        if (view !== 'patients') {
+            setView('patients');
+            return true;
+        }
+        return false;
+    }, [activeCallPatientId, selectedPatientId, view]));
 
     useEffect(() => {
         // 1. Join rooms for all assigned patients

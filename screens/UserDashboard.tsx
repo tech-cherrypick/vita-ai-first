@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import UserHeader from '../components/dashboard/UserHeader';
 import LabScheduler from '../components/dashboard/LabScheduler';
 import FirstDoseCall from '../components/dashboard/FirstDoseCall';
@@ -23,6 +23,8 @@ import { getSocket } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
 import ConsultationDetailsTab from '../components/dashboard/ConsultationDetailsTab';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
+import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
+
 
 export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan' | 'view_consultations';
@@ -231,6 +233,53 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     const [incomingCall, setIncomingCall] = useState<{ doctorName: string; doctorId: string; patientId: string } | null>(null);
 
     // Profile Check
+    const [isDoctorInCall, setIsDoctorInCall] = useState(false);
+    const [showCallNotification, setShowCallNotification] = useState(false);
+
+    useAndroidBackButton(useCallback(() => {
+        if (isMenuOpen) {
+            setIsMenuOpen(false);
+            return true;
+        }
+        if (focusMode !== 'none') {
+            setFocusMode('none');
+            return true;
+        }
+        if (currentView !== 'dashboard') {
+            setCurrentView('dashboard');
+            return true;
+        }
+        return false;
+    }, [isMenuOpen, focusMode, currentView]));
+
+    useEffect(() => {
+        const socket = getSocket();
+        socket.emit('join_room', patient.id);
+
+        socket.on('incoming_call', (data: any) => {
+            console.log('Incoming call from doctor:', data.doctorName);
+            setIsDoctorInCall(true);
+            setShowCallNotification(true);
+        });
+
+        socket.on('call_ended', () => {
+            setIsDoctorInCall(false);
+            setShowCallNotification(false);
+        });
+
+        const handleJoinTelehealth = () => {
+            setFocusMode('telehealth');
+            setShowCallNotification(false);
+        };
+        window.addEventListener('joinTelehealth', handleJoinTelehealth);
+
+        return () => {
+            socket.off('incoming_call');
+            socket.off('call_ended');
+            window.removeEventListener('joinTelehealth', handleJoinTelehealth);
+        };
+    }, [patient.id]);
+
     const profileStatus = useMemo(() => {
         const missing: string[] = [];
         if (!patient.phone) missing.push("Phone Number");
