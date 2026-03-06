@@ -3,6 +3,7 @@ import { Patient, TimelineEvent, CareCoordinatorTask, createNewPatient } from '.
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+import { notificationService } from './services/NotificationService';
 
 // Lazy load all dashboard components for better performance
 const UserDashboard = lazy(() => import('./screens/UserDashboard'));
@@ -237,6 +238,7 @@ const App: React.FC = () => {
         // Store token for dashboard components that use sessionStorage
         user.getIdToken().then(token => {
           sessionStorage.setItem('authToken', token);
+          notificationService.initializeOnAppLaunch();
         });
 
         try {
