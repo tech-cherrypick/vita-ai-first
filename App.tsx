@@ -94,6 +94,7 @@ const App: React.FC = () => {
           // Merge other sections if they exist
           timeline: cloudData.timeline?.events || [],
           patient_history: cloudData.patient_history || [],
+          consultations: cloudData.consultations || [],
           prescriptions: cloudData.prescriptions || [],
           vitals: cloudData.vitals?.list || [],
           weeklyLogs: cloudData.weeklyLogs?.entries || [],
@@ -103,6 +104,7 @@ const App: React.FC = () => {
           current_loop: cloudData.current_loop || {},
           dailyLogs: cloudData.dailyLogs || {},
           carePlan: cloudData.carePlan || undefined,
+          treatmentPlan: cloudData.treatmentPlan || undefined,
           id: user.uid, // Force UID
         };
 
@@ -353,6 +355,10 @@ const App: React.FC = () => {
 
     if (updates.carePlan) {
       savePatientToCloud('carePlan', updatedPatient.carePlan, updatedPatient.id);
+    }
+
+    if (updates.treatmentPlan) {
+      savePatientToCloud('treatmentPlan', updatedPatient.treatmentPlan, updatedPatient.id);
     }
 
     // New Data Persistence

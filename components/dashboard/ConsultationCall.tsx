@@ -28,6 +28,7 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
     const [isRemoteTalking, setIsRemoteTalking] = useState(false);
 
     const recognitionRef = useRef<any>(null);
+    const hasEndedRef = useRef(false);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
@@ -80,6 +81,9 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
                 initPeerConnection(new MediaStream());
             }
 
+            // Emit a basic ping to tell the other person we are here in case they joined before us
+            socket.emit('webrtc_signal', { patientId, role, signalData: { type: 'ping' } });
+
             // Immediately register to the room once local prep is done
             socket.emit('join_call_room', { patientId, role });
         };
@@ -129,6 +133,15 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
                         await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
                     } else if (signalData.candidate) {
                         await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+                    } else if (signalData.type === 'ping') {
+                        // The other party just arrived and pinged us. If we are the doctor, let's initiate an offer.
+                        setIsPartnerJoined(true);
+                        setRemoteRole(data.role);
+                        if (role === 'doctor') {
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            socket.emit('webrtc_signal', { patientId, role, signalData: { offer } });
+                        }
                     }
                 } catch (e) {
                     console.error("WebRTC Error:", e);
@@ -279,16 +292,17 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
             recognition.lang = 'en-US';
 
             recognition.onresult = (event: any) => {
-                let currentTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
+                let finalTranscript = '';
+                let interimTranscript = '';
+                for (let i = 0; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
                 }
-                const newTranscript = transcriptRef.current + ' ' + currentTranscript;
-                transcriptRef.current = newTranscript;
-
-                // Slightly debounce / throttle UI updates if needed, but for now state update is fine
-                // since transcript is typically short.
-                setTranscript(newTranscript);
+                transcriptRef.current = finalTranscript.trim();
+                setTranscript(finalTranscript + interimTranscript);
             };
 
             recognition.onerror = (event: any) => {
@@ -308,59 +322,83 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         }
     };
 
-    const generateSummary = async (fullTranscript: string) => {
+    const generateSummaryAndFormatTranscript = async (fullTranscript: string) => {
         if (!fullTranscript || fullTranscript.trim().length < 10) {
             console.warn("Transcript too short for summarization. Length:", fullTranscript?.length);
-            return "No significant conversation recorded for summarization.";
+            return {
+                summary: "No significant conversation recorded for summarization.",
+                formattedTranscript: fullTranscript
+            };
         }
 
         const apiKey = import.meta.env.VITE_API_KEY;
         if (!apiKey) {
             console.error("VITE_API_KEY is missing. Summary cannot be generated.");
-            return "Summary generation failed: API key missing.";
+            return {
+                summary: "Summary generation failed: API key missing.",
+                formattedTranscript: fullTranscript
+            };
         }
 
         try {
             const genAI = new GoogleGenAI({ apiKey });
-            // Using gemini-2.0-flash for better summarization as per PatientLive.tsx
             const chat = genAI.chats.create({ model: 'gemini-2.0-flash' });
 
-            const prompt = `You are a medical scribe. Analyze the following consultation transcript and provide a structured summary with:
-1. Key Takeaways
-2. Potential Diagnosis/Points discussed
-3. Recommended Next Steps
+            const prompt = `You are a medical scribe. Analyze the following raw continuous speech transcript from a consultation. 
+Please perform TWO tasks:
+TASK 1: Provide a structured summary with:
+- Key Takeaways
+- Potential Diagnosis/Points discussed
+- Recommended Next Steps
 
-TRANSCRIPT:
+TASK 2: Reformat the raw transcript into a readable dialog format with clear speaker labels (e.g., Doctor: "...", Patient: "..."). Infer the speakers based on the context.
+
+Please separate the two sections clearly with the strict delimiter: "|||TRANSCRIPT_START|||"
+
+RAW TRANSCRIPT:
 ${fullTranscript}`;
 
             const result = await chat.sendMessage({ message: prompt });
-            // Reliable text extraction for @google/genai ^0.2.0
-            let summaryText = "";
+            let responseText = "";
             const anyResult = result as any;
             if (typeof anyResult.text === 'string') {
-                summaryText = anyResult.text;
+                responseText = anyResult.text;
             } else if (anyResult.response && typeof anyResult.response.text === 'function') {
-                summaryText = await anyResult.response.text();
+                responseText = await anyResult.response.text();
             } else if (anyResult.text && typeof anyResult.text === 'function') {
-                summaryText = await anyResult.text();
+                responseText = await anyResult.text();
             }
 
-            return summaryText || "Summary could not be parsed from AI response.";
+            if (!responseText) {
+                return { summary: "Failed to parse response.", formattedTranscript: fullTranscript };
+            }
+
+            const parts = responseText.split("|||TRANSCRIPT_START|||");
+            const summaryText = parts[0]?.trim() || "Summary could not be parsed from AI response.";
+            const formattedTranscriptText = parts[1]?.trim() || fullTranscript;
+
+            return { summary: summaryText, formattedTranscript: formattedTranscriptText };
         } catch (error) {
             console.error("Error generating summary with Gemini:", error);
-            return `Summary generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            return {
+                summary: `Summary generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                formattedTranscript: fullTranscript
+            };
         }
     };
 
     const handleEndCall = async () => {
+        if (hasEndedRef.current) return;
+        hasEndedRef.current = true;
+
         stopTranscription();
         socket.emit('end_call', { patientId, senderRole: role });
 
         const currentTranscript = transcriptRef.current;
         console.log("Ending call with transcript length:", currentTranscript.length);
 
-        // Finalize transcript and summary
-        const finalSummary = await generateSummary(currentTranscript);
+        // Finalize transcript and summary using Gemini for both
+        const { summary: finalSummary, formattedTranscript } = await generateSummaryAndFormatTranscript(currentTranscript);
         setSummary(finalSummary);
 
         // Save to backend - ONLY DOCTOR SAVES TO PREVENT DUPLICATES
@@ -373,7 +411,7 @@ ${fullTranscript}`;
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         patientId,
-                        transcript: currentTranscript,
+                        transcript: formattedTranscript,
                         summary: finalSummary,
                         role
                     })
@@ -387,7 +425,7 @@ ${fullTranscript}`;
             console.log("Patient role detected, skipping backend save (Doctor handles this).");
         }
 
-        onCallEnd({ transcript: currentTranscript, summary: finalSummary });
+        onCallEnd({ transcript: formattedTranscript, summary: finalSummary });
     };
 
     return (
@@ -398,13 +436,13 @@ ${fullTranscript}`;
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-white">Live Session</span>
                     </div>
-                    {isTranscribing && (
+                    {isTranscribing && role === 'doctor' && (
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-purple/40 backdrop-blur-md rounded-full border border-brand-purple/20 animate-fade-in">
                             <span className="text-[10px] font-black uppercase tracking-widest text-brand-cyan">Transcribing...</span>
                         </div>
                     )}
                 </div>
-                {/* Main Video (Simulated Remote) */}
+                {/* Main Video (Remote) */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     {!isPartnerJoined ? (
                         <div className="flex flex-col items-center justify-center gap-4 z-10 p-8">
@@ -422,7 +460,7 @@ ${fullTranscript}`;
                                 <video
                                     autoPlay
                                     playsInline
-                                    className={`w-full h-full object-cover transition-opacity duration-500`}
+                                    className="w-full h-full object-cover transition-opacity duration-500"
                                     ref={(ref) => {
                                         if (ref && remoteStream) {
                                             ref.srcObject = remoteStream;
@@ -430,7 +468,7 @@ ${fullTranscript}`;
                                     }}
                                 />
                             ) : (
-                                <div className={`w-full h-full flex flex-col items-center justify-center bg-gray-800 transition-opacity duration-500`}>
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 transition-opacity duration-500">
                                     <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mb-4 border-2 border-gray-600 shadow-xl">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -442,7 +480,7 @@ ${fullTranscript}`;
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none"></div>
                             <div className="absolute top-6 left-6 flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-lg">
                                 {isRemoteMuted ? (
-                                    <div className={`w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.5)]`} title="Muted">
+                                    <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.5)]" title="Muted">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                                             <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2.5" />
@@ -458,7 +496,7 @@ ${fullTranscript}`;
                 </div>
 
                 {/* Local Video Overlay */}
-                <div className={`absolute bottom-6 right-6 w-1/4 max-w-[200px] aspect-[3/4] bg-gray-800 rounded-2xl overflow-hidden border-2 shadow-2xl z-20 transition-all duration-300 ${isLocalTalking ? 'border-brand-cyan shadow-[0_0_30px_rgba(6,182,212,0.4)] scale-105' : 'border-white/20'}`}>
+                <div className={`absolute bottom-6 right-6 w-1/4 max-w-[200px] aspect-[3/4] bg-gray-800 rounded-2xl overflow-hidden border-2 shadow-2xl z-20 transition-all duration-300 ${isLocalTalking ? 'border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.5)] scale-105' : 'border-white/20'}`}>
                     {error ? (
                         <div className="w-full h-full flex items-center justify-center text-center text-[10px] text-white p-4 bg-gray-800">
                             {error}
@@ -484,23 +522,15 @@ ${fullTranscript}`;
                                 <span className="text-[10px] text-white/60 font-medium font-serif italic">Camera Off</span>
                             </div>
 
-                            <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 rounded text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-brand-cyan/80 border-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.6)]' : 'bg-black/40 border-white/10'}`}>
+                            <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 flex items-center gap-1.5 rounded-full text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-emerald-500/90 border-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]' : 'bg-black/60 border-white/20'}`}>
+                                {isLocalTalking && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
                                 {isLocalTalking ? 'TALKING' : 'YOU'}
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Real-time Transcription Overlay */}
-                <div className="absolute bottom-6 left-6 right-[35%] bg-black/50 backdrop-blur-xl p-5 rounded-2xl border border-white/10 max-h-[140px] overflow-y-auto custom-scrollbar shadow-xl transition-all">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-ping"></div>
-                        <span className="text-brand-cyan font-black uppercase text-[10px] tracking-widest">Live Metadata Transcription</span>
-                    </div>
-                    <p className="text-white/90 text-sm leading-relaxed font-medium">
-                        {transcript || (isTranscribing ? "Calibrating voice recognition and listening to audio stream..." : "Waiting for speech signal...")}
-                    </p>
-                </div>
+                {/* Transcription is fully active in background, but hiding UI for all users now as requested */}
             </div>
 
             {/* Controls */}

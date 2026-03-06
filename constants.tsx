@@ -188,12 +188,38 @@ export interface TimelineEvent {
     context?: any;
 }
 
+export interface MealEntry {
+    time: string;
+    description: string;
+    photoUrl?: string;
+}
+
 export interface DailyLog {
+    bedTimePreviousDay?: string;
+    wakeUpTime?: string;
+    weight?: number;
+    steps?: number;
+    exercise?: string;
+    eatenOutside?: string;
+    eatenOutsidePhotos?: string[];
+    
+    // Structured Meals
+    breakfast?: MealEntry;
+    lunch?: MealEntry;
+    dinner?: MealEntry;
+    snacks?: MealEntry;
+    
+    // Legacy / Shared
     medicationTaken: boolean;
     proteinIntake: number;
     waterIntake: number;
     mindsetCompleted: string[];
     fitnessCompleted: boolean;
+    
+    // Deprecated but kept for compatibility if needed during migration
+    nutriPackEaten?: string;
+    mealTimes?: string;
+    meditation?: boolean;
 }
 
 export interface WeekLogEntry {
@@ -213,6 +239,46 @@ export interface MedicalReport {
     fileSize?: number;
     parsedResults?: LabResult[];
 }
+
+export interface MealSchedule {
+    id: string;
+    label: string;
+    time: string;
+    active: boolean;
+}
+
+export interface NutritionData {
+    mealType: string;
+    mealComments: string;
+    meals: MealSchedule[];
+}
+
+export type TreatmentStageId = 'stage1' | 'consultation2' | 'stage2' | 'consultation3' | 'stage3' | 'consultation4' | 'stage4';
+
+export interface TreatmentPlanStage {
+    id: TreatmentStageId;
+    title: string;
+    duration: string;
+    description: string;
+    color: string;
+    type: 'protocol' | 'consultation';
+}
+
+export interface TreatmentPlan {
+    currentStageId: TreatmentStageId;
+    startDate: string;
+    stages: TreatmentPlanStage[];
+}
+
+export const defaultTreatmentPlanStages: TreatmentPlanStage[] = [
+    { id: 'stage1', title: 'Stage 1: Metabolic Reset', duration: '4-6 Weeks', description: 'Food changes only. Includes: Blood Test, Consultation #2, New Prescription, and Shipment Cycle.', color: 'bg-blue-500', type: 'protocol' },
+    { id: 'consultation2', title: 'Consultation #2', duration: '1 Day', description: 'Clinical review and protocol assignment.', color: 'bg-green-500', type: 'consultation' },
+    { id: 'stage2', title: 'Stage 2: Protocol-1', duration: '4-6 Weeks', description: 'Drugs + nutrition. Includes: Blood Test, Consultation #3, New Prescription, and Shipment Cycle.', color: 'bg-purple-500', type: 'protocol' },
+    { id: 'consultation3', title: 'Consultation #3', duration: '1 Day', description: 'Progress review and titration.', color: 'bg-green-500', type: 'consultation' },
+    { id: 'stage3', title: 'Stage 3: Protocol-2', duration: '6 Weeks', description: 'Advanced optimization. Includes: Blood Test, Consultation #4, New Prescription, and Shipment Cycle.', color: 'bg-pink-500', type: 'protocol' },
+    { id: 'consultation4', title: 'Consultation #4', duration: '1 Day', description: 'Final review and maintenance planning.', color: 'bg-green-500', type: 'consultation' },
+    { id: 'stage4', title: 'Stage 4: Protocol-3', duration: 'Ongoing', description: 'Final protocol and maintenance. Includes: Blood Test, Final Review, and Maintenance Shipment.', color: 'bg-cyan-500', type: 'protocol' },
+];
 
 export interface Patient {
     id: string | number;
@@ -268,6 +334,8 @@ export interface Patient {
     };
     psych?: Record<string, string>;
     medical?: Record<string, any>; // Usage found in HealthMetricsDashboard
+    nutrition?: NutritionData;
+    treatmentPlan?: TreatmentPlan;
 
     // New Unified Structure
     tracking?: {
