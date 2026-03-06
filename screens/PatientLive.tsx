@@ -49,7 +49,7 @@ const AIIcon: React.FC<{ className?: string }> = ({ className = "w-9 h-9 sm:w-10
     </div>
 );
 
-type WidgetType = 'vitals' | 'medical' | 'psych' | 'labs' | 'profile' | 'payment' | 'consultation';
+type WidgetType = 'vitals' | 'medical' | 'nutrition' | 'psych' | 'labs' | 'profile' | 'payment' | 'consultation';
 
 interface Message {
     sender: string;
@@ -76,7 +76,7 @@ const triggerWidgetTool: FunctionDeclaration = {
     parameters: {
         type: Type.OBJECT,
         properties: {
-            widgetType: { type: Type.STRING, enum: ['vitals', 'medical', 'psych', 'labs', 'profile', 'payment', 'consultation'] }
+            widgetType: { type: Type.STRING, enum: ['vitals', 'medical', 'nutrition', 'psych', 'labs', 'profile', 'payment', 'consultation'] }
         },
         required: ['widgetType']
     }
@@ -87,9 +87,11 @@ interface PatientLiveProps {
     onNavigate: (view: DashboardView) => void;
     onUpdatePatient?: any;
     onSignOut: () => void;
+    chatHistory?: any[]; // Allow GlobalChatMessage
+    onSendMessage?: (msg: any) => void;
 }
 
-const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdatePatient, onSignOut }) => {
+const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdatePatient, onSignOut, chatHistory, onSendMessage }) => {
     // Helper function to format date separators like WhatsApp
     const getDateSeparator = (isoString?: string) => {
         if (!isoString) return null;
@@ -210,6 +212,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 const completedSteps = [];
                 if (patient.vitals && patient.vitals.length > 0) completedSteps.push('vitals');
                 if (patient.medical && Object.keys(patient.medical).length > 0) completedSteps.push('medical');
+                if (patient.nutrition && Object.keys(patient.nutrition).length > 0) completedSteps.push('nutrition');
                 if (patient.psych && Object.keys(patient.psych).length > 0) completedSteps.push('psych');
                 // Check tracking for labs/consult/payment
                 if (patient.tracking?.labs?.status && patient.tracking.labs.status !== 'Pending') completedSteps.push('labs');
@@ -245,11 +248,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         **INTAKE SEQUENCE (Only for MISSING items):**
                         1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
                         2. **MEDICAL**: Explain safety. Tool: 'medical'.
-                        3. **PSYCH**: Explain brain-gut connection. Tool: 'psych'.
-                        4. **LABS**: Explain baseline safety. Tool: 'labs'.
-                        5. **PROFILE**: Explain shipping. Tool: 'profile'.
-                        6. **PAYMENT**: Explain commitment. Tool: 'payment'.
-                        7. **CONSULT**: Explain doctor review. Tool: 'consultation'.
+                        3. **NUTRITION**: Explain fuel and preferences. Tool: 'nutrition'.
+                        4. **PSYCH**: Explain brain-gut connection. Tool: 'psych'.
+                        5. **LABS**: Explain baseline safety. Tool: 'labs'.
+                        6. **PROFILE**: Explain shipping. Tool: 'profile'.
+                        7. **PAYMENT**: Explain commitment. Tool: 'payment'.
+                        8. **CONSULT**: Explain doctor review. Tool: 'consultation'.
 
                         **RULES**:
                         - **EXPLAIN FIRST**: Always explain *why* we need data before asking.
@@ -478,7 +482,16 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             for (const call of calls) {
                 if (call.name === 'triggerWidget') {
                     const wType = call.args.widgetType as WidgetType;
-                    const pMap = { vitals: 0, medical: 20, psych: 40, labs: 60, profile: 75, payment: 85, consultation: 95 };
+                    const pMap: Record<WidgetType, number> = {
+                        vitals: 0,
+                        medical: 15,
+                        nutrition: 30,
+                        psych: 45,
+                        labs: 60,
+                        profile: 75,
+                        payment: 85,
+                        consultation: 95
+                    };
                     setOnboardingProgress(pMap[wType] || 0);
 
                     setMessages(prev => [...prev, {
@@ -740,7 +753,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             console.warn("⚠️ Chat Session lost. Attempting to recover or manual progress.");
             // Determine next widget manually based on map
             const wType = type as WidgetType;
-            const widgetOrder: WidgetType[] = ['vitals', 'medical', 'psych', 'labs', 'profile', 'payment', 'consultation'];
+            const widgetOrder: WidgetType[] = ['vitals', 'medical', 'nutrition', 'psych', 'labs', 'profile', 'payment', 'consultation'];
             const currentIndex = widgetOrder.indexOf(wType);
             if (currentIndex !== -1 && currentIndex < widgetOrder.length - 1) {
                 const nextWidget = widgetOrder[currentIndex + 1];
@@ -774,6 +787,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         // 7. Parent Update
         if (onUpdatePatient) {
             if (type === 'vitals') onUpdatePatient(patient.id, null, { vitals: [{ label: 'Weight', value: data.current_weight, unit: 'kg', date: new Date().toLocaleDateString() }] });
+            if (type === 'nutrition') onUpdatePatient(patient.id, null, { nutrition: data });
             if (type === 'profile') onUpdatePatient(patient.id, null, {
                 name: data.name,
                 email: data.email,
@@ -949,13 +963,14 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                                     <div className="animate-slide-in-up w-full overflow-x-hidden">
                                                         {msg.widget.type === 'vitals' && <VitalsWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('vitals', d, idx)} />}
                                                         {msg.widget.type === 'medical' && <MedicalOnboardingWidget initialData={msg.widget.data} patientSex={patientSex} onSubmit={(d) => handleWidgetSubmit('medical', d, idx)} />}
+                                                        {msg.widget.type === 'nutrition' && <NutritionWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('nutrition', d, idx)} />}
                                                         {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
                                                         {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
                                                         {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
                                                         {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} patient={patient} initialData={msg.widget.data} />}
                                                         {msg.widget.type === 'consultation' && (
                                                             <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
-                                                                <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 7: Doctor Consultation</h3>
+                                                                <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 8: Doctor Consultation</h3>
                                                                 <ConsultationScheduler
                                                                     onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
                                                                     minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
@@ -1190,6 +1205,149 @@ const VitalsWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> 
     );
 };
 
+const NutritionWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any }> = ({ onSubmit, initialData }) => {
+    interface MealSchedule {
+        id: string;
+        label: string;
+        time: string;
+        active: boolean;
+    }
+
+    const [mealType, setMealType] = useState(initialData?.mealType || '');
+    const [mealComments, setMealComments] = useState(initialData?.mealComments || '');
+    const [meals, setMeals] = useState<MealSchedule[]>(initialData?.meals || [
+        { id: 'breakfast', label: 'Breakfast', time: '08:30', active: true },
+        { id: 'mid_morning', label: 'Mid-Morning Snack', time: '11:00', active: false },
+        { id: 'lunch', label: 'Lunch', time: '13:30', active: true },
+        { id: 'evening', label: 'Evening Snack', time: '17:30', active: true },
+        { id: 'dinner', label: 'Dinner', time: '20:30', active: true },
+        { id: 'late_night', label: 'Late Night Snack', time: '23:00', active: false },
+    ]);
+    const [newMealName, setNewMealName] = useState('');
+    const [showAddMeal, setShowAddMeal] = useState(false);
+
+    const mealTypes = [
+        { id: 'veg_no_eggs', label: 'Vegetarian (No Eggs)', icon: '🥦' },
+        { id: 'veg_eggs', label: 'Vegetarian (With Eggs)', icon: '🥚' },
+        { id: 'non_veg', label: 'Non-Vegetarian', icon: '🍗' },
+        { id: 'jain', label: 'Jain', icon: '🙏' },
+        { id: 'vegan', label: 'Vegan', icon: '🌱' },
+        { id: 'pescatarian', label: 'Pescatarian', icon: '🐟' },
+    ];
+
+    const toggleMeal = (id: string) => {
+        setMeals(meals.map((m: MealSchedule) => m.id === id ? { ...m, active: !m.active } : m));
+    };
+
+    const updateTime = (id: string, time: string) => {
+        setMeals(meals.map((m: MealSchedule) => m.id === id ? { ...m, time } : m));
+    };
+
+    const addCustomMeal = () => {
+        if (!newMealName.trim()) return;
+        const id = `custom_${Date.now()}`;
+        setMeals([...meals, { id, label: newMealName, time: '12:00', active: true }]);
+        setNewMealName('');
+        setShowAddMeal(false);
+    };
+
+    return (
+        <div className="bg-white p-5 sm:p-8 rounded-[32px] border border-gray-100 shadow-xl w-full max-w-full sm:max-w-md mx-auto overflow-hidden">
+            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter mb-6">Phase 3: Nutrition Preferences</h3>
+
+            <div className="mb-8">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block mb-4 border-b border-gray-100 pb-1">Meal Preference</label>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    {mealTypes.map(type => (
+                        <button
+                            key={type.id}
+                            onClick={() => setMealType(type.id)}
+                            className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${mealType === type.id ? 'bg-brand-purple/10 border-brand-purple ring-1 ring-brand-purple' : 'bg-gray-50 border-gray-100 hover:border-gray-200'}`}
+                        >
+                            <span className="text-2xl mb-2">{type.icon}</span>
+                            <span className={`text-[10px] font-black uppercase tracking-tight text-center ${mealType === type.id ? 'text-brand-purple' : 'text-gray-500'}`}>{type.label}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {mealType && (
+                    <div className="animate-fade-in">
+                        <label className="text-[9px] font-black uppercase text-brand-purple tracking-widest block mb-2">Specific Preferences / Restrictions</label>
+                        <textarea
+                            value={mealComments}
+                            onChange={(e) => setMealComments(e.target.value)}
+                            placeholder="e.g. Chicken only, no red meat or fish..."
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-xs min-h-[60px] outline-none focus:border-brand-purple resize-none"
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="mb-8">
+                <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-1">
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block">Typical Meal Schedule</label>
+                    <button
+                        onClick={() => setShowAddMeal(!showAddMeal)}
+                        className="text-[9px] font-black uppercase text-brand-purple hover:underline"
+                    >
+                        + Add Custom
+                    </button>
+                </div>
+
+                {showAddMeal && (
+                    <div className="mb-4 flex gap-2 animate-fade-in">
+                        <input
+                            type="text"
+                            value={newMealName}
+                            onChange={(e) => setNewMealName(e.target.value)}
+                            placeholder="Meal name (e.g. Pre-workout)"
+                            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-brand-purple"
+                        />
+                        <button
+                            onClick={addCustomMeal}
+                            className="px-4 py-2 bg-brand-purple text-white text-[10px] font-black uppercase rounded-xl"
+                        >
+                            Add
+                        </button>
+                    </div>
+                )}
+
+                <div className="space-y-3">
+                    {meals.map((meal: MealSchedule) => (
+                        <div key={meal.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${meal.active ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50/50 border-transparent opacity-60'}`}>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => toggleMeal(meal.id)}
+                                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${meal.active ? 'bg-brand-purple border-brand-purple text-white' : 'bg-white border-gray-300'}`}
+                                >
+                                    {meal.active && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                </button>
+                                <span className={`text-xs font-bold ${meal.active ? 'text-gray-900' : 'text-gray-400'}`}>{meal.label}</span>
+                            </div>
+                            {meal.active && (
+                                <input
+                                    type="time"
+                                    value={meal.time}
+                                    onChange={(e) => updateTime(meal.id, e.target.value)}
+                                    className="bg-gray-100 border-none rounded-lg px-2 py-1 text-xs font-bold text-brand-purple focus:ring-0"
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <button
+                onClick={() => onSubmit({ mealType, mealComments, meals: meals.filter((m: MealSchedule) => m.active) })}
+                disabled={!mealType || meals.filter((m: MealSchedule) => m.active).length === 0}
+                className="w-full py-4 bg-brand-text text-white font-black rounded-2xl uppercase tracking-widest text-[9px] shadow-lg disabled:opacity-30 hover:scale-[1.02] transition-transform"
+            >
+                Save Preferences
+            </button>
+        </div>
+    );
+};
+
 const MedicalOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?: any; patientSex?: string }> = ({ onSubmit, initialData, patientSex }) => {
     const [step, setStep] = useState(0);
     const [d, setD] = useState(initialData || {
@@ -1326,7 +1484,7 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
         <div className="bg-white p-5 sm:p-8 rounded-[32px] border border-gray-100 shadow-xl w-full max-w-full sm:max-w-md mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Phase 3: Psychographics</h3>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Phase 4: Psychographics</h3>
                     <p className="text-xs text-brand-purple/80 font-bold mt-1">{subStageLabels[subStage]}</p>
                 </div>
                 <span className="text-[8px] font-black uppercase text-brand-pink border border-brand-pink/30 px-2 py-1 rounded-full">{subStage.toUpperCase()}</span>
@@ -1388,7 +1546,7 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
 
     return (
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-xl w-full">
-            <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tighter">Phase 5: Your Profile</h3>
+            <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tighter">Phase 6: Your Profile</h3>
             <div className="space-y-4">
                 <input value={d.name} onChange={e => setD({ ...d, name: e.target.value })} placeholder="Full Name" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
                 <input value={d.email} onChange={e => setD({ ...d, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
