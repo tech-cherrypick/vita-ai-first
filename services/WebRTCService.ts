@@ -8,6 +8,14 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 const VOICE_THRESHOLD = 15;
+const VOICE_CHECK_INTERVAL = 300;
+const MAX_VIDEO_BITRATE = 500000;
+
+const VIDEO_CONSTRAINTS: MediaTrackConstraints = {
+    width: { ideal: 640, max: 1280 },
+    height: { ideal: 480, max: 720 },
+    frameRate: { ideal: 24, max: 30 }
+};
 
 export interface WebRTCEventHandlers {
     onRemoteStream: (stream: MediaStream) => void;
@@ -20,7 +28,8 @@ class WebRTCService {
     private localStream: MediaStream | null = null;
     private audioContext: AudioContext | null = null;
     private analyser: AnalyserNode | null = null;
-    private animationFrame: number | null = null;
+    private voiceCheckTimer: ReturnType<typeof setInterval> | null = null;
+    private lastTalkingState = false;
     private handlers: WebRTCEventHandlers;
 
     constructor(handlers: WebRTCEventHandlers) {
@@ -28,7 +37,10 @@ class WebRTCService {
     }
 
     async acquireMedia(): Promise<MediaStream> {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: VIDEO_CONSTRAINTS,
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
         this.setupVoiceDetection(this.localStream);
         return this.localStream;
     }
@@ -61,6 +73,7 @@ class WebRTCService {
         if (!this.pc) throw new Error('PeerConnection not initialized');
         const offer = await this.pc.createOffer();
         await this.pc.setLocalDescription(offer);
+        this.applyBandwidthLimit();
         return offer;
     }
 
@@ -102,7 +115,7 @@ class WebRTCService {
         }
 
         try {
-            const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const newStream = await navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS });
             const newTrack = newStream.getVideoTracks()[0];
 
             this.localStream.getVideoTracks().forEach(t => this.localStream!.removeTrack(t));
@@ -125,6 +138,21 @@ class WebRTCService {
         return this.pc;
     }
 
+    private applyBandwidthLimit(): void {
+        if (!this.pc) return;
+        const sender = this.pc.getSenders().find(s => s.track?.kind === 'video');
+        if (!sender) return;
+
+        try {
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+            }
+            params.encodings[0].maxBitrate = MAX_VIDEO_BITRATE;
+            sender.setParameters(params).catch(() => {});
+        } catch { /* bandwidth limiting is non-critical */ }
+    }
+
     private setupVoiceDetection(stream: MediaStream): void {
         try {
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -133,7 +161,7 @@ class WebRTCService {
             this.analyser.fftSize = 256;
             const source = this.audioContext.createMediaStreamSource(stream);
             source.connect(this.analyser);
-            this.checkVoiceLevel();
+            this.voiceCheckTimer = setInterval(this.checkVoiceLevel, VOICE_CHECK_INTERVAL);
         } catch { /* voice detection is non-critical */ }
     }
 
@@ -142,12 +170,15 @@ class WebRTCService {
         const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
-        this.handlers.onVoiceActivity(average > VOICE_THRESHOLD);
-        this.animationFrame = requestAnimationFrame(this.checkVoiceLevel);
+        const isTalking = average > VOICE_THRESHOLD;
+        if (isTalking !== this.lastTalkingState) {
+            this.lastTalkingState = isTalking;
+            this.handlers.onVoiceActivity(isTalking);
+        }
     };
 
     destroy(): void {
-        if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+        if (this.voiceCheckTimer) clearInterval(this.voiceCheckTimer);
         if (this.audioContext) this.audioContext.close().catch(() => {});
         if (this.localStream) this.localStream.getTracks().forEach(t => t.stop());
         if (this.pc) this.pc.close();
