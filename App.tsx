@@ -7,6 +7,7 @@ import { notificationService } from './services/NotificationService';
 import { configService } from './services/ConfigService';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 // Lazy load all dashboard components for better performance
 const UserDashboard = lazy(() => import('./screens/UserDashboard'));
@@ -219,6 +220,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log("🛠️ App Mounted");
+
+    // On Android, prevent content from rendering behind the system status bar
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: false });
+      StatusBar.setStyle({ style: Style.Light });
+    }
 
     configService.fetch();
 
@@ -458,7 +465,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-brand-bg text-brand-text font-sans antialiased relative overflow-x-hidden">
+    <div
+      className="bg-brand-bg text-brand-text font-sans antialiased relative overflow-x-hidden"
+    >
       <Suspense fallback={
         <div className="p-10 text-center flex flex-col items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-purple mb-4"></div>
