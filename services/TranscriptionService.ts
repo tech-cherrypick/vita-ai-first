@@ -47,6 +47,15 @@ class TranscriptionService {
 
     start(stream: MediaStream): boolean {
         try {
+            const audioTracks = stream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                console.error('[TranscriptionService] No audio tracks found in stream');
+                return false;
+            }
+
+            const audioOnlyStream = new MediaStream(audioTracks);
+            console.log(`[TranscriptionService] Created audio-only stream with ${audioTracks.length} track(s)`);
+
             this.selectedMimeType = SUPPORTED_MIME_TYPES.find(
                 mt => MediaRecorder.isTypeSupported(mt)
             ) || '';
@@ -58,7 +67,7 @@ class TranscriptionService {
 
             console.log('[TranscriptionService] Recording with MIME:', this.selectedMimeType);
 
-            this.recorder = new MediaRecorder(stream, { mimeType: this.selectedMimeType });
+            this.recorder = new MediaRecorder(audioOnlyStream, { mimeType: this.selectedMimeType });
             this.chunks = [];
 
             this.recorder.ondataavailable = (event) => {
