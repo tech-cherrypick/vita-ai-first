@@ -13,8 +13,8 @@ try {
 const saveTranscriptAndSummary = async (req, res) => {
   const { patientId, transcript, summary, duration, doctorId } = req.body;
 
-  if (!patientId || !transcript) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  if (!patientId) {
+    return res.status(400).json({ error: 'Missing required field: patientId' });
   }
 
   try {

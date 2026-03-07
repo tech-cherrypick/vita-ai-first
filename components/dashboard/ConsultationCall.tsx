@@ -35,13 +35,22 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
 
         socket.emit('end_call', { patientId, senderRole: role });
 
+        console.log('[ConsultationCall] End call triggered, stopping recorder...');
         const audioBlob = await transcriptionRef.current?.stopAndGetBlob() || null;
+        console.log(`[ConsultationCall] Audio blob: ${audioBlob?.size || 0} bytes`);
+
+        console.log('[ConsultationCall] Sending audio to Gemini for transcription...');
         const { summary, formattedTranscript } = await TranscriptionService.generateSummary(audioBlob);
+        console.log(`[ConsultationCall] Gemini result - summary length: ${summary.length}, transcript length: ${formattedTranscript.length}`);
 
         if (role === 'doctor') {
             try {
+                console.log('[ConsultationCall] Saving transcript to backend...');
                 await TranscriptionService.saveToBackend(patientId, formattedTranscript, summary);
-            } catch { /* save failure is non-critical */ }
+                console.log('[ConsultationCall] Backend save successful');
+            } catch (err) {
+                console.error('[ConsultationCall] Backend save failed:', err);
+            }
         }
 
         onCallEnd({ transcript: formattedTranscript, summary });
