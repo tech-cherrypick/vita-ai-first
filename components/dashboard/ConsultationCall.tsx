@@ -36,8 +36,8 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         transcriptionRef.current?.stop();
         socket.emit('end_call', { patientId, senderRole: role });
 
-        const rawTranscript = transcriptionRef.current?.getTranscript() || '';
-        const { summary, formattedTranscript } = await TranscriptionService.generateSummary(rawTranscript);
+        const audioBlob = transcriptionRef.current?.getAudioBlob() || null;
+        const { summary, formattedTranscript } = await TranscriptionService.generateSummary(audioBlob);
 
         if (role === 'doctor') {
             try {
@@ -58,13 +58,14 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         });
         webrtcRef.current = webrtc;
 
-        const transcription = new TranscriptionService(() => {});
+        const transcription = new TranscriptionService();
         transcriptionRef.current = transcription;
 
         const init = async () => {
             try {
                 const stream = await webrtc.acquireMedia();
                 if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                if (transcription.start(stream)) setIsTranscribing(true);
             } catch {
                 setIsVideoOff(true);
             }
@@ -73,8 +74,6 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
             socket.emit('join_call_room', { patientId, role });
             socket.emit('webrtc_signal', { patientId, role, signalData: { type: 'ping' } });
             setCallState(CallState.WAITING);
-
-            if (transcription.start()) setIsTranscribing(true);
         };
 
         const handleUserJoined = async () => {
