@@ -206,6 +206,7 @@ app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/consultation', consultationRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api', leadRoutes);
+app.use('/api/config', require('./routes/configRoutes'));
 
 // Health Check
 app.get('/health', (req, res) => {
