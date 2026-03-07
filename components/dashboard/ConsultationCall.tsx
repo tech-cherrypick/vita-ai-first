@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { getSocket } from '../../socket';
-import { GoogleGenAI } from '@google/genai';
+import { CallState } from '../../constants';
+import WebRTCService from '../../services/WebRTCService';
+import TranscriptionService from '../../services/TranscriptionService';
 
 interface ConsultationCallProps {
     onCallEnd: (data?: { transcript: string; summary: string }) => void;
@@ -11,421 +13,165 @@ interface ConsultationCallProps {
 
 const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPartyName, patientId, role }) => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
+    const webrtcRef = useRef<WebRTCService | null>(null);
+    const transcriptionRef = useRef<TranscriptionService | null>(null);
+    const hasEndedRef = useRef(false);
+    const socket = getSocket();
+
+    const [callState, setCallState] = useState<CallState>(CallState.INITIALIZING);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [transcript, setTranscript] = useState<string>('');
-    const transcriptRef = useRef<string>('');
-    const [isRecording, setIsRecording] = useState(false);
-    const [isTranscribing, setIsTranscribing] = useState(false);
-    const [summary, setSummary] = useState<string>('');
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
-    const [isPartnerJoined, setIsPartnerJoined] = useState(false);
     const [isLocalTalking, setIsLocalTalking] = useState(false);
-    const [remoteRole, setRemoteRole] = useState<string | null>(null);
     const [isRemoteMuted, setIsRemoteMuted] = useState(false);
     const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(false);
     const [isRemoteTalking, setIsRemoteTalking] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
 
-    const recognitionRef = useRef<any>(null);
-    const hasEndedRef = useRef(false);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const analyserRef = useRef<AnalyserNode | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-    const socket = getSocket();
+    const handleEndCall = useCallback(async () => {
+        if (hasEndedRef.current) return;
+        hasEndedRef.current = true;
+        setCallState(CallState.ENDED);
 
-    // --- Media & WebRTC Setup ---
-    useEffect(() => {
-        let stream: MediaStream | null = null;
-        let pc: RTCPeerConnection | null = null;
+        transcriptionRef.current?.stop();
+        socket.emit('end_call', { patientId, senderRole: role });
 
-        const initPeerConnection = (localStream: MediaStream) => {
-            pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            });
+        const rawTranscript = transcriptionRef.current?.getTranscript() || '';
+        const { summary, formattedTranscript } = await TranscriptionService.generateSummary(rawTranscript);
 
-            localStream.getTracks().forEach(track => {
-                pc?.addTrack(track, localStream);
-            });
-
-            pc.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    setRemoteStream(event.streams[0]);
-                }
-            };
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('webrtc_signal', { patientId, role, signalData: { candidate: event.candidate } });
-                }
-            };
-
-            peerConnectionRef.current = pc;
-            return pc;
-        };
-
-        const handleJoinCallRoom = async () => {
+        if (role === 'doctor') {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                if (localVideoRef.current) {
-                    localVideoRef.current.srcObject = stream;
-                }
-                setupVoiceActivityDetection(stream);
-                initPeerConnection(stream);
-            } catch (err) {
-                console.error("Error accessing camera: ", err);
-                setError(null);
+                await TranscriptionService.saveToBackend(patientId, formattedTranscript, summary);
+            } catch { /* save failure is non-critical */ }
+        }
+
+        onCallEnd({ transcript: formattedTranscript, summary });
+    }, [patientId, role, socket, onCallEnd]);
+
+    useEffect(() => {
+        const webrtc = new WebRTCService({
+            onRemoteStream: setRemoteStream,
+            onIceCandidate: (candidate) => {
+                socket.emit('webrtc_signal', { patientId, role, signalData: { candidate } });
+            },
+            onVoiceActivity: setIsLocalTalking
+        });
+        webrtcRef.current = webrtc;
+
+        const transcription = new TranscriptionService(() => {});
+        transcriptionRef.current = transcription;
+
+        const init = async () => {
+            try {
+                const stream = await webrtc.acquireMedia();
+                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+            } catch {
                 setIsVideoOff(true);
-                // Create an empty peer connection even without camera so we can receive their video
-                initPeerConnection(new MediaStream());
             }
 
-            // Emit a basic ping to tell the other person we are here in case they joined before us
-            socket.emit('webrtc_signal', { patientId, role, signalData: { type: 'ping' } });
-
-            // Immediately register to the room once local prep is done
+            webrtc.initPeerConnection();
             socket.emit('join_call_room', { patientId, role });
+            socket.emit('webrtc_signal', { patientId, role, signalData: { type: 'ping' } });
+            setCallState(CallState.WAITING);
+
+            if (transcription.start()) setIsTranscribing(true);
         };
 
-        handleJoinCallRoom();
-        startTranscription();
-
-        // Listen for Partner Joining (Caller initiates offer)
-        socket.on('user_joined_call', async (data: any) => {
-            console.log('Other user joined call:', data);
-            setIsPartnerJoined(true);
-            setRemoteRole(data.role);
-
-            // Let the 'doctor' role be the polite caller that initiates the WebRTC offer
-            if (role === 'doctor' && peerConnectionRef.current) {
+        const handleUserJoined = async () => {
+            setCallState(CallState.CONNECTED);
+            if (role === 'doctor') {
                 try {
-                    const pc = peerConnectionRef.current;
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
+                    const offer = await webrtc.createOffer();
                     socket.emit('webrtc_signal', { patientId, role, signalData: { offer } });
-                } catch (e) {
-                    console.error("Error creating WebRTC offer:", e);
-                }
+                } catch { /* offer creation failed */ }
             }
-        });
+        };
 
-        socket.on('user_left_call', (data: any) => {
-            console.log('Other user left call:', data);
-            setIsPartnerJoined(false);
+        const handleUserLeft = () => {
+            setCallState(CallState.WAITING);
             setRemoteStream(null);
             setIsRemoteMuted(false);
             setIsRemoteVideoOff(false);
             setIsRemoteTalking(false);
-        });
+        };
 
-        socket.on('webrtc_signal', async (data: any) => {
-            if (data.role !== role && peerConnectionRef.current) {
-                const pc = peerConnectionRef.current;
-                const { signalData } = data;
-                try {
-                    if (signalData.offer) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        socket.emit('webrtc_signal', { patientId, role, signalData: { answer } });
-                    } else if (signalData.answer) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-                    } else if (signalData.candidate) {
-                        await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-                    } else if (signalData.type === 'ping') {
-                        // The other party just arrived and pinged us. If we are the doctor, let's initiate an offer.
-                        setIsPartnerJoined(true);
-                        setRemoteRole(data.role);
-                        if (role === 'doctor') {
-                            const offer = await pc.createOffer();
-                            await pc.setLocalDescription(offer);
-                            socket.emit('webrtc_signal', { patientId, role, signalData: { offer } });
-                        }
+        const handleSignal = async (data: any) => {
+            if (data.role === role) return;
+            const { signalData } = data;
+            try {
+                if (signalData.offer) {
+                    const answer = await webrtc.handleOffer(signalData.offer);
+                    socket.emit('webrtc_signal', { patientId, role, signalData: { answer } });
+                    setCallState(CallState.CONNECTED);
+                } else if (signalData.answer) {
+                    await webrtc.handleAnswer(signalData.answer);
+                } else if (signalData.candidate) {
+                    await webrtc.addIceCandidate(signalData.candidate);
+                } else if (signalData.type === 'ping') {
+                    setCallState(CallState.CONNECTED);
+                    if (role === 'doctor') {
+                        const offer = await webrtc.createOffer();
+                        socket.emit('webrtc_signal', { patientId, role, signalData: { offer } });
                     }
-                } catch (e) {
-                    console.error("WebRTC Error:", e);
                 }
-            }
-        });
+            } catch { /* signal handling failed */ }
+        };
 
-        socket.on('media_status_changed', (data: any) => {
+        const handleMediaStatus = (data: any) => {
             if (data.role !== role) {
                 setIsRemoteMuted(data.isMuted);
                 setIsRemoteVideoOff(data.isVideoOff);
             }
-        });
+        };
 
-        socket.on('speaking_status_changed', (data: any) => {
-            if (data.role !== role) {
-                setIsRemoteTalking(data.isSpeaking);
-            }
-        });
+        const handleSpeakingStatus = (data: any) => {
+            if (data.role !== role) setIsRemoteTalking(data.isSpeaking);
+        };
 
-        socket.on('call_ended', () => {
-            handleEndCall();
-        });
+        socket.on('user_joined_call', handleUserJoined);
+        socket.on('user_left_call', handleUserLeft);
+        socket.on('webrtc_signal', handleSignal);
+        socket.on('media_status_changed', handleMediaStatus);
+        socket.on('speaking_status_changed', handleSpeakingStatus);
+        socket.on('call_ended', handleEndCall);
+
+        init();
 
         return () => {
-            stopTranscription();
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-            }
-            if (audioContextRef.current) {
-                audioContextRef.current.close();
-            }
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
+            transcription.stop();
+            webrtc.destroy();
             socket.emit('leave_call_room', { patientId, role });
-            socket.off('call_ended');
-            socket.off('user_joined_call');
-            socket.off('user_left_call');
-            socket.off('webrtc_signal');
-            socket.off('media_status_changed');
-            socket.off('speaking_status_changed');
+            socket.off('user_joined_call', handleUserJoined);
+            socket.off('user_left_call', handleUserLeft);
+            socket.off('webrtc_signal', handleSignal);
+            socket.off('media_status_changed', handleMediaStatus);
+            socket.off('speaking_status_changed', handleSpeakingStatus);
+            socket.off('call_ended', handleEndCall);
         };
-    }, [patientId]);
+    }, [patientId, role, socket, handleEndCall]);
 
-    // Broadcast our media state whenever it changes
     useEffect(() => {
         socket.emit('media_status_changed', { patientId, role, isMuted, isVideoOff });
     }, [isMuted, isVideoOff, patientId, role, socket]);
 
-    // Broadcast our speaking state whenever it changes
     useEffect(() => {
         socket.emit('speaking_status_changed', { patientId, role, isSpeaking: isLocalTalking });
     }, [isLocalTalking, patientId, role, socket]);
 
-    const setupVoiceActivityDetection = (stream: MediaStream) => {
-        try {
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            const audioContext = new AudioContext();
-            audioContextRef.current = audioContext;
-            const analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256;
-            analyserRef.current = analyser;
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-
-            checkVoiceLevel();
-        } catch (e) {
-            console.error("Failed to setup voice activity detection:", e);
-        }
-    };
-
-    const checkVoiceLevel = () => {
-        if (!analyserRef.current) return;
-
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
-        }
-        const average = sum / dataArray.length;
-
-        // Threshold for talking
-        setIsLocalTalking(average > 15);
-
-        animationFrameRef.current = requestAnimationFrame(checkVoiceLevel);
-    };
-
     const toggleMic = () => {
-        if (localVideoRef.current && localVideoRef.current.srcObject) {
-            const stream = localVideoRef.current.srcObject as MediaStream;
-            const newMutedState = !isMuted;
-            stream.getAudioTracks().forEach(track => {
-                track.enabled = !newMutedState;
-            });
-            setIsMuted(newMutedState);
-        }
+        const newMuted = !isMuted;
+        webrtcRef.current?.toggleAudio(newMuted);
+        setIsMuted(newMuted);
     };
 
     const toggleVideo = async () => {
-        if (!localVideoRef.current) return;
+        if (!webrtcRef.current) return;
+        const stillOff = await webrtcRef.current.toggleVideo(!isVideoOff);
+        setIsVideoOff(stillOff);
 
-        if (!isVideoOff) {
-            // Turning video OFF: stop the hardware track completely
-            if (localVideoRef.current.srcObject) {
-                const stream = localVideoRef.current.srcObject as MediaStream;
-                stream.getVideoTracks().forEach(track => {
-                    track.enabled = false;
-                    track.stop();
-                });
-            }
-            setIsVideoOff(true);
-        } else {
-            // Turning video ON: request a new video track from hardware
-            try {
-                const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const newVideoTrack = newStream.getVideoTracks()[0];
-
-                if (localVideoRef.current.srcObject) {
-                    const currentStream = localVideoRef.current.srcObject as MediaStream;
-                    currentStream.getVideoTracks().forEach(t => currentStream.removeTrack(t));
-                    currentStream.addTrack(newVideoTrack);
-                    // Force the video element to update
-                    localVideoRef.current.srcObject = currentStream;
-                } else {
-                    localVideoRef.current.srcObject = newStream;
-                }
-
-                setIsVideoOff(false);
-            } catch (err) {
-                console.error("Failed to re-enable camera:", err);
-            }
+        if (!stillOff && localVideoRef.current) {
+            localVideoRef.current.srcObject = webrtcRef.current.getLocalStream();
         }
-    };
-
-    // --- Transcription Logic ---
-    const startTranscription = () => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onresult = (event: any) => {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                for (let i = 0; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript + ' ';
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                }
-                transcriptRef.current = finalTranscript.trim();
-                setTranscript(finalTranscript + interimTranscript);
-            };
-
-            recognition.onerror = (event: any) => {
-                console.error('Speech recognition error', event.error);
-            };
-
-            recognition.start();
-            recognitionRef.current = recognition;
-            setIsTranscribing(true);
-        }
-    };
-
-    const stopTranscription = () => {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            setIsTranscribing(false);
-        }
-    };
-
-    const generateSummaryAndFormatTranscript = async (fullTranscript: string) => {
-        if (!fullTranscript || fullTranscript.trim().length < 10) {
-            console.warn("Transcript too short for summarization. Length:", fullTranscript?.length);
-            return {
-                summary: "No significant conversation recorded for summarization.",
-                formattedTranscript: fullTranscript
-            };
-        }
-
-        const apiKey = import.meta.env.VITE_API_KEY;
-        if (!apiKey) {
-            console.error("VITE_API_KEY is missing. Summary cannot be generated.");
-            return {
-                summary: "Summary generation failed: API key missing.",
-                formattedTranscript: fullTranscript
-            };
-        }
-
-        try {
-            const genAI = new GoogleGenAI({ apiKey });
-            const chat = genAI.chats.create({ model: 'gemini-2.0-flash' });
-
-            const prompt = `You are a medical scribe. Analyze the following raw continuous speech transcript from a consultation. 
-Please perform TWO tasks:
-TASK 1: Provide a structured summary with:
-- Key Takeaways
-- Potential Diagnosis/Points discussed
-- Recommended Next Steps
-
-TASK 2: Reformat the raw transcript into a readable dialog format with clear speaker labels (e.g., Doctor: "...", Patient: "..."). Infer the speakers based on the context.
-
-Please separate the two sections clearly with the strict delimiter: "|||TRANSCRIPT_START|||"
-
-RAW TRANSCRIPT:
-${fullTranscript}`;
-
-            const result = await chat.sendMessage({ message: prompt });
-            let responseText = "";
-            const anyResult = result as any;
-            if (typeof anyResult.text === 'string') {
-                responseText = anyResult.text;
-            } else if (anyResult.response && typeof anyResult.response.text === 'function') {
-                responseText = await anyResult.response.text();
-            } else if (anyResult.text && typeof anyResult.text === 'function') {
-                responseText = await anyResult.text();
-            }
-
-            if (!responseText) {
-                return { summary: "Failed to parse response.", formattedTranscript: fullTranscript };
-            }
-
-            const parts = responseText.split("|||TRANSCRIPT_START|||");
-            const summaryText = parts[0]?.trim() || "Summary could not be parsed from AI response.";
-            const formattedTranscriptText = parts[1]?.trim() || fullTranscript;
-
-            return { summary: summaryText, formattedTranscript: formattedTranscriptText };
-        } catch (error) {
-            console.error("Error generating summary with Gemini:", error);
-            return {
-                summary: `Summary generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                formattedTranscript: fullTranscript
-            };
-        }
-    };
-
-    const handleEndCall = async () => {
-        if (hasEndedRef.current) return;
-        hasEndedRef.current = true;
-
-        stopTranscription();
-        socket.emit('end_call', { patientId, senderRole: role });
-
-        const currentTranscript = transcriptRef.current;
-        console.log("Ending call with transcript length:", currentTranscript.length);
-
-        // Finalize transcript and summary using Gemini for both
-        const { summary: finalSummary, formattedTranscript } = await generateSummaryAndFormatTranscript(currentTranscript);
-        setSummary(finalSummary);
-
-        // Save to backend - ONLY DOCTOR SAVES TO PREVENT DUPLICATES
-        if (role === 'doctor') {
-            try {
-                const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-                console.log("Attempting to save transcript to:", `${API_BASE_URL}/api/consultation/save-transcript`);
-                const response = await fetch(`${API_BASE_URL}/api/consultation/save-transcript`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        patientId,
-                        transcript: formattedTranscript,
-                        summary: finalSummary,
-                        role
-                    })
-                });
-                const result = await response.json();
-                console.log("Full save results from backend:", result);
-            } catch (e) {
-                console.error("Failed to save transcript to backend", e);
-            }
-        } else {
-            console.log("Patient role detected, skipping backend save (Doctor handles this).");
-        }
-
-        onCallEnd({ transcript: formattedTranscript, summary: finalSummary });
     };
 
     return (
@@ -444,7 +190,7 @@ ${fullTranscript}`;
                 </div>
                 {/* Main Video (Remote) */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    {!isPartnerJoined ? (
+                    {callState !== CallState.CONNECTED ? (
                         <div className="flex flex-col items-center justify-center gap-4 z-10 p-8">
                             <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center animate-pulse shadow-xl border border-gray-700">
                                 <svg className="w-10 h-10 text-brand-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -497,40 +243,28 @@ ${fullTranscript}`;
 
                 {/* Local Video Overlay */}
                 <div className={`absolute bottom-6 right-6 w-1/4 max-w-[200px] aspect-[3/4] bg-gray-800 rounded-2xl overflow-hidden border-2 shadow-2xl z-20 transition-all duration-300 ${isLocalTalking ? 'border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.5)] scale-105' : 'border-white/20'}`}>
-                    {error ? (
-                        <div className="w-full h-full flex items-center justify-center text-center text-[10px] text-white p-4 bg-gray-800">
-                            {error}
-                        </div>
-                    ) : (
-                        <div className="w-full h-full relative">
-                            {/* Always keep video in DOM, just hide it with CSS */}
-                            <video
-                                ref={localVideoRef}
-                                className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoOff ? 'opacity-0 absolute inset-0' : 'opacity-100'}`}
-                                autoPlay
-                                playsInline
-                                muted
-                            ></video>
-
-                            {/* Fallback View (Shown when isVideoOff is true) */}
-                            <div className={`w-full h-full flex flex-col items-center justify-center bg-gray-700 transition-opacity duration-300 ${isVideoOff ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mb-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
-                                <span className="text-[10px] text-white/60 font-medium font-serif italic">Camera Off</span>
+                    <div className="w-full h-full relative">
+                        <video
+                            ref={localVideoRef}
+                            className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoOff ? 'opacity-0 absolute inset-0' : 'opacity-100'}`}
+                            autoPlay
+                            playsInline
+                            muted
+                        />
+                        <div className={`w-full h-full flex flex-col items-center justify-center bg-gray-700 transition-opacity duration-300 ${isVideoOff ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                            <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
                             </div>
-
-                            <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 flex items-center gap-1.5 rounded-full text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-emerald-500/90 border-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]' : 'bg-black/60 border-white/20'}`}>
-                                {isLocalTalking && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
-                                {isLocalTalking ? 'TALKING' : 'YOU'}
-                            </div>
+                            <span className="text-[10px] text-white/60 font-medium font-serif italic">Camera Off</span>
                         </div>
-                    )}
+                        <div className={`absolute top-2 right-2 backdrop-blur-sm px-2 py-1 flex items-center gap-1.5 rounded-full text-[10px] text-white font-bold border transition-colors ${isLocalTalking ? 'bg-emerald-500/90 border-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]' : 'bg-black/60 border-white/20'}`}>
+                            {isLocalTalking && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
+                            {isLocalTalking ? 'TALKING' : 'YOU'}
+                        </div>
+                    </div>
                 </div>
-
-                {/* Transcription is fully active in background, but hiding UI for all users now as requested */}
             </div>
 
             {/* Controls */}

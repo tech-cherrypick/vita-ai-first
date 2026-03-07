@@ -122,6 +122,14 @@ export const whyGlp1Benefits = [
     { title: 'Slower Digestion', description: 'Feel fuller, faster. By slowing gastric emptying, you naturally eat smaller portions without feeling deprived.', icon: <GutIcon /> },
 ];
 
+// --- Enums ---
+export enum CallState {
+    INITIALIZING = 'INITIALIZING',
+    WAITING = 'WAITING',
+    CONNECTED = 'CONNECTED',
+    ENDED = 'ENDED'
+}
+
 // --- Types ---
 export type PatientStatus = 'Assessment Review' | 'Labs Ordered' | 'Awaiting Labs' | 'Awaiting Lab Confirmation' | 'Awaiting Lab Results' | 'Ready for Consult' | 'Consultation Scheduled' | 'Follow-up Required' | 'Awaiting Shipment' | 'Ongoing Treatment' | 'Monitoring Loop' | 'Action Required' | 'Additional Testing Required';
 
