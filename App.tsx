@@ -4,6 +4,7 @@ import { auth } from './firebase';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 import { notificationService } from './services/NotificationService';
+import { configService } from './services/ConfigService';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -218,6 +219,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log("🛠️ App Mounted");
+
+    configService.fetch();
 
     const handleRedirect = async () => {
       try {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
+import { configService } from '../../services/ConfigService';
 
-// Declare global Razorpay variable
 declare global {
     interface Window {
         Razorpay: any;
@@ -34,14 +34,6 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({ onPaymentSuccess, p
     const handlePayment = async () => {
         setIsProcessing(true);
         try {
-            // Check if Razorpay SDK is loaded
-            if (!window.Razorpay) {
-                console.error("Razorpay SDK not loaded");
-                alert("Payment system not ready. Please refresh the page.");
-                setIsProcessing(false);
-                return;
-            }
-
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
             // 1. Create Order
@@ -59,76 +51,104 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({ onPaymentSuccess, p
 
             const order = await res.json();
 
-            if (order.id) {
-                const options = {
-                    key: import.meta.env.VITE_RAZORPAY_KEY_ID || "YOUR_RAZORPAY_KEY_ID", // Enter the Key ID generated from the Dashboard
-                    amount: order.amount,
-                    currency: order.currency,
-                    name: "Vita AI",
-                    description: "Doctor Consultation & Lab Panel",
-                    // image: "https://your-logo-url.com/logo.png", // Optional
-                    order_id: order.id,
-                    handler: async function (response: any) {
-                        console.log("Payment Successful:", response);
-
-                        // 2. Verify Payment
-                        try {
-                            const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-order`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    razorpay_order_id: response.razorpay_order_id,
-                                    razorpay_payment_id: response.razorpay_payment_id,
-                                    razorpay_signature: response.razorpay_signature
-                                })
-                            });
-
-                            const verifyData = await verifyRes.json();
-
-                            if (verifyData.status === 'success') {
-                                onPaymentSuccess(order.id);
-                            } else {
-                                alert("Payment verification failed!");
-                            }
-                        } catch (verifyError) {
-                            console.error("Verification Error:", verifyError);
-                            alert("Payment verification failed due to network error.");
-                        } finally {
-                            setIsProcessing(false);
-                        }
-                    },
-                    prefill: {
-                        name: patientDetails.name || '',
-                        email: patientDetails.email || '',
-                        contact: patientDetails.phone || ''
-                    },
-                    notes: {
-                        address: "Razorpay Corporate Office"
-                    },
-                    theme: {
-                        color: "#9F7AEA" // brand-purple roughly
-                    },
-                    modal: {
-                        ondismiss: function () {
-                            console.log("Checkout form closed");
-                            setIsProcessing(false);
-                        }
-                    }
-                };
-
-                const rzp1 = new window.Razorpay(options);
-                rzp1.on('payment.failed', function (response: any) {
-                    console.error("Payment Failed:", response.error);
-                    alert(`Payment Failed: ${response.error.description || "Unknown error"}`);
-                    setIsProcessing(false);
-                });
-                rzp1.open();
-
-            } else {
+            if (!order.id) {
                 console.error("Failed to create payment order", order);
                 setIsProcessing(false);
                 alert("Failed to initiate payment. Please try again.");
+                return;
             }
+
+            const { skipRazorpayVerification } = configService.get();
+
+            if (skipRazorpayVerification) {
+                try {
+                    const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            razorpay_order_id: order.id,
+                            razorpay_payment_id: `pay_mock_${Date.now()}`,
+                            razorpay_signature: 'mock_signature'
+                        })
+                    });
+                    const verifyData = await verifyRes.json();
+                    if (verifyData.status === 'success') {
+                        onPaymentSuccess(order.id);
+                    } else {
+                        alert("Payment verification failed!");
+                    }
+                } catch (verifyError) {
+                    console.error("Verification Error:", verifyError);
+                    alert("Payment verification failed due to network error.");
+                } finally {
+                    setIsProcessing(false);
+                }
+                return;
+            }
+
+            if (!window.Razorpay) {
+                console.error("Razorpay SDK not loaded");
+                alert("Payment system not ready. Please refresh the page.");
+                setIsProcessing(false);
+                return;
+            }
+
+            const options = {
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID || "YOUR_RAZORPAY_KEY_ID",
+                amount: order.amount,
+                currency: order.currency,
+                name: "Vita AI",
+                description: "Doctor Consultation & Lab Panel",
+                order_id: order.id,
+                handler: async function (response: any) {
+                    try {
+                        const verifyRes = await fetch(`${API_BASE_URL}/api/payment/verify-order`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature
+                            })
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyData.status === 'success') {
+                            onPaymentSuccess(order.id);
+                        } else {
+                            alert("Payment verification failed!");
+                        }
+                    } catch (verifyError) {
+                        console.error("Verification Error:", verifyError);
+                        alert("Payment verification failed due to network error.");
+                    } finally {
+                        setIsProcessing(false);
+                    }
+                },
+                prefill: {
+                    name: patientDetails.name || '',
+                    email: patientDetails.email || '',
+                    contact: patientDetails.phone || ''
+                },
+                notes: {
+                    address: "Razorpay Corporate Office"
+                },
+                theme: {
+                    color: "#9F7AEA"
+                },
+                modal: {
+                    ondismiss: function () {
+                        setIsProcessing(false);
+                    }
+                }
+            };
+
+            const rzp1 = new window.Razorpay(options);
+            rzp1.on('payment.failed', function (response: any) {
+                console.error("Payment Failed:", response.error);
+                alert(`Payment Failed: ${response.error.description || "Unknown error"}`);
+                setIsProcessing(false);
+            });
+            rzp1.open();
 
         } catch (error) {
             console.error("Payment Error:", error);
