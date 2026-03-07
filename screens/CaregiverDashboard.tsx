@@ -8,6 +8,7 @@ import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverP
 import PatientList from '../components/doctor/PatientList';
 import { getSocket } from '../socket';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
+import { auth } from '../firebase';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -192,7 +193,8 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
         const messageData = {
             ...msg,
-            patientUid: msg.patientId
+            patientUid: msg.patientId,
+            senderId: auth.currentUser?.uid
         };
         socket.emit('send_message', messageData);
     };

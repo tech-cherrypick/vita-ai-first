@@ -8,6 +8,7 @@ import DoctorScheduleScreen from './doctor/DoctorScheduleScreen';
 import { getSocket } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
+import { auth } from '../firebase';
 
 export type DoctorView = 'patients' | 'schedule';
 
@@ -138,7 +139,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
         const messageData = {
             ...msg,
-            patientUid: msg.patientId
+            patientUid: msg.patientId,
+            senderId: auth.currentUser?.uid
         };
         socket.emit('send_message', messageData);
     };
