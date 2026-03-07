@@ -41,6 +41,11 @@ exports.verifyPayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
+        if (process.env.SKIP_RAZORPAY_VERIFICATION === 'true') {
+            console.log("Payment Verification Skipped (SKIP_RAZORPAY_VERIFICATION=true)");
+            return res.status(200).json({ status: "success", message: "Payment verified successfully (skip mode)" });
+        }
+
         const body = razorpay_order_id + "|" + razorpay_payment_id;
 
         const expectedSignature = crypto
