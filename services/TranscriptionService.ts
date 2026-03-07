@@ -1,6 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 
-const AUDIO_PROMPT = `You are a medical scribe. You will receive an audio recording of a doctor-patient consultation.
+const buildAudioPrompt = (recorderRole: 'doctor' | 'patient') => {
+    const localSpeaker = recorderRole === 'doctor' ? 'Doctor' : 'Patient';
+    const remoteSpeaker = recorderRole === 'doctor' ? 'Patient' : 'Doctor';
+
+    return `You are a medical scribe. You will receive an audio recording of a doctor-patient consultation.
+
+This audio was recorded from the ${localSpeaker}'s device. The ${localSpeaker}'s voice will typically be louder/clearer, and the ${remoteSpeaker}'s voice may be slightly quieter or have a different audio quality since it comes through the call.
 
 Please perform TWO tasks:
 
@@ -11,10 +17,11 @@ Provide a structured summary with:
 - Recommended Next Steps
 
 TASK 2 - TRANSCRIPT:
-Provide a full transcript in readable dialog format with clear speaker labels (e.g., Doctor: "...", Patient: "..."). Infer the speakers based on the context.
+Provide a full transcript in readable dialog format. Label speakers as "**Doctor:**" and "**Patient:**". Use the audio quality hint above to distinguish between speakers.
 
 Please separate the two sections clearly with the strict delimiter: "|||TRANSCRIPT_START|||"
 `;
+};
 
 const SUPPORTED_MIME_TYPES = [
     'audio/ogg;codecs=opus',
@@ -133,7 +140,7 @@ class TranscriptionService {
         };
     }
 
-    static async generateSummary(audioBlob: Blob | null): Promise<TranscriptionResult> {
+    static async generateSummary(audioBlob: Blob | null, recorderRole: 'doctor' | 'patient' = 'doctor'): Promise<TranscriptionResult> {
         const apiKey = import.meta.env.VITE_API_KEY;
         if (!apiKey) {
             console.error('[TranscriptionService] VITE_API_KEY is missing');
@@ -156,7 +163,7 @@ class TranscriptionService {
             const response = await genAI.models.generateContent({
                 model: 'gemini-2.0-flash',
                 contents: [
-                    { text: AUDIO_PROMPT },
+                    { text: buildAudioPrompt(recorderRole) },
                     { inlineData: { mimeType: geminiMimeType, data: base64Audio } }
                 ]
             });

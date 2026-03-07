@@ -40,7 +40,7 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         console.log(`[ConsultationCall] Audio blob: ${audioBlob?.size || 0} bytes`);
 
         console.log('[ConsultationCall] Sending audio to Gemini for transcription...');
-        const { summary, formattedTranscript } = await TranscriptionService.generateSummary(audioBlob);
+        const { summary, formattedTranscript } = await TranscriptionService.generateSummary(audioBlob, role as 'doctor' | 'patient');
         console.log(`[ConsultationCall] Gemini result - summary length: ${summary.length}, transcript length: ${formattedTranscript.length}`);
 
         if (role === 'doctor') {
