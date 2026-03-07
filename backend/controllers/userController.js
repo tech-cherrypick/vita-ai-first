@@ -299,4 +299,57 @@ const getMessages = async (req, res) => {
   }
 };
 
-module.exports = { getRole, syncData, getData, getMessages };
+const getTestUserData = async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: 'Missing user id' });
+
+  try {
+    const userDoc = db.collection('users').doc(id);
+    const [dataSnap, trackingSnap, clinicSnap, historySnap, mediaSnap, rxSnap, loopSnap, consultsSnap, messagesSnap] = await Promise.all([
+      userDoc.collection('data').get(),
+      userDoc.collection('tracking').get(),
+      userDoc.collection('clinic').get(),
+      userDoc.collection('patient_history').orderBy('timestamp', 'desc').get(),
+      userDoc.collection('media_reports').get(),
+      userDoc.collection('prescriptions').orderBy('updated_at', 'desc').get(),
+      userDoc.collection('current_loop').get(),
+      userDoc.collection('consultations').orderBy('timestamp', 'desc').get(),
+      userDoc.collection('messages').orderBy('timestamp', 'asc').get()
+    ]);
+
+    const result = {};
+
+    dataSnap.forEach(doc => { result[doc.id] = doc.data(); });
+
+    result.tracking = {};
+    trackingSnap.forEach(doc => { result.tracking[doc.id] = doc.data(); });
+
+    result.clinic = {};
+    clinicSnap.forEach(doc => { result.clinic[doc.id] = doc.data(); });
+
+    result.reports = [];
+    mediaSnap.forEach(doc => { result.reports.push({ id: doc.id, ...doc.data() }); });
+
+    result.patient_history = [];
+    historySnap.forEach(doc => { result.patient_history.push({ id: doc.id, ...doc.data() }); });
+
+    result.prescriptions = [];
+    rxSnap.forEach(doc => { result.prescriptions.push({ id: doc.id, ...doc.data() }); });
+
+    result.current_loop = {};
+    loopSnap.forEach(doc => { result.current_loop[doc.id] = doc.data(); });
+
+    result.consultations = [];
+    consultsSnap.forEach(doc => { result.consultations.push({ id: doc.id, ...doc.data() }); });
+
+    result.messages = [];
+    messagesSnap.forEach(doc => { result.messages.push({ id: doc.id, ...doc.data() }); });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('❌ Test user data fetch error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getRole, syncData, getData, getMessages, getTestUserData };
