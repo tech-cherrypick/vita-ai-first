@@ -33,10 +33,9 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         hasEndedRef.current = true;
         setCallState(CallState.ENDED);
 
-        transcriptionRef.current?.stop();
         socket.emit('end_call', { patientId, senderRole: role });
 
-        const audioBlob = transcriptionRef.current?.getAudioBlob() || null;
+        const audioBlob = await transcriptionRef.current?.stopAndGetBlob() || null;
         const { summary, formattedTranscript } = await TranscriptionService.generateSummary(audioBlob);
 
         if (role === 'doctor') {
@@ -137,7 +136,7 @@ const ConsultationCall: React.FC<ConsultationCallProps> = ({ onCallEnd, otherPar
         init();
 
         return () => {
-            transcription.stop();
+            transcription.stopAndGetBlob();
             webrtc.destroy();
             socket.emit('leave_call_room', { patientId, role });
             socket.off('user_joined_call', handleUserJoined);

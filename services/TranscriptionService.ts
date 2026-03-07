@@ -38,7 +38,7 @@ class TranscriptionService {
                 if (event.data.size > 0) this.chunks.push(event.data);
             };
 
-            this.recorder.start(5000);
+            this.recorder.start(3000);
             this.recording = true;
             return true;
         } catch {
@@ -46,16 +46,20 @@ class TranscriptionService {
         }
     }
 
-    stop(): void {
-        if (this.recorder && this.recording) {
-            this.recorder.stop();
-            this.recording = false;
-        }
-    }
+    stopAndGetBlob(): Promise<Blob | null> {
+        return new Promise((resolve) => {
+            if (!this.recorder || !this.recording) {
+                resolve(this.chunks.length > 0 ? new Blob(this.chunks, { type: 'audio/webm' }) : null);
+                return;
+            }
 
-    getAudioBlob(): Blob | null {
-        if (this.chunks.length === 0) return null;
-        return new Blob(this.chunks, { type: 'audio/webm' });
+            this.recorder.onstop = () => {
+                this.recording = false;
+                resolve(this.chunks.length > 0 ? new Blob(this.chunks, { type: 'audio/webm' }) : null);
+            };
+
+            this.recorder.stop();
+        });
     }
 
     private static async blobToBase64(blob: Blob): Promise<string> {
