@@ -89,8 +89,10 @@ const App: React.FC = () => {
         const profile = cloudData.profile || {};
 
         const reconstructedPatient: Patient = {
-          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || '', user.uid),
+          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || '', user.uid, profile.photoURL || user.photoURL || ''),
           ...profile,
+          photoURL: profile.photoURL || user.photoURL || '',
+          imageUrl: profile.photoURL || user.photoURL || profile.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
           age: profile.age || 0,
           // Merge other sections if they exist
           timeline: cloudData.timeline?.events || [],
@@ -111,20 +113,20 @@ const App: React.FC = () => {
 
         // If timeline from DB is empty, use the one from createNewPatient
         if (reconstructedPatient.timeline.length === 0) {
-          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone, user.uid).timeline;
+          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone, user.uid, user.photoURL || '').timeline;
         }
 
         setPatients([reconstructedPatient]);
         setCurrentPatientId(reconstructedPatient.id);
       } else {
-        const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
+        const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid, user.photoURL || '');
         setPatients([fallbackPatient]);
         setCurrentPatientId(fallbackPatient.id);
       }
     } catch (err) {
       console.error("☁️ Failed to fetch cloud data:", err);
       // Fallback to ensure we don't show "User not found"
-      const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
+      const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid, user.photoURL || '');
       setPatients([fallbackPatient]);
       setCurrentPatientId(fallbackPatient.id);
     } finally {
@@ -132,7 +134,7 @@ const App: React.FC = () => {
       // Double check: if patients is still empty for some reason, add one
       setPatients(prev => {
         if (prev.length === 0) {
-          const fallback = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid);
+          const fallback = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid, user.photoURL || '');
           setCurrentPatientId(fallback.id);
           return [fallback];
         }
@@ -257,6 +259,18 @@ const App: React.FC = () => {
         try {
           const role = await fetchUserRole(user);
           setUserType(role as any);
+
+          // Save the user's Google profile photo to Firestore for all roles
+          if (user.photoURL) {
+            const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+            const token = await user.getIdToken();
+            fetch(`${API_BASE_URL}/api/sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ section: 'profile', data: { photoURL: user.photoURL, name: user.displayName, email: user.email } })
+            }).catch(err => console.error("❌ Failed to sync photoURL:", err));
+          }
+
           if (role === 'patient') {
             await fetchFromCloud(user);
           } else if (role === 'doctor' || role === 'careCoordinator') {
@@ -352,6 +366,7 @@ const App: React.FC = () => {
       email: updatedPatient.email,
       phone: updatedPatient.phone,
       age: updatedPatient.age,
+      photoURL: updatedPatient.photoURL || updatedPatient.imageUrl,
       shippingAddress: updatedPatient.shippingAddress,
       status: updatedPatient.status,
       nextAction: updatedPatient.nextAction,

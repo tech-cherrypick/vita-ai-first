@@ -455,11 +455,12 @@ export interface MessageThread {
 }
 
 // --- Factory for New Patients ---
-export const createNewPatient = (name: string, email: string, phone: string, id?: string | number): Patient => ({
+export const createNewPatient = (name: string, email: string, phone: string, id?: string | number, photoURL?: string): Patient => ({
     id: id || Date.now(),
     name: name || 'New Patient',
     age: 0, // Placeholder
-    imageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
+    imageUrl: photoURL || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
+    photoURL: photoURL || '',
     email: email,
     phone: phone,
     shippingAddress: { line1: '', city: '', state: '', zip: '', country: 'India' },
