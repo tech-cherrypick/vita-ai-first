@@ -72,6 +72,35 @@ const App: React.FC = () => {
     return 'patient';
   };
 
+  const buildPatientFromCloud = (cloudData: any, user: any): Patient => {
+    const profile = cloudData.profile || {};
+    const reconstructedPatient: Patient = {
+      ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || '', user.uid, profile.photoURL || user.photoURL || ''),
+      ...profile,
+      photoURL: profile.photoURL || user.photoURL || '',
+      imageUrl: profile.photoURL || user.photoURL || profile.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
+      age: profile.age || 0,
+      timeline: cloudData.timeline?.events || [],
+      patient_history: cloudData.patient_history || [],
+      consultations: cloudData.consultations || [],
+      prescriptions: cloudData.prescriptions || [],
+      vitals: cloudData.vitals?.list || [],
+      weeklyLogs: cloudData.weeklyLogs?.entries || [],
+      tracking: cloudData.tracking || { labs: { status: 'Pending' }, consultation: { status: 'Pending' }, shipment: { status: 'Pending' } },
+      clinic: cloudData.clinic || {},
+      reports: cloudData.reports || [],
+      current_loop: cloudData.current_loop || {},
+      dailyLogs: cloudData.dailyLogs || {},
+      carePlan: cloudData.carePlan || undefined,
+      treatmentPlan: cloudData.treatmentPlan || undefined,
+      id: user.uid,
+    };
+    if (reconstructedPatient.timeline.length === 0) {
+      reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone, user.uid, user.photoURL || '').timeline;
+    }
+    return reconstructedPatient;
+  };
+
   const fetchFromCloud = async (user: any) => {
     console.log("☁️ fetchFromCloud starting for:", user.email);
     setIsLoading(true);
@@ -85,37 +114,7 @@ const App: React.FC = () => {
       if (response.ok) {
         const cloudData = await response.json();
         console.log("📥 Cloud data received:", Object.keys(cloudData));
-
-        const profile = cloudData.profile || {};
-
-        const reconstructedPatient: Patient = {
-          ...createNewPatient(profile.name || user.displayName || 'User', profile.email || user.email || '', profile.phone || '', user.uid, profile.photoURL || user.photoURL || ''),
-          ...profile,
-          photoURL: profile.photoURL || user.photoURL || '',
-          imageUrl: profile.photoURL || user.photoURL || profile.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
-          age: profile.age || 0,
-          // Merge other sections if they exist
-          timeline: cloudData.timeline?.events || [],
-          patient_history: cloudData.patient_history || [],
-          consultations: cloudData.consultations || [],
-          prescriptions: cloudData.prescriptions || [],
-          vitals: cloudData.vitals?.list || [],
-          weeklyLogs: cloudData.weeklyLogs?.entries || [],
-          tracking: cloudData.tracking || { labs: { status: 'Pending' }, consultation: { status: 'Pending' }, shipment: { status: 'Pending' } },
-          clinic: cloudData.clinic || {},
-          reports: cloudData.reports || [],
-          current_loop: cloudData.current_loop || {},
-          dailyLogs: cloudData.dailyLogs || {},
-          carePlan: cloudData.carePlan || undefined,
-          treatmentPlan: cloudData.treatmentPlan || undefined,
-          id: user.uid, // Force UID
-        };
-
-        // If timeline from DB is empty, use the one from createNewPatient
-        if (reconstructedPatient.timeline.length === 0) {
-          reconstructedPatient.timeline = createNewPatient(profile.name || user.displayName, profile.email || user.email, profile.phone, user.uid, user.photoURL || '').timeline;
-        }
-
+        const reconstructedPatient = buildPatientFromCloud(cloudData, user);
         setPatients([reconstructedPatient]);
         setCurrentPatientId(reconstructedPatient.id);
       } else {
@@ -125,13 +124,11 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error("☁️ Failed to fetch cloud data:", err);
-      // Fallback to ensure we don't show "User not found"
       const fallbackPatient = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid, user.photoURL || '');
       setPatients([fallbackPatient]);
       setCurrentPatientId(fallbackPatient.id);
     } finally {
       setIsLoading(false);
-      // Double check: if patients is still empty for some reason, add one
       setPatients(prev => {
         if (prev.length === 0) {
           const fallback = createNewPatient(user.displayName || 'User', user.email || '', '', user.uid, user.photoURL || '');
@@ -142,6 +139,31 @@ const App: React.FC = () => {
       });
     }
   };
+
+  const pollFromCloud = async (user: any) => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_BASE_URL}/api/data`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const cloudData = await response.json();
+        const updatedPatient = buildPatientFromCloud(cloudData, user);
+        setPatients([updatedPatient]);
+      }
+    } catch (err) {
+      // silent fail on poll
+    }
+  };
+
+  useEffect(() => {
+    if (!isSignedIn || !firebaseUser || userType !== 'patient') return;
+    const interval = setInterval(() => {
+      pollFromCloud(firebaseUser);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isSignedIn, firebaseUser, userType]);
 
   const fetchDoctorPatients = async (user: any) => {
     console.log("👨‍⚕️ fetchDoctorPatients starting");

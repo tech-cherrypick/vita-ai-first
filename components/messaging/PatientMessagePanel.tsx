@@ -139,25 +139,40 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                                         </div>
                                     </div>
                                 )}
-                                <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
-                                    {msg.sender !== userRole && msg.sender !== 'patient' && msg.sender !== 'system' && (
-                                        <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.senderName || msg.role}</p>
-                                    )}
-                                    {(msg.text || msg.attachment) && (
-                                        <>
-                                            {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\[JOIN_CALL\]/g, '<button class="mt-2 w-full py-2 bg-brand-cyan/20 text-cyan-900 font-bold text-xs rounded-xl border border-brand-cyan/50 cursor-pointer text-center pointer-events-none">Join Video Session (Patient View)</button>').replace(/\n/g, '<br/>') }} />}
-                                            {msg.attachment && (
-                                                <ChatAttachment
-                                                    attachment={msg.attachment}
-                                                    isMine={msg.sender === (userRole === 'doctor' ? 'doctor' : 'careCoordinator')}
-                                                />
+                                {(() => {
+                                    const isMine = msg.sender === userRole;
+                                    const avatarUrl = isMine
+                                        ? (msg.avatar || auth.currentUser?.photoURL || '')
+                                        : (msg.avatar || patientImageUrl);
+                                    return (
+                                        <div className={`flex gap-2.5 ${isMine ? 'flex-row-reverse' : ''}`}>
+                                            {avatarUrl ? (
+                                                <img src={avatarUrl} className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
                                             )}
-                                        </>
-                                    )}
-                                    <p className="text-[10px] mt-1 text-right opacity-60">
-                                        {getDisplayTime(msg)}
-                                    </p>
-                                </div>
+                                            <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
+                                                {msg.sender !== userRole && msg.sender !== 'patient' && msg.sender !== 'system' && (
+                                                    <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.senderName || msg.role}</p>
+                                                )}
+                                                {(msg.text || msg.attachment) && (
+                                                    <>
+                                                        {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\[JOIN_CALL\]/g, '<button class="mt-2 w-full py-2 bg-brand-cyan/20 text-cyan-900 font-bold text-xs rounded-xl border border-brand-cyan/50 cursor-pointer text-center pointer-events-none">Join Video Session (Patient View)</button>').replace(/\n/g, '<br/>') }} />}
+                                                        {msg.attachment && (
+                                                            <ChatAttachment
+                                                                attachment={msg.attachment}
+                                                                isMine={isMine}
+                                                            />
+                                                        )}
+                                                    </>
+                                                )}
+                                                <p className="text-[10px] mt-1 text-right opacity-60">
+                                                    {getDisplayTime(msg)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </React.Fragment>
                         );
                     })

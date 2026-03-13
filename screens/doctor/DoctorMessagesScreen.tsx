@@ -119,15 +119,28 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
                                 </div>
                             </header>
                             <div className="flex-1 p-6 overflow-y-auto bg-white flex flex-col gap-3">
-                                {activeThread.messages.map((msg) => (
-                                    <div key={msg.id} className={`max-w-[80%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
-                                        {msg.sender !== 'doctor' && msg.sender !== 'patient' && msg.sender !== 'system' && <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.role || msg.senderName}</p>}
-                                        <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
-                                        <p className={`text-[10px] mt-1 text-right opacity-60`}>
-                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
-                                    </div>
-                                ))}
+                                {activeThread.messages.map((msg) => {
+                                    const isMine = msg.sender === 'doctor';
+                                    const avatarUrl = isMine
+                                        ? (msg.avatar || auth.currentUser?.photoURL || '')
+                                        : (msg.avatar || activeThread.patient.imageUrl);
+                                    return (
+                                        <div key={msg.id} className={`flex gap-2.5 ${isMine ? 'flex-row-reverse' : ''}`}>
+                                            {avatarUrl ? (
+                                                <img src={avatarUrl} className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+                                            )}
+                                            <div className={`max-w-[75%] p-3 rounded-2xl text-sm ${senderStyles[msg.sender] || senderStyles.patient}`}>
+                                                {msg.sender !== 'doctor' && msg.sender !== 'patient' && msg.sender !== 'system' && <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.role || msg.senderName}</p>}
+                                                <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
+                                                <p className={`text-[10px] mt-1 text-right opacity-60`}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                             <form onSubmit={handleSend} className="p-4 border-t bg-gray-50">
                                 <div className="flex items-center gap-2">

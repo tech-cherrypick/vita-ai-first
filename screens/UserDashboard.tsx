@@ -12,6 +12,7 @@ import ReportsScreen from './dashboard/ReportsScreen';
 import PaymentsScreen from './dashboard/PaymentsScreen';
 import CareTeamScreen from './dashboard/CareTeamScreen';
 import HelpScreen from './dashboard/HelpScreen';
+import SettingsScreen from './dashboard/SettingsScreen';
 import PatientOverviewHero from '../components/dashboard/PatientOverviewHero';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
 import PatientActionCenter from '../components/dashboard/PatientActionCenter';
@@ -129,12 +130,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
             statusLabel: intakeComplete ? 'Complete' : 'Incomplete',
             statusColor: intakeComplete ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-red-700 bg-red-50 border-red-200',
             iconBg: 'bg-teal-100 text-teal-600',
-            detail: 'Diseases, medications, family history, and safety screen.',
-            dualAction: true,
-            actions: [
-                { label: 'Start AI Interview', target: 'intake_medical_ai' as FocusMode, icon: '🎙️' },
-                { label: 'Fill Form', target: 'intake_medical_form' as FocusMode, icon: '📝' }
-            ]
+            detail: 'Diseases, medications, family history, and safety screen.'
         },
 
         // Module 2: Psychographic Profile (Split)
@@ -144,12 +140,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
             statusLabel: 'Pending',
             statusColor: 'text-gray-700 bg-gray-50 border-gray-200',
             iconBg: 'bg-pink-100 text-pink-600',
-            detail: 'Mood (PHQ-9), Binge Eating (BES), and Attitudes (EAT-26).',
-            dualAction: true,
-            actions: [
-                { label: 'Start AI Interview', target: 'intake_psych_ai' as FocusMode, icon: '🎙️' },
-                { label: 'Fill Form', target: 'intake_psych_form' as FocusMode, icon: '📝' }
-            ]
+            detail: 'Mood (PHQ-9), Binge Eating (BES), and Attitudes (EAT-26).'
         },
 
         // Module 3: Labs
@@ -212,7 +203,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
                                 </button>
                             ))}
                         </div>
-                    ) : (
+                    ) : mod.actionLabel ? (
                         <button
                             onClick={() => onNavigate(mod.target as FocusMode)}
                             className="w-full py-3 rounded-xl border border-gray-100 bg-gray-50 text-sm font-bold text-gray-700 hover:bg-brand-text hover:text-white hover:border-brand-text transition-all flex items-center justify-center gap-2 group-hover:shadow-md"
@@ -220,7 +211,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
                             {mod.actionLabel}
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                         </button>
-                    )}
+                    ) : null}
                 </div>
             ))}
         </div>
@@ -610,6 +601,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'payments': return <PaymentsScreen patient={patient} />;
             case 'care_team': return <CareTeamScreen patient={patient} />;
             case 'help': return <HelpScreen />;
+            case 'settings': return <SettingsScreen />;
             case 'consultations': return (
                 <div className="animate-fade-in">
                     <div className="mb-6">

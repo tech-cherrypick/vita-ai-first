@@ -9,8 +9,9 @@ import { getSocket } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
+import SettingsScreen from './dashboard/SettingsScreen';
 
-export type DoctorView = 'patients' | 'schedule';
+export type DoctorView = 'patients' | 'schedule' | 'settings';
 
 interface DoctorDashboardProps {
     onSignOut: () => void;
@@ -167,6 +168,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
 
     const renderContent = () => {
         switch (view) {
+            case 'settings':
+                return <SettingsScreen />;
             case 'schedule':
                 return <DoctorScheduleScreen allPatients={allPatients} onPatientSelect={handlePatientSelect} onJoinCall={handleJoinCall} />;
             case 'patients':

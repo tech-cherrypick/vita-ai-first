@@ -9,6 +9,7 @@ import PatientList from '../components/doctor/PatientList';
 import { getSocket } from '../socket';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
+import SettingsScreen from './dashboard/SettingsScreen';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -228,6 +229,8 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         }
 
         switch (view) {
+            case 'settings':
+                return <SettingsScreen />;
             case 'schedule':
                 return <CareCoordinatorScheduleScreen />;
             case 'patients':

@@ -904,8 +904,9 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
                                 {/* Message */}
                                 <div className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
-                                    {/* AI Icon or Avatar */}
-                                    {msg.messageType === 'ai' && msg.sender !== 'You' ? (
+                                    {msg.sender === 'You' ? (
+                                        <img src={patient.photoURL || patient.imageUrl} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt="You" />
+                                    ) : msg.messageType === 'ai' ? (
                                         <AIIcon />
                                     ) : msg.avatar ? (
                                         <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />

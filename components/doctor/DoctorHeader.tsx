@@ -66,6 +66,9 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({ onSignOut, currentView, set
                             <NavLink isActive={currentView === 'schedule'} onClick={() => handleNavClick('schedule')}>
                                 Schedule
                             </NavLink>
+                            <NavLink isActive={currentView === 'settings'} onClick={() => handleNavClick('settings')}>
+                                Settings
+                            </NavLink>
                         </nav>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-4">
@@ -90,6 +93,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({ onSignOut, currentView, set
                     <nav className="md:hidden py-4 border-t border-gray-200 space-y-1">
                         <NavLink className="mobile-nav-link" isActive={currentView === 'patients'} onClick={() => handleNavClick('patients')}>My Patients</NavLink>
                         <NavLink className="mobile-nav-link" isActive={currentView === 'schedule'} onClick={() => handleNavClick('schedule')}>Schedule</NavLink>
+                        <NavLink className="mobile-nav-link" isActive={currentView === 'settings'} onClick={() => handleNavClick('settings')}>Settings</NavLink>
                         <div className="pt-2">
                             <button
                                 onClick={onSignOut}
