@@ -5,9 +5,10 @@ import { Patient } from '../../constants';
 interface PatientListProps {
     patients: Patient[];
     onPatientSelect: (patient: Patient) => void;
+    unreadCounts?: Record<string, number>;
 }
 
-const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect }) => {
+const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect, unreadCounts = {} }) => {
     return (
         <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -25,8 +26,11 @@ const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect }) 
                         <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
-                                    <div className="flex-shrink-0 h-10 w-10">
+                                    <div className="relative flex-shrink-0 h-10 w-10">
                                         <img className="h-10 w-10 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
+                                        {(unreadCounts[String(patient.id)] || 0) > 0 && (
+                                            <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
+                                        )}
                                     </div>
                                     <div className="ml-4">
                                         <div className="text-sm font-medium text-gray-900">{patient.name}</div>

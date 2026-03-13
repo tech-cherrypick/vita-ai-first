@@ -23,6 +23,7 @@ app.use(express.urlencoded({ limit: '11mb', extended: true }));
 // Initialize Firebase Admin
 initializeFirebase();
 const { sendNotificationToUser } = require('./controllers/notificationController');
+const { incrementUnread } = require('./controllers/messageTrackingController');
 const db = admin.firestore();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -121,6 +122,10 @@ io.on('connection', (socket) => {
       io.to(`room_${patientUid}`).emit('receive_message', broadcastData);
       console.log(`📩 Message sent in room_${patientUid} by ${senderName}`);
 
+      if (role === 'patient') {
+        incrementUnread(patientUid, data.senderId || null);
+      }
+
       try {
         const senderId = data.senderId || null;
         const recipientIds = new Set();
@@ -205,6 +210,7 @@ app.use('/api/doctor', doctorRoutes);
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/consultation', consultationRoutes);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/messages', require('./routes/messageTrackingRoutes'));
 app.use('/api', leadRoutes);
 app.use('/api/config', require('./routes/configRoutes'));
 

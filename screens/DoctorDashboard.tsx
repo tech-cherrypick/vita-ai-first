@@ -10,6 +10,7 @@ import ConsultationCall from '../components/dashboard/ConsultationCall';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
 import SettingsScreen from './dashboard/SettingsScreen';
+import { messageTrackingService } from '../services/MessageTrackingService';
 
 export type DoctorView = 'patients' | 'schedule' | 'settings';
 
@@ -47,6 +48,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     const [view, setView] = useState<DoctorView>('patients');
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const socket = getSocket();
 
     useEffect(() => {
@@ -112,10 +114,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         // 3. Listen for messages
         const handleMessage = (msg: GlobalChatMessage) => {
             setGlobalChatHistory(prev => {
-                // Prevent duplicates
                 if (prev.some(m => m.id === msg.id)) return prev;
                 return [...prev, msg];
             });
+            if (msg.sender === 'patient' && msg.patientId) {
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [String(msg.patientId)]: (prev[String(msg.patientId)] || 0) + 1
+                }));
+            }
         };
 
         socket.on('receive_message', handleMessage);
@@ -125,12 +132,21 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
         };
     }, [allPatients, socket]);
 
+    useEffect(() => {
+        messageTrackingService.getUnreadCounts().then(setUnreadCounts);
+    }, []);
+
     // Derive current patient from the fresh prop
     const selectedPatient = allPatients.find(p => p.id === selectedPatientId) || null;
 
     const handlePatientSelect = (patient: Patient) => {
         setSelectedPatientId(patient.id);
-        setView('patients'); // Switch to patient view to show the detail screen
+        setView('patients');
+        const pid = String(patient.id);
+        if (unreadCounts[pid] > 0) {
+            setUnreadCounts(prev => ({ ...prev, [pid]: 0 }));
+            messageTrackingService.markAsRead(pid);
+        }
     };
 
     const handleBackToList = () => {
@@ -184,7 +200,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
                             <p className="mt-1 text-gray-600">Review patient statuses and pending actions.</p>
                         </div>
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                            <PatientList patients={allPatients} onPatientSelect={handlePatientSelect} />
+                            <PatientList patients={allPatients} onPatientSelect={handlePatientSelect} unreadCounts={unreadCounts} />
                         </div>
                     </>
                 );

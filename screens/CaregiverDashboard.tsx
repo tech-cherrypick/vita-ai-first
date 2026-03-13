@@ -10,6 +10,7 @@ import { getSocket } from '../socket';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
 import SettingsScreen from './dashboard/SettingsScreen';
+import { messageTrackingService } from '../services/MessageTrackingService';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -26,6 +27,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const [view, setView] = useState<CareCoordinatorView>('triage');
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const socket = getSocket();
 
     useEffect(() => {
@@ -89,6 +91,12 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                 if (prev.some(m => m.id === msg.id)) return prev;
                 return [...prev, msg];
             });
+            if (msg.sender === 'patient' && msg.patientId) {
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [String(msg.patientId)]: (prev[String(msg.patientId)] || 0) + 1
+                }));
+            }
         };
 
         socket.on('receive_message', handleMessage);
@@ -97,6 +105,10 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
             socket.off('receive_message', handleMessage);
         };
     }, [allPatients, socket]);
+
+    useEffect(() => {
+        messageTrackingService.getUnreadCounts().then(setUnreadCounts);
+    }, []);
 
     // Derive current patient from the fresh prop
     const selectedPatient = allPatients.find(p => String(p.id) === String(selectedPatientId)) || null;
@@ -185,6 +197,11 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
 
     const handlePatientSelect = (patientId: string | number) => {
         setSelectedPatientId(patientId);
+        const pid = String(patientId);
+        if (unreadCounts[pid] > 0) {
+            setUnreadCounts(prev => ({ ...prev, [pid]: 0 }));
+            messageTrackingService.markAsRead(pid);
+        }
     };
 
     const handleBackToList = () => {
@@ -242,6 +259,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                         <PatientList
                             patients={allPatients}
                             onPatientSelect={(patient) => handlePatientSelect(patient.id)}
+                            unreadCounts={unreadCounts}
                         />
                     </div>
                 );
