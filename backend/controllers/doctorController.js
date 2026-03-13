@@ -165,15 +165,27 @@ const getAllPatients = async (req, res) => {
       const coordinatorEmail = Object.keys(roleMap).find(email => roleMap[email] === 'careCoordinator');
       const coordinatorUser = coordinatorEmail ? authUsers.find(u => u.email === coordinatorEmail) : null;
       const defaultCoordinatorName = coordinatorUser?.displayName || 'Vita Care Team'; // Fallback if no CC found
+      const defaultCoordinatorPhotoURL = coordinatorUser?.photoURL || '';
+
+      // Find the doctor's photo from the requesting user (current doctor viewing patients)
+      const doctorEmail = Object.keys(roleMap).find(email => roleMap[email] === 'doctor');
+      const doctorUser = doctorEmail ? authUsers.find(u => u.email === doctorEmail) : null;
+      const defaultDoctorPhotoURL = doctorUser?.photoURL || '';
 
       // Helper to fix Profile Data
       const safeProfile = { ...profile };
       if (!safeProfile.careTeam) {
-          safeProfile.careTeam = { physician: 'Pending Assignment', coordinator: defaultCoordinatorName };
+          safeProfile.careTeam = { physician: 'Pending Assignment', coordinator: defaultCoordinatorName, coordinatorPhotoURL: defaultCoordinatorPhotoURL, physicianPhotoURL: defaultDoctorPhotoURL };
       } else {
           // Check for legacy/default values and override
           if (safeProfile.careTeam.coordinator === 'Alex Ray' || safeProfile.careTeam.coordinator === 'Unassigned' || safeProfile.careTeam.coordinator === 'Vita-AI') {
                safeProfile.careTeam.coordinator = defaultCoordinatorName;
+          }
+          if (!safeProfile.careTeam.coordinatorPhotoURL) {
+              safeProfile.careTeam.coordinatorPhotoURL = defaultCoordinatorPhotoURL;
+          }
+          if (!safeProfile.careTeam.physicianPhotoURL) {
+              safeProfile.careTeam.physicianPhotoURL = defaultDoctorPhotoURL;
           }
       }
 

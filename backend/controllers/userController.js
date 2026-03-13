@@ -208,20 +208,27 @@ const getData = async (req, res) => {
         data.profile.careTeam = { physician: 'Pending Assignment', coordinator: 'Vita Care Team' };
       }
 
-      // Check for 'careCoordinator' role to assign real name
+      // Check for 'careCoordinator' role to assign real name and photo
       if (data.profile.careTeam.coordinator === 'Unassigned' || data.profile.careTeam.coordinator === 'Vita Care Team') {
         const rolesSnap = await db.collection('roles').where('role', '==', 'careCoordinator').get();
         if (!rolesSnap.empty) {
-          // Just pick the first coordinator found for now
-          const coordinatorEmail = rolesSnap.docs[0].id; // Document IDs are emails
-          // Fetch display name from auth or just use a pretty version of email/fixed name
-          // Since we don't have auth list here easily, we'll try to find if a doc exists for them in 'users'
           const ccSnap = await db.collection('users').doc(rolesSnap.docs[0].id).collection('data').doc('profile').get();
           if (ccSnap.exists) {
             data.profile.careTeam.coordinator = ccSnap.data().name || 'Vita Care Team';
+            data.profile.careTeam.coordinatorPhotoURL = ccSnap.data().photoURL || '';
           } else {
-            // Fallback to a fixed coordinator name
             data.profile.careTeam.coordinator = 'Vita Care Team'; 
+          }
+        }
+      }
+
+      // Assign physician photo if missing
+      if (!data.profile.careTeam.physicianPhotoURL) {
+        const docRolesSnap = await db.collection('roles').where('role', '==', 'doctor').get();
+        if (!docRolesSnap.empty) {
+          const docSnap = await db.collection('users').doc(docRolesSnap.docs[0].id).collection('data').doc('profile').get();
+          if (docSnap.exists) {
+            data.profile.careTeam.physicianPhotoURL = docSnap.data().photoURL || '';
           }
         }
       }

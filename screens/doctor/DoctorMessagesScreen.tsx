@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GlobalChatMessage, Patient } from '../../constants';
+import { auth } from '../../firebase';
 
 interface DoctorMessagesScreenProps {
     chatHistory: GlobalChatMessage[];
@@ -51,7 +52,7 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
             senderName: userName, // Use actual doctor name from Firebase Auth
             role: 'Physician',
             text: inputValue,
-            avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop'
+            avatar: auth.currentUser?.photoURL || ''
         });
         setInputValue('');
     };

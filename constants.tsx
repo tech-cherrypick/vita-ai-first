@@ -317,6 +317,8 @@ export interface Patient {
     careTeam: {
         physician: string;
         coordinator: string;
+        physicianPhotoURL?: string;
+        coordinatorPhotoURL?: string;
         nutritionist?: string;
         trainer?: string;
     };

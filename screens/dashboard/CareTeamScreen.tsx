@@ -13,6 +13,8 @@ interface CareTeamScreenProps {
     onSendMessage?: () => void;
 }
 
+const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+
 const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage }) => {
 
     const teamMembers = [
@@ -20,14 +22,14 @@ const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage 
             role: 'Your Physician',
             name: patient.careTeam.physician,
             specialty: 'Endocrinology & Metabolism',
-            imageUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            bio: `Dr. Mitchell is a board-certified endocrinologist with 15+ years of experience in metabolic health and weight management. She will oversee your treatment plan and make adjustments as needed.`
+            imageUrl: patient.careTeam.physicianPhotoURL || DEFAULT_AVATAR,
+            bio: `Your physician oversees your treatment plan, reviews your lab results, and makes adjustments to your protocol as needed.`
         },
         {
             role: 'Your Care Coordinator',
             name: patient.careTeam.coordinator,
             specialty: 'Patient Support Specialist',
-            imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+            imageUrl: patient.careTeam.coordinatorPhotoURL || DEFAULT_AVATAR,
             bio: `Your Care Manager is your go-to for any non-medical questions, including shipping, billing, or scheduling. They are here to ensure you have a smooth and positive experience with Vita.`
         }
     ];

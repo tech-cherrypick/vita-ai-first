@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GlobalChatMessage, ChatAttachment as ChatAttachmentType } from '../../constants';
 import FileUploadButton from './FileUploadButton';
 import ChatAttachment from './ChatAttachment';
+import { auth } from '../../firebase';
 
 interface PatientMessagePanelProps {
     patientId: string | number;
@@ -83,9 +84,7 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
             senderName: userName,
             role: userRole === 'doctor' ? 'Physician' : 'Care Coordinator',
             text: inputValue,
-            avatar: userRole === 'doctor'
-                ? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop'
-                : 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1888&auto=format&fit=crop',
+            avatar: auth.currentUser?.photoURL || '',
             createdAt: new Date().toISOString(),
             attachment: attachment || undefined
         };
