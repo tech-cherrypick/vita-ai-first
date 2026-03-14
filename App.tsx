@@ -47,6 +47,7 @@ const App: React.FC = () => {
   const [careCoordinatorTasks, setCareCoordinatorTasks] = useState<CareCoordinatorTask[]>([]);
   const [currentPatientId, setCurrentPatientId] = useState<string | number | null>(null);
   const [notificationPatientId, setNotificationPatientId] = useState<string | null>(null);
+  const [incomingCallFromNotification, setIncomingCallFromNotification] = useState<{ doctorName: string; doctorId: string; patientId: string } | null>(null);
 
   const fetchUserRole = async (user: any) => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -322,7 +323,16 @@ const App: React.FC = () => {
     if (!Capacitor.isNativePlatform()) return;
 
     const listener = PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-      const patientUid = notification.notification?.data?.patientUid;
+      const data = notification.notification?.data;
+      if (data?.callAction === 'accept' || data?.type === 'incoming_call') {
+        setIncomingCallFromNotification({
+          doctorName: data.doctorName || 'Doctor',
+          doctorId: data.doctorId || 'doctor',
+          patientId: data.patientUid || ''
+        });
+        return;
+      }
+      const patientUid = data?.patientUid;
       if (patientUid) {
         setNotificationPatientId(patientUid);
       }
@@ -497,7 +507,7 @@ const App: React.FC = () => {
       default:
         if (!currentPatient) return <div>User profile not found.</div>;
         if (!currentPatient) return <div>User profile not found.</div>;
-        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} userName={firebaseUser?.displayName || currentPatient.name || "User"} notificationPatientId={notificationPatientId} onNotificationConsumed={() => setNotificationPatientId(null)} />;
+        return <UserDashboard onSignOut={handleSignOut} patient={currentPatient} onUpdatePatient={handleUpdatePatient} userName={firebaseUser?.displayName || currentPatient.name || "User"} notificationPatientId={notificationPatientId} onNotificationConsumed={() => setNotificationPatientId(null)} incomingCallFromNotification={incomingCallFromNotification} onCallNotificationConsumed={() => setIncomingCallFromNotification(null)} />;
     }
   };
 

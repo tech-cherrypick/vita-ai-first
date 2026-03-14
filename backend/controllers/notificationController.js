@@ -75,7 +75,7 @@ const sendTestNotification = async (req, res) => {
   }
 };
 
-const sendNotificationToUser = async (userId, title, body, { imageUrl, patientUid } = {}) => {
+const sendNotificationToUser = async (userId, title, body, extras = {}) => {
   try {
     const snapshot = await db.collection(COLLECTION)
       .where('user_id', '==', userId)
@@ -89,8 +89,11 @@ const sendNotificationToUser = async (userId, title, body, { imageUrl, patientUi
     for (const token of tokens) {
       try {
         const data = { title, body };
-        if (imageUrl) data.imageUrl = imageUrl;
-        if (patientUid) data.patientUid = patientUid;
+        if (extras.imageUrl) data.imageUrl = extras.imageUrl;
+        if (extras.patientUid) data.patientUid = extras.patientUid;
+        if (extras.type) data.type = extras.type;
+        if (extras.doctorName) data.doctorName = extras.doctorName;
+        if (extras.doctorId) data.doctorId = extras.doctorId;
 
         await admin.messaging().send({
           data,

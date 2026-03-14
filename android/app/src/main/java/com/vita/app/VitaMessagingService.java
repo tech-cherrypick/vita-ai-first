@@ -28,6 +28,7 @@ import java.util.Map;
 public class VitaMessagingService extends FirebaseMessagingService {
 
     private static final String CHANNEL_ID = "vita_messages";
+    private static final String CALL_CHANNEL_ID = "vita_calls";
     private static int notificationId = 0;
 
     @Override
@@ -35,6 +36,18 @@ public class VitaMessagingService extends FirebaseMessagingService {
         super.onMessageReceived(remoteMessage);
 
         Map<String, String> data = remoteMessage.getData();
+
+        if ("incoming_call".equals(data.get("type"))) {
+            showCallNotification(
+                data.get("title"),
+                data.get("body"),
+                data.get("patientUid"),
+                data.get("doctorName"),
+                data.get("doctorId")
+            );
+            PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
+            return;
+        }
 
         if (data.containsKey("title")) {
             String title = data.get("title");
@@ -85,6 +98,64 @@ public class VitaMessagingService extends FirebaseMessagingService {
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(notificationId++, builder.build());
+    }
+
+    private void showCallNotification(String title, String body, String patientUid, String doctorName, String doctorId) {
+        createCallNotificationChannel();
+
+        Intent acceptIntent = new Intent(this, CallActionReceiver.class);
+        acceptIntent.setAction(CallActionReceiver.ACTION_ACCEPT);
+        acceptIntent.putExtra("patientUid", patientUid);
+        acceptIntent.putExtra("doctorName", doctorName);
+        acceptIntent.putExtra("doctorId", doctorId);
+        PendingIntent acceptPending = PendingIntent.getBroadcast(
+                this, 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Intent rejectIntent = new Intent(this, CallActionReceiver.class);
+        rejectIntent.setAction(CallActionReceiver.ACTION_REJECT);
+        PendingIntent rejectPending = PendingIntent.getBroadcast(
+                this, 2, rejectIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Intent tapIntent = new Intent(this, MainActivity.class);
+        tapIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        tapIntent.putExtra("callAction", "accept");
+        tapIntent.putExtra("patientUid", patientUid);
+        tapIntent.putExtra("doctorName", doctorName);
+        tapIntent.putExtra("doctorId", doctorId);
+        PendingIntent tapPending = PendingIntent.getActivity(
+                this, 3, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CALL_CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title != null ? title : "Incoming Video Call")
+                .setContentText(body != null ? body : "Your doctor is calling")
+                .setAutoCancel(false)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setFullScreenIntent(tapPending, true)
+                .setContentIntent(tapPending)
+                .addAction(0, "Reject", rejectPending)
+                .addAction(0, "Accept", acceptPending);
+
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify(CallActionReceiver.CALL_NOTIFICATION_ID, builder.build());
+    }
+
+    private void createCallNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CALL_CHANNEL_ID, "Vita Calls", NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Incoming video call notifications");
+            channel.enableVibration(true);
+            channel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            manager.createNotificationChannel(channel);
+        }
     }
 
     private void createNotificationChannel() {

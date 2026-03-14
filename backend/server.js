@@ -165,11 +165,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Call Signaling Logic
-  socket.on('initiate_call', (data) => {
+  socket.on('initiate_call', async (data) => {
     const { patientId, doctorName, doctorId } = data;
     console.log(`📞 Call initiated for patient ${patientId} by doctor ${doctorName}`);
     io.to(`room_${patientId}`).emit('incoming_call', { doctorName, doctorId, patientId });
+
+    try {
+      await sendNotificationToUser(
+        patientId,
+        'Incoming Video Call',
+        `${doctorName} is calling you for a consultation`,
+        { type: 'incoming_call', doctorName, doctorId, patientUid: patientId }
+      );
+    } catch (err) {
+      console.error('❌ Failed to send call notification:', err);
+    }
   });
 
   socket.on('accept_call', (data) => {

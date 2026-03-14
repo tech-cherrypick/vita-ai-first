@@ -39,6 +39,8 @@ interface UserDashboardProps {
     userName?: string;
     notificationPatientId?: string | null;
     onNotificationConsumed?: () => void;
+    incomingCallFromNotification?: { doctorName: string; doctorId: string; patientId: string } | null;
+    onCallNotificationConsumed?: () => void;
 }
 
 const ModalWrapper: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode, maxWidth?: string }> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => {
@@ -219,7 +221,7 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
 };
 
 
-const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, chatHistory, onSendChatMessage, notificationPatientId, onNotificationConsumed }) => {
+const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpdatePatient, chatHistory, onSendChatMessage, notificationPatientId, onNotificationConsumed, incomingCallFromNotification, onCallNotificationConsumed }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentView, setCurrentView] = useState<DashboardView>('live');
     const [focusMode, setFocusMode] = useState<FocusMode>('none');
@@ -231,6 +233,15 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             onNotificationConsumed?.();
         }
     }, [notificationPatientId]);
+
+    useEffect(() => {
+        if (incomingCallFromNotification) {
+            getSocket().emit('accept_call', { patientId: patient.id, patientName: patient.name });
+            setCurrentView('dashboard');
+            setFocusMode('telehealth');
+            onCallNotificationConsumed?.();
+        }
+    }, [incomingCallFromNotification]);
 
     // Profile Check
     const [isDoctorInCall, setIsDoctorInCall] = useState(false);
