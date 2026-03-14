@@ -51,29 +51,18 @@ const markAsRead = async (req, res) => {
 };
 
 const incrementUnread = async (patientUid, senderUid) => {
-  console.log(`🔔 [incrementUnread] Called with patientUid=${patientUid}, senderUid=${senderUid}`);
   try {
-    const rolesSnapshot = await db.collection('roles')
-      .where('role', 'in', ['doctor', 'careCoordinator'])
+    const assignmentsSnapshot = await db.collection('patient_directory')
+      .where('patient_id', '==', patientUid)
       .get();
 
-    console.log(`🔔 [incrementUnread] Found ${rolesSnapshot.size} doctor/careCoordinator roles`);
-
     const readerUids = [];
-    for (const roleDoc of rolesSnapshot.docs) {
-      console.log(`🔔 [incrementUnread] Processing role doc: ${roleDoc.id} -> ${roleDoc.data().role}`);
-      try {
-        const userRecord = await admin.auth().getUserByEmail(roleDoc.id);
-        if (userRecord.uid !== senderUid) {
-          readerUids.push(userRecord.uid);
-          console.log(`🔔 [incrementUnread] Added reader: ${userRecord.uid} (${roleDoc.id})`);
-        }
-      } catch (emailErr) {
-        console.error(`🔔 [incrementUnread] Failed to get user by email ${roleDoc.id}:`, emailErr.message);
+    assignmentsSnapshot.forEach(doc => {
+      const assignedId = doc.data().assigned_id;
+      if (assignedId !== senderUid) {
+        readerUids.push(assignedId);
       }
-    }
-
-    console.log(`🔔 [incrementUnread] Total readers to update: ${readerUids.length}`);
+    });
 
     if (readerUids.length === 0) return;
 
@@ -87,11 +76,9 @@ const incrementUnread = async (patientUid, senderUid) => {
         unread_count: admin.firestore.FieldValue.increment(1),
         last_message_timestamp: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-      console.log(`🔔 [incrementUnread] Queued write for doc: ${docId}`);
     }
 
     await batch.commit();
-    console.log(`🔔 [incrementUnread] Batch committed successfully`);
   } catch (error) {
     console.error('🔔 [incrementUnread] Error:', error.message);
   }

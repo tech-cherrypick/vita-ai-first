@@ -18,7 +18,19 @@ const logHistory = async (uid, event) => {
 
 const getAllPatients = async (req, res) => {
   try {
-    // 1. Fetch all users from Firebase Auth
+    const loggedInUid = req.user.uid;
+
+    const assignmentsSnapshot = await db.collection('patient_directory')
+      .where('assigned_id', '==', loggedInUid)
+      .get();
+
+    const assignedPatientIds = new Set();
+    assignmentsSnapshot.forEach(doc => assignedPatientIds.add(doc.data().patient_id));
+
+    if (assignedPatientIds.size === 0) {
+      return res.status(200).json([]);
+    }
+
     const listUsersResult = await admin.auth().listUsers(1000);
     const authUsers = listUsersResult.users;
 
@@ -26,21 +38,16 @@ const getAllPatients = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    // 2. Fetch all roles to filter out non-patients
-    // We want to exclude doctors, care coordinators, admins, etc.
     const rolesSnapshot = await db.collection('roles').get();
     const roleMap = {};
     rolesSnapshot.forEach(doc => {
-      roleMap[doc.id] = doc.data().role; // doc.id is email
+      roleMap[doc.id] = doc.data().role;
     });
 
-    // 3. Filter authUsers
-    // Keep user if they have no role defined (assume patient) OR explicit 'patient' role
     const patientUsers = authUsers.filter(user => {
         const role = roleMap[user.email];
-        // If user has a specific role assigned and it is NOT 'patient', exclude them.
         if (role && role !== 'patient') return false;
-        return true;
+        return assignedPatientIds.has(user.uid);
     });
 
     if (patientUsers.length === 0) {

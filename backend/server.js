@@ -132,18 +132,13 @@ io.on('connection', (socket) => {
 
         recipientIds.add(patientUid);
 
-        const rolesSnapshot = await db.collection('roles')
-          .where('role', 'in', ['doctor', 'careCoordinator'])
+        const assignmentsSnapshot = await db.collection('patient_directory')
+          .where('patient_id', '==', patientUid)
           .get();
 
-        for (const roleDoc of rolesSnapshot.docs) {
-          const email = roleDoc.id;
-          try {
-            const userRecord = await admin.auth().getUserByEmail(email);
-            recipientIds.add(userRecord.uid);
-          } catch {
-          }
-        }
+        assignmentsSnapshot.forEach(doc => {
+          recipientIds.add(doc.data().assigned_id);
+        });
 
         if (senderId) {
           recipientIds.delete(senderId);
