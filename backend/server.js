@@ -223,6 +223,7 @@ app.use('/api/notification', notificationRoutes);
 app.use('/api/messages', require('./routes/messageTrackingRoutes'));
 app.use('/api', leadRoutes);
 app.use('/api/config', require('./routes/configRoutes'));
+app.use('/api/patient-directory', require('./routes/patientDirectoryRoutes'));
 
 // Health Check
 app.get('/health', (req, res) => {

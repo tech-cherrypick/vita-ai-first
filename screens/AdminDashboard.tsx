@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { VitaLogo } from '../constants';
 import { auth } from '../firebase';
+import PatientMappingScreen from './admin/PatientMappingScreen';
 
 interface AssignedRole {
     email: string;
@@ -17,7 +18,7 @@ interface Lead {
 }
 
 const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
-    const [activeTab, setActiveTab] = useState<'roles' | 'leads'>('roles');
+    const [activeTab, setActiveTab] = useState<'roles' | 'leads' | 'patients'>('roles');
     const [roles, setRoles] = useState<AssignedRole[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [email, setEmail] = useState('');
@@ -129,6 +130,14 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
                         Lead Captures
                         {activeTab === 'leads' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-purple rounded-full" />}
                     </button>
+                    <button
+                        onClick={() => setActiveTab('patients')}
+                        className={`pb-4 px-2 text-sm font-bold transition-all relative ${activeTab === 'patients' ? 'text-brand-purple' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                    >
+                        Patient Directory
+                        {activeTab === 'patients' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-purple rounded-full" />}
+                    </button>
                 </div>
 
                 {activeTab === 'roles' ? (
@@ -212,7 +221,7 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
                             </div>
                         </section>
                     </>
-                ) : (
+                ) : activeTab === 'leads' ? (
                     <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center">
                             <h2 className="text-xl font-extrabold text-gray-900">Captured Leads</h2>
@@ -249,6 +258,8 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
                             </table>
                         </div>
                     </section>
+                ) : (
+                    <PatientMappingScreen />
                 )}
             </main>
         </div>
