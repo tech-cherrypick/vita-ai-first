@@ -116,10 +116,10 @@ public class IncomingCallActivity extends Activity {
         btnRow.addView(makeBtn("#dc2626", "\u2716", "Decline", v -> { cancelNotification(); finish(); }), colLp(dp(60)));
         btnRow.addView(makeBtn("#16a34a", "\u2714", "Accept", v -> {
             cancelNotification();
-            Intent i = new Intent(this, MainActivity.class);
+            Intent i = new Intent(this, VideoCallActivity.class);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            i.putExtra("callAction", "accept");
-            i.putExtra("patientUid", patientUid);
+            i.putExtra("serverUrl", getIntent().getStringExtra("serverUrl"));
+            i.putExtra("patientId", patientUid);
             i.putExtra("doctorName", doctorName);
             i.putExtra("doctorId", doctorId);
             startActivity(i);

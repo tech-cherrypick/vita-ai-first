@@ -38,6 +38,14 @@
             tools:node="remove" />
 
         <activity
+            android:name=".VideoCallActivity"
+            android:theme="@style/AppTheme.CallScreen"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize" />
+
+        <activity
             android:name=".IncomingCallActivity"
             android:theme="@style/AppTheme.CallScreen"
             android:exported="false"
