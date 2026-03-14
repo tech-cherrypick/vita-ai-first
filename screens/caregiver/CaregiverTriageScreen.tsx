@@ -34,9 +34,10 @@ interface CareCoordinatorTriageScreenProps {
     tasks: CareCoordinatorTask[];
     setView: (view: CareCoordinatorView) => void;
     onTaskSelect: (task: CareCoordinatorTask) => void;
+    unreadCounts?: Record<string, number>;
 }
 
-const CareCoordinatorTriageScreen: React.FC<CareCoordinatorTriageScreenProps> = ({ tasks, setView, onTaskSelect }) => {
+const CareCoordinatorTriageScreen: React.FC<CareCoordinatorTriageScreenProps> = ({ tasks, setView, onTaskSelect, unreadCounts = {} }) => {
 
     // Explicit priority order for sorting
     const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
@@ -69,6 +70,9 @@ const CareCoordinatorTriageScreen: React.FC<CareCoordinatorTriageScreenProps> = 
                                                 alt={task.patientName}
                                                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border border-gray-100 shadow-sm"
                                             />
+                                            {(unreadCounts[String(task.patientId)] || 0) > 0 && (
+                                                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
+                                            )}
                                         </div>
 
                                         <div className="flex-1 min-w-0 overflow-hidden">

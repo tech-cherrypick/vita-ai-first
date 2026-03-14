@@ -269,6 +269,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                     tasks={derivedTasks}
                     setView={setView}
                     onTaskSelect={(task) => handlePatientSelect(task.patientId)}
+                    unreadCounts={unreadCounts}
                 />;
         }
     };
