@@ -11,6 +11,7 @@ import FileUploadButton from '../components/messaging/FileUploadButton';
 import ChatAttachment from '../components/messaging/ChatAttachment';
 import { getSocket } from '../socket';
 import { ChatAttachment as ChatAttachmentType } from '../constants';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
 // --- Type Definitions for Speech API ---
 interface SpeechRecognition extends EventTarget {
@@ -161,6 +162,9 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     useEffect(() => { scrollToBottom(); }, [messages, isTyping]);
+
+    const keyboardHeight = useKeyboardHeight();
+    useEffect(() => { setTimeout(scrollToBottom, 100); }, [keyboardHeight]);
 
     // --- Initialize Chat & Socket ---
     useEffect(() => {
@@ -844,7 +848,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     }
 
     return (
-        <div className="fixed inset-0 z-50 bg-brand-bg flex flex-col font-sans overflow-hidden animate-fade-in">
+        <div className="fixed inset-x-0 top-0 z-50 bg-brand-bg flex flex-col font-sans overflow-hidden animate-fade-in" style={{ height: keyboardHeight }}>
             <SideMenu
                 isOpen={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
@@ -1048,6 +1052,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         <input
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
+                            onFocus={() => setTimeout(scrollToBottom, 300)}
                             placeholder={isListening ? "Listening..." : "Type or speak..."}
                             className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400 ml-2"
                         />
