@@ -37,6 +37,16 @@
             android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
             tools:node="remove" />
 
+        <activity
+            android:name=".IncomingCallActivity"
+            android:theme="@style/AppTheme.CallScreen"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:excludeFromRecents="true" />
+
         <receiver
             android:name=".CallActionReceiver"
             android:exported="false" />

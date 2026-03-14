@@ -103,24 +103,8 @@ public class VitaMessagingService extends FirebaseMessagingService {
     private void showCallNotification(String title, String body, String patientUid, String doctorName, String doctorId) {
         createCallNotificationChannel();
 
-        Intent acceptIntent = new Intent(this, CallActionReceiver.class);
-        acceptIntent.setAction(CallActionReceiver.ACTION_ACCEPT);
-        acceptIntent.putExtra("patientUid", patientUid);
-        acceptIntent.putExtra("doctorName", doctorName);
-        acceptIntent.putExtra("doctorId", doctorId);
-        PendingIntent acceptPending = PendingIntent.getBroadcast(
-                this, 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        Intent rejectIntent = new Intent(this, CallActionReceiver.class);
-        rejectIntent.setAction(CallActionReceiver.ACTION_REJECT);
-        PendingIntent rejectPending = PendingIntent.getBroadcast(
-                this, 2, rejectIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        Intent tapIntent = new Intent(this, MainActivity.class);
-        tapIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        tapIntent.putExtra("callAction", "accept");
+        Intent tapIntent = new Intent(this, IncomingCallActivity.class);
+        tapIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         tapIntent.putExtra("patientUid", patientUid);
         tapIntent.putExtra("doctorName", doctorName);
         tapIntent.putExtra("doctorId", doctorId);
@@ -132,14 +116,12 @@ public class VitaMessagingService extends FirebaseMessagingService {
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title != null ? title : "Incoming Video Call")
                 .setContentText(body != null ? body : "Your doctor is calling")
-                .setAutoCancel(false)
+                .setAutoCancel(true)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setFullScreenIntent(tapPending, true)
-                .setContentIntent(tapPending)
-                .addAction(0, "Reject", rejectPending)
-                .addAction(0, "Accept", acceptPending);
+                .setContentIntent(tapPending);
 
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.notify(CallActionReceiver.CALL_NOTIFICATION_ID, builder.build());
