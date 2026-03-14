@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -52,8 +51,6 @@ public class VideoCallActivity extends Activity {
         } else {
             requestPermissions();
         }
-
-        launchMainAppInBackground();
     }
 
     private boolean hasPermissions() {
@@ -106,13 +103,6 @@ public class VideoCallActivity extends Activity {
         webView.loadUrl(url);
     }
 
-    private void launchMainAppInBackground() {
-        Intent mainIntent = new Intent(this, MainActivity.class);
-        mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-        mainIntent.putExtra("backgroundLoad", true);
-        startActivity(mainIntent);
-    }
-
     private class AndroidBridge {
         @JavascriptInterface
         public void onCallEnded() {
@@ -121,6 +111,9 @@ public class VideoCallActivity extends Activity {
                     webView.destroy();
                     webView = null;
                 }
+                Intent mainIntent = new Intent(VideoCallActivity.this, MainActivity.class);
+                mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(mainIntent);
                 finish();
             });
         }
