@@ -405,7 +405,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     };
 
     const handleConsultScheduled = (dateTime: { date: Date; time: string }) => {
-        const formattedDateTime = `${dateTime.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, ${dateTime.time}`;
+        const formattedDate = dateTime.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const formattedDateTime = `${formattedDate}, ${dateTime.time}`;
         const consultEvent: Omit<TimelineEvent, 'id' | 'date'> = {
             type: 'Consultation',
             title: 'Consultation Scheduled',
@@ -415,7 +416,18 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
                 meetingLink: 'https://meet.google.com/vita-health-consult'
             }
         };
-        onUpdatePatient(patient.id, consultEvent, { status: 'Consultation Scheduled', nextAction: `Attend call on ${formattedDateTime}` });
+        onUpdatePatient(patient.id, consultEvent, {
+            status: 'Consultation Scheduled',
+            nextAction: `Attend call on ${formattedDateTime}`,
+            tracking: {
+                consultation: {
+                    date: dateTime.date.toISOString(),
+                    time: dateTime.time,
+                    type: 'Consultation',
+                    status: 'scheduled'
+                }
+            }
+        });
         closeFocusMode();
     };
 
