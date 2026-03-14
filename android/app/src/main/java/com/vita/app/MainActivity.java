@@ -1,6 +1,7 @@
 package com.vita.app;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,7 +28,6 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Ensure WebView respects system bar insets on all screen aspect ratios
         WebView webView = this.bridge.getWebView();
         ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
             int topInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
@@ -43,6 +43,41 @@ public class MainActivity extends BridgeActivity {
                 runOnUiThread(() -> request.grant(request.getResources()));
             }
         });
+
+        handleCallIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleCallIntent(intent);
+    }
+
+    private void handleCallIntent(Intent intent) {
+        if (intent == null) return;
+        String callAction = intent.getStringExtra("callAction");
+        if (!"accept".equals(callAction)) return;
+
+        String patientUid = intent.getStringExtra("patientUid");
+        String doctorName = intent.getStringExtra("doctorName");
+        String doctorId = intent.getStringExtra("doctorId");
+
+        intent.removeExtra("callAction");
+
+        String js = "window.dispatchEvent(new CustomEvent('callAcceptedFromNotification', { detail: {"
+                + " patientId: '" + escapeJs(patientUid) + "',"
+                + " doctorName: '" + escapeJs(doctorName) + "',"
+                + " doctorId: '" + escapeJs(doctorId) + "'"
+                + " }}));";
+
+        WebView webView = this.bridge.getWebView();
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 500);
+    }
+
+    private String escapeJs(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("'", "\\'");
     }
 
     private void requestRuntimePermissions() {

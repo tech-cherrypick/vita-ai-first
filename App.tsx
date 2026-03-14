@@ -324,14 +324,6 @@ const App: React.FC = () => {
 
     const listener = PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
       const data = notification.notification?.data;
-      if (data?.callAction === 'accept' || data?.type === 'incoming_call') {
-        setIncomingCallFromNotification({
-          doctorName: data.doctorName || 'Doctor',
-          doctorId: data.doctorId || 'doctor',
-          patientId: data.patientUid || ''
-        });
-        return;
-      }
       const patientUid = data?.patientUid;
       if (patientUid) {
         setNotificationPatientId(patientUid);
@@ -341,6 +333,20 @@ const App: React.FC = () => {
     return () => {
       listener.then(l => l.remove());
     };
+  }, []);
+
+  useEffect(() => {
+    const handleCallAccepted = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setIncomingCallFromNotification({
+        doctorName: detail?.doctorName || 'Doctor',
+        doctorId: detail?.doctorId || 'doctor',
+        patientId: detail?.patientId || ''
+      });
+    };
+
+    window.addEventListener('callAcceptedFromNotification', handleCallAccepted);
+    return () => window.removeEventListener('callAcceptedFromNotification', handleCallAccepted);
   }, []);
 
   const currentPatient = patients.find(p => p.id === currentPatientId) || patients[0] || null;
