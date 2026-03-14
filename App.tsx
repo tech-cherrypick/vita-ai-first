@@ -336,13 +336,23 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleCallAccepted = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const consumeCallData = (detail: any) => {
+      if (!detail) return;
       setIncomingCallFromNotification({
-        doctorName: detail?.doctorName || 'Doctor',
-        doctorId: detail?.doctorId || 'doctor',
-        patientId: detail?.patientId || ''
+        doctorName: detail.doctorName || 'Doctor',
+        doctorId: detail.doctorId || 'doctor',
+        patientId: detail.patientId || ''
       });
+      (window as any).__pendingCallAccept = null;
+    };
+
+    const pending = (window as any).__pendingCallAccept;
+    if (pending) {
+      consumeCallData(pending);
+    }
+
+    const handleCallAccepted = (e: Event) => {
+      consumeCallData((e as CustomEvent).detail);
     };
 
     window.addEventListener('callAcceptedFromNotification', handleCallAccepted);

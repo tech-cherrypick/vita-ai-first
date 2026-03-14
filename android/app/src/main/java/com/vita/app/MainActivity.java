@@ -65,14 +65,18 @@ public class MainActivity extends BridgeActivity {
 
         intent.removeExtra("callAction");
 
-        String js = "window.dispatchEvent(new CustomEvent('callAcceptedFromNotification', { detail: {"
-                + " patientId: '" + escapeJs(patientUid) + "',"
+        String detail = "{ patientId: '" + escapeJs(patientUid) + "',"
                 + " doctorName: '" + escapeJs(doctorName) + "',"
-                + " doctorId: '" + escapeJs(doctorId) + "'"
-                + " }}));";
+                + " doctorId: '" + escapeJs(doctorId) + "' }";
+
+        String setAndDispatch = "window.__pendingCallAccept = " + detail + ";"
+                + "window.dispatchEvent(new CustomEvent('callAcceptedFromNotification', { detail: " + detail + " }));";
 
         WebView webView = this.bridge.getWebView();
-        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 500);
+        int[] delays = {0, 500, 1500, 3000, 5000, 8000};
+        for (int delay : delays) {
+            webView.postDelayed(() -> webView.evaluateJavascript(setAndDispatch, null), delay);
+        }
     }
 
     private String escapeJs(String value) {
