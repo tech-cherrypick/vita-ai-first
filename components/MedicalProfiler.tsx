@@ -442,7 +442,7 @@ const MedicalProfiler: React.FC<{ patient: Patient; onClose: () => void; onCompl
                 </div>
                 <div className="relative">
                     <div className={`w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-brand-purple to-brand-cyan shadow-2xl transition-all duration-700 ${isAgentSpeaking ? 'scale-110 shadow-[0_0_30px_rgba(192,132,252,0.5)]' : 'scale-100 opacity-80'}`}>
-                        <img src={AGENT_AVATAR} className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
+                        <img src={AGENT_AVATAR} referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
                     </div>
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-brand-purple rounded-full border-2 border-black flex items-center justify-center">
                         <div className="w-1.5 h-1.5 bg-black rounded-full animate-ping"></div>

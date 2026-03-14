@@ -110,7 +110,7 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             {/* Header */}
             <div className="p-3 border-b bg-gray-50/50 flex items-center gap-3">
-                <img src={patientImageUrl} alt={patientName} className="w-8 h-8 rounded-full object-cover" />
+                <img src={patientImageUrl} alt={patientName} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover" />
                 <div className="flex-1">
                     <h3 className="font-bold text-sm text-gray-900">Messages</h3>
                     <p className="text-xs text-gray-500">{patientName}</p>
@@ -147,7 +147,7 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                                     return (
                                         <div className={`flex gap-2.5 ${isMine ? 'flex-row-reverse' : ''}`}>
                                             {avatarUrl ? (
-                                                <img src={avatarUrl} className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
+                                                <img src={avatarUrl} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
                                             ) : (
                                                 <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
                                             )}
@@ -187,7 +187,7 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                         <div className="flex items-center gap-3 overflow-hidden">
                             {attachment.type.startsWith('image/') ? (
                                 <div className="w-10 h-10 rounded overflow-hidden shrink-0 border border-gray-100">
-                                    <img src={attachment.url} className="w-full h-full object-cover" alt="Preview" />
+                                    <img src={attachment.url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="Preview" />
                                 </div>
                             ) : (
                                 <div className="w-10 h-10 bg-gray-50 rounded flex items-center justify-center shrink-0 border border-gray-100">

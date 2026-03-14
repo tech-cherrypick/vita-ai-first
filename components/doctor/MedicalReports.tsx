@@ -144,7 +144,7 @@ const MedicalReports: React.FC<MedicalReportsProps> = ({ reports, patientId, onU
                                     <p className="text-[10px] font-bold text-gray-700 truncate w-full px-1">{report.name}</p>
                                 </div>
                             ) : (
-                                <img src={report.url} alt={report.name} className="h-full w-full object-cover" />
+                                <img src={report.url} alt={report.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                             )}
 
                             {/* Overlay info */}

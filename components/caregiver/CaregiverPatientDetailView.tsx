@@ -41,7 +41,7 @@ const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailVie
             <header className="mb-8">
                 <div className="flex items-center gap-5">
                     <div className="relative">
-                        <img className="h-20 w-20 rounded-full object-cover ring-4 ring-white shadow-md" src={patient.imageUrl} alt={patient.name} />
+                        <img className="h-20 w-20 rounded-full object-cover ring-4 ring-white shadow-md" src={patient.imageUrl} referrerPolicy="no-referrer" alt={patient.name} />
                         <div className="absolute bottom-0 right-0 h-5 w-5 bg-green-500 border-2 border-white rounded-full"></div>
                     </div>
                     <div>

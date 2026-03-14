@@ -27,7 +27,7 @@ const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect, un
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                     <div className="relative flex-shrink-0 h-10 w-10">
-                                        <img className="h-10 w-10 rounded-full object-cover" src={patient.imageUrl} alt={patient.name} />
+                                        <img className="h-10 w-10 rounded-full object-cover" src={patient.imageUrl} referrerPolicy="no-referrer" alt={patient.name} />
                                         {(unreadCounts[String(patient.id)] || 0) > 0 && (
                                             <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
                                         )}

@@ -17,7 +17,7 @@ const Team: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                     {teamMembers.map((member, index) => (
                         <div key={index} className="bg-white rounded-3xl shadow-xl shadow-gray-200/40 overflow-hidden text-center border border-gray-100">
-                            <img src={member.imageUrl} alt={member.name} className="w-full h-80 object-cover object-center" />
+                            <img src={member.imageUrl} alt={member.name} referrerPolicy="no-referrer" className="w-full h-80 object-cover object-center" />
                             <div className="p-8">
                                 <h3 className="text-2xl font-bold text-brand-text">{member.name}</h3>
                                 <p className="text-brand-purple font-semibold mt-1">{member.specialty}</p>

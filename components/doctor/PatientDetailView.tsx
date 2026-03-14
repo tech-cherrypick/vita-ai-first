@@ -41,7 +41,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
 
             <header className="mb-8">
                 <div className="flex items-center gap-5">
-                    <img className="h-20 w-20 rounded-full object-cover shadow-sm ring-4 ring-white" src={patient.imageUrl} alt={patient.name} />
+                    <img className="h-20 w-20 rounded-full object-cover shadow-sm ring-4 ring-white" src={patient.imageUrl} referrerPolicy="no-referrer" alt={patient.name} />
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{patient.name}</h1>
                         <p className="text-gray-500 font-medium flex items-center gap-2 mt-1">

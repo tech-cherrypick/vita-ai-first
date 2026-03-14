@@ -432,7 +432,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
             {!isSessionActive && (
                 <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl p-10 animate-fade-in">
                     <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-brand-cyan to-brand-purple mb-12 shadow-[0_0_40px_rgba(94,234,212,0.2)]">
-                        <img src={NURSE_AVATAR_URL} className="w-full h-full rounded-full object-cover grayscale-[20%]" alt="Vita" />
+                        <img src={NURSE_AVATAR_URL} referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover grayscale-[20%]" alt="Vita" />
                     </div>
                     <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-6 text-center">Your <br />Health Path</h2>
                     <button onClick={() => { setIsSessionActive(true); startSession(); }} className="w-full max-w-xs py-7 bg-brand-cyan text-black font-black rounded-[40px] text-[10px] uppercase tracking-[0.4em] transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(94,234,212,0.4)]">Begin Chat</button>
@@ -484,7 +484,7 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                 </div>
                 <div className="relative">
                     <div className={`w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-brand-cyan to-brand-purple shadow-2xl transition-all duration-700 ${isAgentSpeaking ? 'scale-110 shadow-[0_0_30px_rgba(94,234,212,0.5)]' : 'scale-100 opacity-80'}`}>
-                        <img src={NURSE_AVATAR_URL} className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
+                        <img src={NURSE_AVATAR_URL} referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
                     </div>
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-brand-cyan rounded-full border-2 border-black flex items-center justify-center">
                         <div className="w-1.5 h-1.5 bg-black rounded-full animate-ping"></div>

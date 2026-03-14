@@ -41,7 +41,7 @@ const CareTeamScreen: React.FC<CareTeamScreenProps> = ({ patient, onSendMessage 
             <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
                 {teamMembers.map((member) => (
                     <div key={member.name} className="bg-white rounded-2xl border border-gray-200 shadow-lg flex flex-col">
-                        <img src={member.imageUrl} alt={member.name} className="w-full h-64 object-cover object-center rounded-t-2xl" />
+                        <img src={member.imageUrl} alt={member.name} referrerPolicy="no-referrer" className="w-full h-64 object-cover object-center rounded-t-2xl" />
                         <div className="p-6 flex flex-col flex-1">
                             <p className="font-semibold text-brand-purple">{member.role}</p>
                             <h3 className="text-2xl font-bold text-brand-text mt-1">{member.name}</h3>

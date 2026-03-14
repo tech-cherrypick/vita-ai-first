@@ -202,7 +202,7 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-5 transition-transform hover:scale-[1.02] duration-300 relative overflow-hidden group h-full">
                     <div className="relative z-10 flex items-center gap-5">
                          <div className="relative">
-                            <img src={patient.imageUrl} alt={patient.name} className="w-20 h-20 rounded-full object-cover border-4 border-brand-purple/10" />
+                            <img src={patient.imageUrl} alt={patient.name} referrerPolicy="no-referrer" className="w-20 h-20 rounded-full object-cover border-4 border-brand-purple/10" />
                             <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <div>

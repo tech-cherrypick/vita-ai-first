@@ -494,7 +494,7 @@ const PsychoProfiler: React.FC<{ patient: Patient; onClose: () => void; onComple
                 </div>
                 <div className="relative">
                     <div className={`w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-brand-pink to-brand-purple shadow-2xl transition-all duration-700 ${isAgentSpeaking ? 'scale-110 shadow-[0_0_30px_rgba(249,168,212,0.5)]' : 'scale-100 opacity-80'}`}>
-                        <img src={AGENT_AVATAR} className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
+                        <img src={AGENT_AVATAR} referrerPolicy="no-referrer" className="w-full h-full rounded-full object-cover grayscale-[10%]" alt="Vita" />
                     </div>
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-brand-pink rounded-full border-2 border-black flex items-center justify-center">
                         <div className="w-1.5 h-1.5 bg-black rounded-full animate-ping"></div>

@@ -24,7 +24,7 @@ const CareCoordinatorScheduleScreen: React.FC = () => {
                             {appointments.map(apt => (
                                 <div key={apt.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-200 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <img src={apt.patientImageUrl} alt={apt.patientName} className="w-12 h-12 rounded-full object-cover"/>
+                                        <img src={apt.patientImageUrl} alt={apt.patientName} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover"/>
                                         <div>
                                             <p className="font-bold text-gray-900">{apt.patientName}</p>
                                             <p className="text-sm text-gray-600">{apt.type}</p>

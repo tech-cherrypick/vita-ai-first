@@ -212,7 +212,7 @@ const MealInput: React.FC<{
 
                 {meal?.photoUrl && (
                     <div className="relative w-full h-20 rounded-md overflow-hidden border border-gray-100">
-                        <img src={meal.photoUrl} alt={`${title} meal`} className="w-full h-full object-cover" />
+                        <img src={meal.photoUrl} alt={`${title} meal`} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                         <button
                             onClick={() => onChange({ ...meal, time: meal?.time || '', description: meal?.description || '', photoUrl: undefined })}
                             className="absolute top-1 right-1 p-0.5 bg-black/50 text-white rounded-full hover:bg-black/70"
@@ -509,7 +509,7 @@ const DailyTracker: React.FC<{ patient: Patient; onUpdatePatient?: (id: string |
                             <div className="flex flex-wrap gap-2">
                                 {activeLog.eatenOutsidePhotos?.map((photo, idx) => (
                                     <div key={idx} className="relative w-16 h-16 rounded-md overflow-hidden border border-gray-100 group">
-                                        <img src={photo} alt={`Outside food ${idx + 1}`} className="w-full h-full object-cover" />
+                                        <img src={photo} alt={`Outside food ${idx + 1}`} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                                         <button
                                             onClick={() => {
                                                 const newPhotos = activeLog.eatenOutsidePhotos?.filter((_, i) => i !== idx);

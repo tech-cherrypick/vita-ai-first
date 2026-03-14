@@ -87,7 +87,7 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3 overflow-hidden">
-                                            <img src={thread.patient.imageUrl} alt={thread.patient.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                            <img src={thread.patient.imageUrl} alt={thread.patient.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                                             <div className="min-w-0">
                                                 <h3 className="font-semibold text-sm text-gray-900 truncate">{thread.patient.name}</h3>
                                                 <p className="text-xs text-gray-500 truncate">{thread.lastMessage?.text || 'No messages'}</p>
@@ -112,7 +112,7 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
                                 <button onClick={() => setIsMobileThreadVisible(false)} className="md:hidden p-2 rounded-full hover:bg-gray-100">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                 </button>
-                                <img src={activeThread.patient.imageUrl} alt={activeThread.patient.name} className="w-10 h-10 rounded-full object-cover" />
+                                <img src={activeThread.patient.imageUrl} alt={activeThread.patient.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover" />
                                 <div className="flex-1">
                                     <h2 className="font-bold text-gray-900">{activeThread.patient.name}</h2>
                                     <p className="text-xs text-gray-500">Goal: {activeThread.patient.goal}</p>
@@ -127,7 +127,7 @@ const DoctorMessagesScreen: React.FC<DoctorMessagesScreenProps> = ({ chatHistory
                                     return (
                                         <div key={msg.id} className={`flex gap-2.5 ${isMine ? 'flex-row-reverse' : ''}`}>
                                             {avatarUrl ? (
-                                                <img src={avatarUrl} className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
+                                                <img src={avatarUrl} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-gray-100" alt={msg.senderName || msg.sender} />
                                             ) : (
                                                 <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
                                             )}

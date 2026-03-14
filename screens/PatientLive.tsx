@@ -905,11 +905,11 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                 {/* Message */}
                                 <div className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
                                     {msg.sender === 'You' ? (
-                                        <img src={patient.photoURL || patient.imageUrl} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt="You" />
+                                        <img src={patient.photoURL || patient.imageUrl} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt="You" />
                                     ) : msg.messageType === 'ai' ? (
                                         <AIIcon />
                                     ) : msg.avatar ? (
-                                        <img src={msg.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
+                                        <img src={msg.avatar} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
                                     ) : null}
                                     <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
                                         {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
@@ -1009,7 +1009,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         <div className="flex items-center gap-3 overflow-hidden">
                             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 border border-gray-100">
                                 {attachment.type.startsWith('image/') ? (
-                                    <img src={attachment.url} className="w-full h-full object-cover rounded" />
+                                    <img src={attachment.url} referrerPolicy="no-referrer" className="w-full h-full object-cover rounded" />
                                 ) : (
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
