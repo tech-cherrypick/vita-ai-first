@@ -1,7 +1,6 @@
 
 import React, { useState, useRef } from 'react';
 import { MedicalReport, Patient, TimelineEvent, LabResult } from '../../constants';
-import { GoogleGenAI } from "@google/genai";
 
 interface MedicalReportsProps {
     reports: MedicalReport[];

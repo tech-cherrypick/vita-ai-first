@@ -27,7 +27,7 @@ import DigitalIntake from '../components/dashboard/DigitalIntake';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 
 
-export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations';
+export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations' | 'settings';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan' | 'view_consultations';
 
 interface UserDashboardProps {
