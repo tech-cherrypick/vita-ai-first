@@ -51,6 +51,50 @@ class LiveSessionProxy {
     }
 }
 
+class ChatSessionProxy {
+    private history: any[] = [];
+    private model: string;
+    private config: any;
+
+    constructor(model: string, config: any) {
+        this.model = model;
+        this.config = config;
+    }
+
+    async sendMessage(params: { message: any }): Promise<{ text: string; functionCalls?: any[] }> {
+        const userContent = typeof params.message === 'string' 
+            ? { role: 'user', parts: [{ text: params.message }] }
+            : { role: 'user', parts: params.message };
+
+        const payload = {
+            model: this.model,
+            contents: [...this.history, userContent],
+            config: this.config?.generationConfig || this.config?.config || {},
+            systemInstruction: this.config?.systemInstruction,
+            tools: this.config?.tools
+        };
+
+        const response = await GeminiProxyService.generateContent(payload);
+        
+        // Update history correctly for subsequent calls
+        this.history.push(userContent);
+        
+        // Note: The response from our backend generateContent endpoint currently 
+        // returns { text: string }. We might need to update the backend to return functionCalls if needed.
+        // For now, let's assume text contains everything or we handle tool calls via the same logic as before.
+        
+        const aiResponse = { role: 'model', parts: [{ text: response.text }] };
+        this.history.push(aiResponse);
+
+        return { 
+            text: response.text,
+            // Extract function calls if they exist in the response
+            // Our current backend controller might need to be updated to expose these
+            functionCalls: (response as any).functionCalls 
+        };
+    }
+}
+
 class GeminiProxyService {
     private static API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -76,6 +120,10 @@ class GeminiProxyService {
 
     static connectLive(config: GeminiProxyConfig, callbacks: LiveSessionCallbacks): LiveSessionProxy {
         return new LiveSessionProxy(config, callbacks);
+    }
+
+    static createChat(model: string, config: any): ChatSessionProxy {
+        return new ChatSessionProxy(model, config);
     }
 }
 
