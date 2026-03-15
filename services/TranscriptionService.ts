@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import GeminiProxyService from './GeminiProxyService';
 
 const buildAudioPrompt = (recorderRole: 'doctor' | 'patient') => {
     const localSpeaker = recorderRole === 'doctor' ? 'Doctor' : 'Patient';
@@ -156,15 +156,12 @@ class TranscriptionService {
         console.log(`[TranscriptionService] Sending to Gemini. Blob type: ${audioBlob.type}, Gemini MIME: ${geminiMimeType}, size: ${audioBlob.size}`);
 
         try {
-            const genAI = new GoogleGenAI({ apiKey });
             const base64Audio = await TranscriptionService.blobToBase64(audioBlob);
-            console.log(`[TranscriptionService] Base64 audio length: ${base64Audio.length}`);
-
-            const response = await genAI.models.generateContent({
+            const response = await GeminiProxyService.generateContent({
                 model: 'gemini-2.0-flash',
                 contents: [
-                    { text: buildAudioPrompt(recorderRole) },
-                    { inlineData: { mimeType: geminiMimeType, data: base64Audio } }
+                    { parts: [{ text: buildAudioPrompt(recorderRole) }] },
+                    { parts: [{ inlineData: { mimeType: geminiMimeType, data: base64Audio } }] }
                 ]
             });
 

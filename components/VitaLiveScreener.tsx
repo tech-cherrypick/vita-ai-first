@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
+import { LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
+import GeminiProxyService from '../services/GeminiProxyService';
 import WeightLossGraph from './WeightLossGraph';
 
 // --- Assets ---
@@ -149,9 +150,8 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
             await audioContextRef.current.audioWorklet.addModule(URL.createObjectURL(new Blob([workletCode], { type: "application/javascript" })));
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-            const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+            const session = GeminiProxyService.connectLive({
+                model: 'gemini-2.0-flash-exp',
                 config: {
                     responseModalities: [Modality.AUDIO],
                     tools: [{ functionDeclarations: [setStageTool, updateIntakeTool, showVisualTool, highlightFieldTool] }],
@@ -182,76 +182,74 @@ const VitaLiveScreener: React.FC<{ onClose: () => void; onComplete: (details: an
                     6. booking: Instruct the user to complete the unified form (Name, Email, Phone, and Calendar) displayed on the card to finish onboarding. (showVisual: 'booking')
                     ` }]
                     }
-                },
-                callbacks: {
-                    onopen: () => {
-                        setIsConnected(true);
-                        const source = audioContextRef.current!.createMediaStreamSource(stream);
-                        const processor = new AudioWorkletNode(audioContextRef.current!, "recorder-worklet");
-                        processor.port.onmessage = (ev) => {
-                            const base64 = encode(new Uint8Array(floatTo16BitPCM(ev.data)));
-                            sessionPromise.then(s => s.sendRealtimeInput({ media: { mimeType: "audio/pcm;rate=16000", data: base64 } }));
-                        };
-                        source.connect(processor);
-                        processor.connect(audioContextRef.current!.destination);
-                    },
-                    onmessage: async (msg: LiveServerMessage) => {
-                        if (msg.serverContent?.interrupted) {
-                            sourceNodesRef.current.forEach(node => node.stop());
-                            sourceNodesRef.current = [];
-                            nextStartTimeRef.current = 0;
-                            setIsAgentSpeaking(false);
-                            setHighlightedField(null);
-                        }
-                        const audio = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-                        if (audio && audioContextRef.current) {
-                            const bytes = decode(audio);
-                            const f32 = new Float32Array(bytes.length / 2);
-                            const view = new DataView(bytes.buffer);
-                            for (let i = 0; i < bytes.length / 2; i++) f32[i] = view.getInt16(i * 2, true) / 32768.0;
-                            const buf = audioContextRef.current.createBuffer(1, f32.length, 24000);
-                            buf.getChannelData(0).set(f32);
-                            const src = audioContextRef.current.createBufferSource();
-                            src.buffer = buf; src.connect(analyserRef.current!);
-                            const start = Math.max(nextStartTimeRef.current, audioContextRef.current.currentTime);
-                            src.start(start);
-                            nextStartTimeRef.current = start + buf.duration;
-                            setIsAgentSpeaking(true);
-                            sourceNodesRef.current.push(src);
-                            src.onended = () => {
-                                sourceNodesRef.current = sourceNodesRef.current.filter(s => s !== src);
-                                if (sourceNodesRef.current.length === 0) {
-                                    setIsAgentSpeaking(false);
-                                    setHighlightedField(null);
-                                }
-                            };
-                        }
-                        if (msg.toolCall) {
-                            msg.toolCall.functionCalls.forEach(call => {
-                                if (call.name === 'setStage') {
-                                    const idx = STAGES.findIndex(s => s.id === call.args.stage);
-                                    if (idx !== -1) setCurrentStage(idx);
-                                }
-                                else if (call.name === 'showVisual') {
-                                    setActiveVisual(call.args.mode as string);
-                                }
-                                else if (call.name === 'highlightField') {
-                                    setHighlightedField(call.args.field === 'none' ? null : (call.args.field as string));
-                                }
-                                else if (call.name === 'updateIntake') {
-                                    const updated = { ...intakeRef.current, ...call.args };
-                                    intakeRef.current = updated; setIntakeData(updated);
-                                }
-                                sessionPromise.then(s => s.sendToolResponse({ functionResponses: { name: call.name, id: call.id, response: { status: 'ok' } } }));
-                            });
-                        }
-                    },
-                    onclose: () => setIsConnected(false),
-                    onerror: () => setIsConnected(false)
                 }
+            }, {
+                onopen: () => {
+                    setIsConnected(true);
+                    const source = audioContextRef.current!.createMediaStreamSource(stream);
+                    const processor = new AudioWorkletNode(audioContextRef.current!, "recorder-worklet");
+                    processor.port.onmessage = (ev) => {
+                        const base64 = encode(new Uint8Array(floatTo16BitPCM(ev.data)));
+                        session.sendRealtimeInput({ media: { mimeType: "audio/pcm;rate=16000", data: base64 } });
+                    };
+                    source.connect(processor);
+                    processor.connect(audioContextRef.current!.destination);
+                },
+                onmessage: async (msg: LiveServerMessage) => {
+                    if (msg.serverContent?.interrupted) {
+                        sourceNodesRef.current.forEach(node => node.stop());
+                        sourceNodesRef.current = [];
+                        nextStartTimeRef.current = 0;
+                        setIsAgentSpeaking(false);
+                        setHighlightedField(null);
+                    }
+                    const audio = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+                    if (audio && audioContextRef.current) {
+                        const bytes = decode(audio);
+                        const f32 = new Float32Array(bytes.length / 2);
+                        const view = new DataView(bytes.buffer);
+                        for (let i = 0; i < bytes.length / 2; i++) f32[i] = view.getInt16(i * 2, true) / 32768.0;
+                        const buf = audioContextRef.current.createBuffer(1, f32.length, 24000);
+                        buf.getChannelData(0).set(f32);
+                        const src = audioContextRef.current.createBufferSource();
+                        src.buffer = buf; src.connect(analyserRef.current!);
+                        const start = Math.max(nextStartTimeRef.current, audioContextRef.current.currentTime);
+                        src.start(start);
+                        nextStartTimeRef.current = start + buf.duration;
+                        setIsAgentSpeaking(true);
+                        sourceNodesRef.current.push(src);
+                        src.onended = () => {
+                            sourceNodesRef.current = sourceNodesRef.current.filter(s => s !== src);
+                            if (sourceNodesRef.current.length === 0) {
+                                setIsAgentSpeaking(false);
+                                setHighlightedField(null);
+                            }
+                        };
+                    }
+                    if (msg.toolCall) {
+                        msg.toolCall.functionCalls.forEach(call => {
+                            if (call.name === 'setStage') {
+                                const idx = STAGES.findIndex(s => s.id === call.args.stage);
+                                if (idx !== -1) setCurrentStage(idx);
+                            } else if (call.name === 'showVisual') {
+                                setActiveVisual(call.args.mode as string);
+                            } else if (call.name === 'highlightField') {
+                                setHighlightedField(call.args.field === 'none' ? null : (call.args.field as string));
+                            } else if (call.name === 'updateIntake') {
+                                const updated = { ...intakeRef.current, ...call.args };
+                                intakeRef.current = updated; setIntakeData(updated);
+                            }
+                            session.sendToolResponse({ functionResponses: { name: call.name, id: call.id, response: { status: 'ok' } } });
+                        });
+                    }
+                },
+                onclose: () => setIsConnected(false),
+                onerror: () => setIsConnected(false)
             });
-            sessionRef.current = await sessionPromise;
-        } catch (e) { console.error(e); }
+            sessionRef.current = session;
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     useEffect(() => {

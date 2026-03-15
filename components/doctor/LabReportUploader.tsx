@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import GeminiProxyService from '../../services/GeminiProxyService';
 import { Patient, TimelineEvent } from '../../constants';
 
 interface LabReportUploaderProps {
@@ -63,10 +63,9 @@ const LabReportUploader: React.FC<LabReportUploaderProps> = ({ patient, onUpdate
         setUploadStatus("Analyzing report with AI...");
 
         try {
-            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-
             // Convert data URL to base64 (remove data:image/png;base64, prefix)
             const base64Data = dataUrl.split(',')[1];
+            const finalMimeType = mimeType.includes('pdf') ? 'application/pdf' : mimeType;
 
             console.log('🔍 Starting extraction...', { mimeType, dataLength: base64Data.length });
 
@@ -89,31 +88,17 @@ Required fields:
 
 Return ONLY a valid JSON object with these fields. Extract only the numeric values without units.`;
 
-            // Create a chat session for one-time extraction
-            console.log('🤖 Creating chat session...');
-            const chat = ai.chats.create({
-                model: 'gemini-3-flash-preview',
-                config: {
-                    systemInstruction: 'You are a medical lab report analyzer. Extract data and return ONLY valid JSON.'
-                }
-            });
-
-            console.log('📤 Sending message to AI...');
-            // Send the message with the image/PDF
-            const result = await chat.sendMessage({
-                message: [
-                    { text: prompt },
-                    {
-                        inlineData: {
-                            mimeType: mimeType.includes('pdf') ? 'application/pdf' : mimeType,
-                            data: base64Data
-                        }
-                    }
+            console.log('📤 Sending proxy request to backend...');
+            const result = await GeminiProxyService.generateContent({
+                model: 'gemini-2.0-flash',
+                systemInstruction: 'You are a medical lab report analyzer. Extract data and return ONLY valid JSON.',
+                contents: [
+                    { parts: [{ text: prompt }] },
+                    { parts: [{ inlineData: { mimeType: finalMimeType, data: base64Data } }] }
                 ]
             });
 
             console.log('✅ Received response from AI');
-            console.log('Response object:', result);
 
             if (!result || !result.text) {
                 throw new Error('No response text received from AI');

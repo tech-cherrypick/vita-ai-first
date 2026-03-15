@@ -195,7 +195,68 @@ io.on('connection', (socket) => {
     socket.to(`room_${patientId}`).emit('signal', { signalData, senderRole });
   });
 
+  // Gemini Live Proxy logic
+  socket.on('geminiProxy_connect', async (config) => {
+    console.log(`📡 [GeminiProxy] Client request for connection:`, config.model);
+    try {
+      const { GoogleGenAI } = require('@google/genai');
+      const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      // Use the live client from @google/genai
+      const liveClient = await genAI.live.connect({
+        model: config.model,
+        config: config.config,
+        callbacks: {
+          onopen: () => {
+            console.log('✅ [GeminiProxy] Connected to Google Gemini');
+            socket.emit('geminiProxy_open');
+          },
+          onmessage: (msg) => {
+            socket.emit('geminiProxy_message', msg);
+          },
+          onclose: () => {
+            console.log('🔌 [GeminiProxy] Google Gemini connection closed');
+            socket.emit('geminiProxy_close');
+          },
+          onerror: (err) => {
+            console.error('❌ [GeminiProxy] Google Gemini error:', err);
+            socket.emit('geminiProxy_error', { message: err.message });
+          }
+        }
+      });
+
+      socket.geminiSession = liveClient;
+
+      socket.on('geminiProxy_input', (input) => {
+        if (socket.geminiSession) {
+          socket.geminiSession.sendRealtimeInput(input);
+        }
+      });
+
+      socket.on('geminiProxy_toolResponse', (response) => {
+        if (socket.geminiSession) {
+          socket.geminiSession.sendToolResponse(response);
+        }
+      });
+
+    } catch (err) {
+      console.error('❌ [GeminiProxy] Setup error:', err);
+      socket.emit('geminiProxy_error', { message: err.message });
+    }
+  });
+
+  socket.on('geminiProxy_end', () => {
+    if (socket.geminiSession) {
+      console.log('🔌 [GeminiProxy] Ending session');
+      socket.geminiSession.close();
+      socket.geminiSession = null;
+    }
+  });
+
   socket.on('disconnect', () => {
+    if (socket.geminiSession) {
+      socket.geminiSession.close();
+    }
     console.log('🔌 User disconnected:', socket.id);
   });
 });
@@ -207,6 +268,7 @@ const doctorRoutes = require('./routes/doctorRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const geminiRoutes = require('./routes/geminiRoutes');
 
 app.use('/api/user', userRoutes);
 app.use('/api', userRoutes);
@@ -219,6 +281,7 @@ app.use('/api/messages', require('./routes/messageTrackingRoutes'));
 app.use('/api', leadRoutes);
 app.use('/api/config', require('./routes/configRoutes'));
 app.use('/api/patient-directory', require('./routes/patientDirectoryRoutes'));
+app.use('/api/gemini', geminiRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
