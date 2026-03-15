@@ -141,11 +141,6 @@ class TranscriptionService {
     }
 
     static async generateSummary(audioBlob: Blob | null, recorderRole: 'doctor' | 'patient' = 'doctor'): Promise<TranscriptionResult> {
-        const apiKey = import.meta.env.VITE_API_KEY;
-        if (!apiKey) {
-            console.error('[TranscriptionService] VITE_API_KEY is missing');
-            return { summary: 'Summary generation failed: API key missing.', formattedTranscript: '' };
-        }
 
         if (!audioBlob || audioBlob.size < 1000) {
             console.warn(`[TranscriptionService] Audio blob too small or null: ${audioBlob?.size || 0} bytes`);

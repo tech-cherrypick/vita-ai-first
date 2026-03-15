@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { GoogleGenAI, FunctionDeclaration, Type } from '@google/genai';
+import GeminiProxyService from '../services/GeminiProxyService';
+import { FunctionDeclaration, Type } from '@google/genai';
 import { auth } from '../firebase';
 import { Patient, VitaLogo } from '../constants';
 import LabScheduler from '../components/dashboard/LabScheduler';
@@ -233,39 +234,35 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     - Onboarding Progress: ${onboardingProgress}%
                     `;
 
-                const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
-                const newChatSession = ai.chats.create({
-                    model: 'gemini-2.0-flash',
-                    config: {
-                        systemInstruction: `You are the Vita AI Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
+                const newChatSession = GeminiProxyService.createChat('gemini-2.0-flash', {
+                    systemInstruction: `You are the Vita AI Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
 
-                        ${contextString}
+                    ${contextString}
 
-                        **TONE:** Professional, warm, efficient. Indian English nuance (use "Kindly", "Right then", "Please do the needful").
+                    **TONE:** Professional, warm, efficient. Indian English nuance (use "Kindly", "Right then", "Please do the needful").
 
-                        **CRITICAL PROTOCOL - READ FIRST**:
-                        1. **CHECK CONTEXT**: Before asking for ANY data, check 'Completed Steps' above. **NEVER** ask for a step that is already in 'Completed Steps'.
-                        2. **NO LOOPS**: If the user just completed a step (e.g., Consultation), CONFIRM it ("Excellent, consultation updated") and then **STOP**. Do NOT automatically loop back to Step 1 (Vitals) or ask for things you already have.
-                        3. **ONE-OFF UPDATES**: If the user asks to update a specific item (like "Change consultation"), do ONLY that. After the widget is processed, simply say "I've updated that for you. Is there anything else?" and WAIT.
-                        4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects.
+                    **CRITICAL PROTOCOL - READ FIRST**:
+                    1. **CHECK CONTEXT**: Before asking for ANY data, check 'Completed Steps' above. **NEVER** ask for a step that is already in 'Completed Steps'.
+                    2. **NO LOOPS**: If the user just completed a step (e.g., Consultation), CONFIRM it ("Excellent, consultation updated") and then **STOP**. Do NOT automatically loop back to Step 1 (Vitals) or ask for things you already have.
+                    3. **ONE-OFF UPDATES**: If the user asks to update a specific item (like "Change consultation"), do ONLY that. After the widget is processed, simply say "I've updated that for you. Is there anything else?" and WAIT.
+                    4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects.
 
-                        **INTAKE SEQUENCE (Only for MISSING items):**
-                        1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
-                        2. **MEDICAL**: Explain safety. Tool: 'medical'.
-                        3. **NUTRITION**: Explain fuel and preferences. Tool: 'nutrition'.
-                        4. **PSYCH**: Explain brain-gut connection. Tool: 'psych'.
-                        5. **LABS**: Explain baseline safety. Tool: 'labs'.
-                        6. **PROFILE**: Explain shipping. Tool: 'profile'.
-                        7. **PAYMENT**: Explain commitment. Tool: 'payment'.
-                        8. **CONSULT**: Explain doctor review. Tool: 'consultation'.
+                    **INTAKE SEQUENCE (Only for MISSING items):**
+                    1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
+                    2. **MEDICAL**: Explain safety. Tool: 'medical'.
+                    3. **NUTRITION**: Explain fuel and preferences. Tool: 'nutrition'.
+                    4. **PSYCH**: Explain brain-gut connection. Tool: 'psych'.
+                    5. **LABS**: Explain baseline safety. Tool: 'labs'.
+                    6. **PROFILE**: Explain shipping. Tool: 'profile'.
+                    7. **PAYMENT**: Explain commitment. Tool: 'payment'.
+                    8. **CONSULT**: Explain doctor review. Tool: 'consultation'.
 
-                        **RULES**:
-                        - **EXPLAIN FIRST**: Always explain *why* we need data before asking.
-                        - **TRIGGER WIDGET**: Use the \`triggerWidget\` tool to show the form.
-                        - **WAIT**: After triggering a widget, stop generating.
-                        `,
-                        tools: [{ functionDeclarations: [triggerWidgetTool] }],
-                    },
+                    **RULES**:
+                    - **EXPLAIN FIRST**: Always explain *why* we need data before asking.
+                    - **TRIGGER WIDGET**: Use the \`triggerWidget\` tool to show the form.
+                    - **WAIT**: After triggering a widget, stop generating.
+                    `,
+                    tools: [{ functionDeclarations: [triggerWidgetTool] }],
                 });
 
                 setChatSession(newChatSession);
