@@ -331,6 +331,9 @@ app.get('*', (req, res) => {
   }
 });
 
+const ragService = require('./services/ragService');
+ragService.initialize().catch(err => console.error('Failed to initialize RAG:', err));
+
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server starting...`);
