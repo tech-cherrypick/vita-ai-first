@@ -124,6 +124,9 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
     // 2. Intake Status
     const intakeComplete = patient.status !== 'Action Required' || patient.weeklyLogs.length > 0;
 
+    const psych = patient.psych || {};
+    const psychComplete = Object.keys(psych).some(k => k.startsWith('phq9_') || k.startsWith('bes_') || k.startsWith('eat26_'));
+
     const modules = [
         // Module 1: Medical History (Split)
         {
@@ -139,8 +142,8 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
         {
             title: 'Psychographic Profile',
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-            statusLabel: 'Pending',
-            statusColor: 'text-gray-700 bg-gray-50 border-gray-200',
+            statusLabel: psychComplete ? 'Complete' : 'Pending',
+            statusColor: psychComplete ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-gray-700 bg-gray-50 border-gray-200',
             iconBg: 'bg-pink-100 text-pink-600',
             detail: 'Mood (PHQ-9), Binge Eating (BES), and Attitudes (EAT-26).'
         },
@@ -397,8 +400,24 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             title: 'Psychographic Profile Completed',
             description: 'Patient completed psychometric assessments (PHQ-9, BES, EAT-26).'
         };
-        // FIX: Ensure data is actually saved to the patient object
-        onUpdatePatient(patient.id, intakeEvent, { ...data });
+        const keyMap: Record<string, string> = {
+            'Mood': 'phq9',
+            'Eating Behaviors': 'bes',
+            'Daily Habits': 'eat26',
+        };
+        const psych: Record<string, string> = {};
+        Object.entries(data).forEach(([key, value]) => {
+            const parts = key.split('_');
+            const idx = parts.pop();
+            const phaseId = parts.join('_');
+            const mapped = keyMap[phaseId];
+            if (mapped) {
+                psych[`${mapped}_${idx}`] = value as string;
+            } else {
+                psych[key] = value as string;
+            }
+        });
+        onUpdatePatient(patient.id, intakeEvent, { psych });
         closeFocusMode();
     };
 

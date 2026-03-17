@@ -87,6 +87,8 @@ const App: React.FC = () => {
       prescriptions: cloudData.prescriptions || [],
       vitals: cloudData.vitals?.list || [],
       weeklyLogs: cloudData.weeklyLogs?.entries || [],
+      psych: cloudData.psych || {},
+      medical: cloudData.medical || {},
       tracking: cloudData.tracking || { labs: { status: 'Pending' }, consultation: { status: 'Pending' }, shipment: { status: 'Pending' } },
       clinic: cloudData.clinic || {},
       reports: cloudData.reports || [],
@@ -461,6 +463,14 @@ const App: React.FC = () => {
 
     if (updates.clinic) {
       savePatientToCloud('clinic', updatedPatient.clinic, updatedPatient.id);
+    }
+
+    if (updates.psych) {
+      savePatientToCloud('psych', updatedPatient.psych, updatedPatient.id);
+    }
+
+    if (updates.medical) {
+      savePatientToCloud('medical', updatedPatient.medical, updatedPatient.id);
     }
   };
 
