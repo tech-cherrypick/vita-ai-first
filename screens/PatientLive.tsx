@@ -1440,8 +1440,18 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
     const [qIndex, setQIndex] = useState(0);
     const [scores, setScores] = useState<Record<string, string>>(initialData || {});
 
-    const phq9Questions = ["Little interest or pleasure", "Feeling down, depressed, hopeless", "Trouble falling/staying asleep", "Feeling tired or low energy", "Poor appetite or overeating", "Feeling bad about yourself", "Trouble concentrating", "Moving/speaking slowly", "Self-harm thoughts"];
-
+    const phq9Questions = [
+        "Over the last 2 weeks, how often have you had little interest or pleasure in doing things you normally enjoy?",
+        "How often have you felt down, depressed, or hopeless lately?",
+        "Have you had trouble falling asleep, staying asleep, or found yourself sleeping too much?",
+        "How often have you felt tired or like you have very little energy?",
+        "Have you noticed changes in your appetite, such as eating too little or overeating?",
+        "How often have you felt bad about yourself—or that you are a failure or have let yourself or your family down?",
+        "Have you had trouble concentrating on things, such as reading the newspaper or watching television?",
+        "Have others noticed you moving or speaking so slowly that it was obvious? Or being so fidgety that you were moving around a lot more than usual?",
+        "Have you had thoughts that you would be better off dead, or of hurting yourself in some way?"
+    ];
+    
     const besQuestions = [
         { id: 1, options: ["I don't feel self-conscious about my weight or body size when I'm with others.", "I feel concerned about how I look to others, but it normally doesn't make me feel disappointed with myself.", "I do get self-conscious about my appearance and weight which makes me feel disappointed in myself.", "I feel very self-conscious about my weight and frequently, I feel like I'm just failing at everything."] },
         { id: 2, options: ["I don't have any difficulty eating slowly in the proper manner.", "Although I seem to devour foods, I don't end up feeling stuffed because of eating too much.", "At times, I tend to eat quickly and then, I feel uncomfortably full afterwards.", "I have the habit of bolting down my food, without really chewing it. When this happens I usually feel uncomfortably stuffed because I've eaten too much."] },
@@ -1453,7 +1463,29 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
         { id: 8, options: ["I rarely eat so much food that I feel uncomfortably stuffed afterwards.", "Usually about once a month, I eat such a quantity of food, I end up feeling very stuffed.", "I have regular periods during the month when I eat large amounts of food, either at mealtime or at snacks.", "I eat so much food that I regularly feel quite uncomfortable after eating."] }
     ];
 
-    const eat26Questions = ["Terrified of overweight", "Avoid eating when hungry", "Food preoccupation", "Impulse to binge", "Cut food small", "Calorie awareness", "Avoid carbs", "Feel pressure to eat more", "Vomit after eating", "Guilt after eating"];
+    const besSituationTitles = [
+        "How you feel about your weight and body size around others:",
+        "Your typical pace of eating and how it makes you feel:",
+        "How much control you feel you have over your eating urges:",
+        "Your tendency to eat when you are feeling bored:",
+        "Eating when you are not physically hungry:",
+        "How you feel emotionally after you have overeaten:",
+        "How you handle your eating plan when you eat a 'forbidden' food:",
+        "How often you eat large amounts of food and how it feels:"
+    ];
+
+    const eat26Questions = [
+        "Do you feel terrified about the idea of being overweight?",
+        "Do you find yourself avoiding eating even when you feel hungry?",
+        "Do you find yourself preoccupied with food or thinking about it constantly?",
+        "Do you ever have the impulse to binge or eat large amounts of food in one sitting?",
+        "Do you find yourself cutting your food into very small pieces to slow down your eating?",
+        "Are you extremely aware of the calorie content of everything you eat?",
+        "Do you specifically avoid foods with high carbohydrate content (like bread, rice, or potatoes)?",
+        "Do you feel like others are constantly pressuring you to eat more than you want to?",
+        "Do you ever feel the urge to vomit after eating to control your weight?",
+        "Do you experience strong feelings of guilt after you have eaten?"
+    ];
 
     const subStageLabels = {
         phq9: "Assessing Mood & Motivation",
