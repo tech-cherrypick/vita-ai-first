@@ -145,10 +145,21 @@ class RagService {
                 score: this.cosineSimilarity(queryEmbedding, chunk.embedding)
             }));
 
-            // Sort by score and take top K
-            return scoredChunks
-                .sort((a, b) => b.score - a.score)
-                .slice(0, topK);
+            // Sort by score
+            const sortedChunks = scoredChunks.sort((a, b) => b.score - a.score);
+            
+            // Set a similarity threshold (0.4 is generally a safe minimum for semantic relevance)
+            const similarityThreshold = 0.45;
+            const relevantChunks = sortedChunks.filter(chunk => chunk.score >= similarityThreshold);
+
+            if (relevantChunks.length > 0) {
+                console.log(`🔍 RAG: Found ${relevantChunks.length} chunks above threshold ${similarityThreshold}. Top score: ${relevantChunks[0].score.toFixed(4)}`);
+            } else if (sortedChunks.length > 0) {
+                console.log(`⚠️ RAG: No chunks found above threshold ${similarityThreshold}. Best score was ${sortedChunks[0].score.toFixed(4)}`);
+            }
+
+            // Take top K from the relevant ones
+            return relevantChunks.slice(0, topK);
         } catch (error) {
             console.error('❌ Error retrieving relevant chunks:', error);
             return [];
