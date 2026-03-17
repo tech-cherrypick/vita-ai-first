@@ -52,22 +52,29 @@ ${context}
         }
 
         const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-        
+
         console.log(`🤖 Sending request to ${model || 'gemini-2.0-flash'} via models.generateContent...`);
-        
-        const result = await genAI.models.generateContent({ 
+
+        const sdkConfig = { ...(config || {}) };
+        if (systemInstruction) sdkConfig.systemInstruction = systemInstruction;
+        if (tools) sdkConfig.tools = tools;
+
+        const result = await genAI.models.generateContent({
             model: model || 'gemini-2.0-flash',
             contents,
-            generationConfig: config,
-            systemInstruction,
-            tools
+            config: sdkConfig
         });
         
-        // The result structure for this specific SDK
         const text = result.text;
         const functionCalls = result.functionCalls;
 
-        res.status(200).json({ text, functionCalls });
+        const responseParts = [];
+        if (text) responseParts.push({ text });
+        if (functionCalls && functionCalls.length > 0) {
+            functionCalls.forEach(fc => responseParts.push({ functionCall: fc }));
+        }
+
+        res.status(200).json({ text, functionCalls, parts: responseParts });
     } catch (error) {
         console.error('❌ Gemini API Error Details:', error);
         res.status(500).json({ 

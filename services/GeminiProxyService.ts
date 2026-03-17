@@ -62,7 +62,7 @@ class ChatSessionProxy {
     }
 
     async sendMessage(params: { message: any }): Promise<{ text: string; functionCalls?: any[] }> {
-        const userContent = typeof params.message === 'string' 
+        const userContent = typeof params.message === 'string'
             ? { role: 'user', parts: [{ text: params.message }] }
             : { role: 'user', parts: params.message };
 
@@ -75,22 +75,18 @@ class ChatSessionProxy {
         };
 
         const response = await GeminiProxyService.generateContent(payload);
-        
-        // Update history correctly for subsequent calls
-        this.history.push(userContent);
-        
-        // Note: The response from our backend generateContent endpoint currently 
-        // returns { text: string }. We might need to update the backend to return functionCalls if needed.
-        // For now, let's assume text contains everything or we handle tool calls via the same logic as before.
-        
-        const aiResponse = { role: 'model', parts: [{ text: response.text }] };
-        this.history.push(aiResponse);
 
-        return { 
+        this.history.push(userContent);
+
+        const aiResponseParts = response.parts || [];
+        if (aiResponseParts.length === 0 && response.text) {
+            aiResponseParts.push({ text: response.text });
+        }
+        this.history.push({ role: 'model', parts: aiResponseParts });
+
+        return {
             text: response.text,
-            // Extract function calls if they exist in the response
-            // Our current backend controller might need to be updated to expose these
-            functionCalls: (response as any).functionCalls 
+            functionCalls: response.functionCalls
         };
     }
 }
@@ -103,7 +99,8 @@ class GeminiProxyService {
         contents: any[];
         config?: any;
         systemInstruction?: any;
-    }): Promise<{ text: string }> {
+        tools?: any[];
+    }): Promise<{ text: string; functionCalls?: any[]; parts?: any[] }> {
         const response = await fetch(`${this.API_BASE_URL}/api/gemini/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
