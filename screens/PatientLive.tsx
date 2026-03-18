@@ -787,7 +787,25 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
         // 7. Parent Update
         if (onUpdatePatient) {
-            if (type === 'vitals') onUpdatePatient(patient.id, null, { vitals: [{ label: 'Weight', value: data.current_weight, unit: 'kg', date: new Date().toLocaleDateString() }] });
+            if (type === 'vitals') {
+                const today = new Date().toLocaleDateString();
+                const weightKg = parseFloat(data.current_weight);
+                const heightFt = parseFloat(data.height_ft || '0');
+                const heightIn = parseFloat(data.height_in || '0');
+                const totalInches = (heightFt * 12) + heightIn;
+                const heightMeters = totalInches * 0.0254;
+
+                const vitalsList: { label: string; value: string; unit?: string; date: string }[] = [
+                    { label: 'Weight', value: data.current_weight, unit: 'kg', date: today }
+                ];
+
+                if (heightMeters > 0 && weightKg > 0) {
+                    const bmi = (weightKg / (heightMeters * heightMeters)).toFixed(1);
+                    vitalsList.push({ label: 'BMI', value: bmi, date: today });
+                }
+
+                onUpdatePatient(patient.id, null, { vitals: vitalsList });
+            }
             if (type === 'nutrition') onUpdatePatient(patient.id, null, { nutrition: data });
             if (type === 'profile') onUpdatePatient(patient.id, null, {
                 name: data.name,
