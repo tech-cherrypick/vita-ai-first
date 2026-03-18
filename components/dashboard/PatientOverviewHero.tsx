@@ -88,12 +88,12 @@ const JourneyProgressGraph: React.FC<{ start: number; current: number; goal: num
                     {/* Start Point */}
                     <circle cx={startX} cy={startY} r="4" fill="#9CA3AF" />
                     <text x={startX} y={startY - 15} textAnchor="middle" className="text-[10px] fill-gray-400 font-bold uppercase">Start</text>
-                    <text x={startX} y={startY + 20} textAnchor="middle" className="text-xs fill-gray-600 font-bold">{start} lbs</text>
+                    <text x={startX} y={startY + 20} textAnchor="middle" className="text-xs fill-gray-600 font-bold">{start} kg</text>
 
                     {/* Goal Point */}
                     <circle cx={endX} cy={endY} r="4" fill="#9CA3AF" />
                     <text x={endX} y={endY - 15} textAnchor="middle" className="text-[10px] fill-gray-400 font-bold uppercase">Goal</text>
-                    <text x={endX} y={endY + 20} textAnchor="middle" className="text-xs fill-gray-600 font-bold">{goal} lbs</text>
+                    <text x={endX} y={endY + 20} textAnchor="middle" className="text-xs fill-gray-600 font-bold">{goal} kg</text>
 
                     {/* Current Position Marker (Animated) */}
                     <g filter="url(#glow)">
@@ -110,7 +110,7 @@ const JourneyProgressGraph: React.FC<{ start: number; current: number; goal: num
                     </g>
                     
                     {/* Current Weight Label below dot */}
-                    <text x={currX} y={currY + 20} textAnchor="middle" className="text-sm fill-brand-purple font-extrabold">{current} lbs</text>
+                    <text x={currX} y={currY + 20} textAnchor="middle" className="text-sm fill-brand-purple font-extrabold">{current} kg</text>
 
                 </svg>
             </div>
@@ -146,11 +146,7 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
     const currentWeight = latestLog ? latestLog.weight : baselineWeight;
     const weightDifference = baselineWeight - currentWeight; // Positive means weight loss
     
-    // Parse Goal Weight from string (e.g. "Lose 40 lbs" or "Target: 180 lbs")
-    // If goal is "Lose 40 lbs", goal weight = baseline - 40.
-    // If goal is number based, assume it's target. 
-    // For this mock, we'll parse "Lose X lbs" logic from the `goal` string or fallback.
-    let goalWeight = baselineWeight - 30; // Default fallback
+    let goalWeight = baselineWeight - 30;
     const loseMatch = patient.goal.match(/Lose (\d+)/i);
     if (loseMatch) {
         goalWeight = baselineWeight - parseInt(loseMatch[1]);
@@ -161,14 +157,8 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
     // We reverse engineer height from baseline stats to calculate new BMI dynamically.
     let dynamicBMI = baselineBMI;
     if (baselineWeight > 0 && baselineBMI > 0) {
-        // Convert lbs to kg (approx 0.453592)
-        const baselineKg = baselineWeight * 0.453592;
-        // Height (m) = sqrt(weight / BMI)
-        const heightMeters = Math.sqrt(baselineKg / baselineBMI);
-        
-        // Calculate new BMI
-        const currentKg = currentWeight * 0.453592;
-        const newBmiCalc = currentKg / (heightMeters * heightMeters);
+        const heightMeters = Math.sqrt(baselineWeight / baselineBMI);
+        const newBmiCalc = currentWeight / (heightMeters * heightMeters);
         dynamicBMI = parseFloat(newBmiCalc.toFixed(1));
     }
 
@@ -223,7 +213,7 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
                     </div>
                     <div className="flex justify-between items-end divide-x divide-gray-100">
                         <div className="pr-4">
-                            <p className="text-3xl font-extrabold text-brand-text">{currentWeight} <span className="text-lg font-medium text-gray-400">lbs</span></p>
+                            <p className="text-3xl font-extrabold text-brand-text">{currentWeight} <span className="text-lg font-medium text-gray-400">kg</span></p>
                             <p className="text-xs text-gray-500 mt-1 font-medium">Current Weight</p>
                         </div>
                         <div className="px-4 text-center">
@@ -232,7 +222,7 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
                         </div>
                         <div className="pl-4 text-right">
                             <p className={`text-3xl font-extrabold ${weightDifference > 0 ? 'text-green-500' : 'text-gray-400'}`}>
-                                {weightDifference > 0 ? '-' : ''}{Math.abs(Number(weightDifference.toFixed(1)))} <span className="text-lg font-medium text-gray-400">lbs</span>
+                                {weightDifference > 0 ? '-' : ''}{Math.abs(Number(weightDifference.toFixed(1)))} <span className="text-lg font-medium text-gray-400">kg</span>
                             </p>
                             <p className="text-xs text-gray-500 mt-1 font-medium">Total Loss</p>
                         </div>

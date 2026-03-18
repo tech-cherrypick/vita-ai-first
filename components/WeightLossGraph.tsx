@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-const WeightLossGraph: React.FC<{ startWeight: number; endWeight: number; unit: 'kg' | 'lbs' }> = ({ startWeight, endWeight, unit }) => {
+const WeightLossGraph: React.FC<{ startWeight: number; endWeight: number; unit: 'kg' }> = ({ startWeight, endWeight, unit }) => {
     // The SVG path for a smooth downward curve.
     // M = moveto, C = curveto. Start (0,10), Control1 (150,15), Control2 (150,75), End (300,80)
     const linePath = "M 0,10 C 150,15 150,75 300,80";

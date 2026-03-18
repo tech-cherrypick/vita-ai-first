@@ -39,8 +39,8 @@ const ProgressSummary: React.FC<{ patient: Patient }> = ({ patient }) => {
             <h3 className="text-xl font-bold text-brand-text mb-4">Your Progress</h3>
             
             <div className="grid grid-cols-3 gap-2 mb-6">
-                <StatCard label="Current" value={String(currentWeight)} unit="lbs" />
-                <StatCard label="Lost" value={`${totalLoss > 0 ? '-' : ''}${Math.abs(totalLoss)}`} unit="lbs" />
+                <StatCard label="Current" value={String(currentWeight)} unit="kg" />
+                <StatCard label="Lost" value={`${totalLoss > 0 ? '-' : ''}${Math.abs(totalLoss)}`} unit="kg" />
                 <StatCard label="BMI" value={currentBmi} />
             </div>
 
@@ -57,7 +57,7 @@ const ProgressSummary: React.FC<{ patient: Patient }> = ({ patient }) => {
                         ></div>
                     </div>
                     <p className="text-xs text-right text-brand-text-light mt-1">
-                        {totalLoss.toFixed(1)} lbs of {goalWeightLoss} lbs
+                        {totalLoss.toFixed(1)} kg of {goalWeightLoss} kg
                     </p>
                 </div>
             )}
