@@ -39,7 +39,9 @@ public class MainActivity extends BridgeActivity {
             Insets safeArea = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
             );
-            v.setPadding(0, safeArea.top, 0, 0);
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            int bottomPadding = Math.max(safeArea.bottom, ime.bottom);
+            v.setPadding(0, safeArea.top, 0, bottomPadding);
             return WindowInsetsCompat.CONSUMED;
         });
 

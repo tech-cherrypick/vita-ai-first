@@ -159,13 +159,19 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     const initRun = useRef(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const socketRef = useRef<any>(null); // NEW: Socket reference
+    const inputRef = useRef<HTMLInputElement>(null);
+    const socketRef = useRef<any>(null);
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     useEffect(() => { scrollToBottom(); }, [messages, isTyping]);
 
-    const keyboardHeight = useKeyboardHeight();
-    useEffect(() => { setTimeout(scrollToBottom, 100); }, [keyboardHeight]);
+    const { height: keyboardHeight, isKeyboardOpen } = useKeyboardHeight();
+    useEffect(() => {
+        if (isKeyboardOpen) {
+            const delays = [100, 300, 500];
+            delays.forEach(d => setTimeout(scrollToBottom, d));
+        }
+    }, [keyboardHeight, isKeyboardOpen]);
 
     // --- Initialize Chat & Socket ---
     useEffect(() => {
@@ -1065,9 +1071,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             onUploadError={(err) => alert(err)}
                         />
                         <input
+                            ref={inputRef}
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            onFocus={() => setTimeout(scrollToBottom, 300)}
+                            onFocus={() => {
+                                [100, 300, 500].forEach(d => setTimeout(scrollToBottom, d));
+                            }}
                             placeholder={isListening ? "Listening..." : "Type or speak..."}
                             className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400 ml-2"
                         />
