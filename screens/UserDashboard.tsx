@@ -115,34 +115,44 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
         ? patient.timeline[labScheduleIndex]
         : null;
 
+    const trackingConsult = patient.tracking?.consultation;
+    const hasTrackingConsult = trackingConsult && trackingConsult.status === 'scheduled';
+
     const consultScheduleIndex = patient.timeline.findIndex(e => e.type === 'Consultation' && e.title.includes('Scheduled'));
     const consultCompleteIndex = patient.timeline.findIndex(e => e.type === 'Consultation' && (e.title.includes('Completed') || e.title.includes('Review')));
-    const activeConsultAppointment = (consultScheduleIndex !== -1 && (consultCompleteIndex === -1 || consultScheduleIndex < consultCompleteIndex))
+    const timelineConsultAppointment = (consultScheduleIndex !== -1 && (consultCompleteIndex === -1 || consultScheduleIndex < consultCompleteIndex))
         ? patient.timeline[consultScheduleIndex]
         : null;
 
-    // 2. Intake Status
-    const intakeComplete = patient.status !== 'Action Required' || patient.weeklyLogs.length > 0;
+    const activeConsultAppointment = timelineConsultAppointment || (hasTrackingConsult ? trackingConsult : null);
+
+    const medical = patient.medical || {};
+    const medicalComplete = Object.keys(medical).length > 0;
+
+    const psych = patient.psych || {};
+    const psychComplete = Object.keys(psych).some(k => k.startsWith('phq9_') || k.startsWith('bes_') || k.startsWith('eat26_'));
 
     const modules = [
-        // Module 1: Medical History (Split)
         {
             title: 'Medical History',
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-            statusLabel: intakeComplete ? 'Complete' : 'Incomplete',
-            statusColor: intakeComplete ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-red-700 bg-red-50 border-red-200',
+            statusLabel: medicalComplete ? 'Complete' : 'Incomplete',
+            statusColor: medicalComplete ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-red-700 bg-red-50 border-red-200',
             iconBg: 'bg-teal-100 text-teal-600',
-            detail: 'Diseases, medications, family history, and safety screen.'
+            detail: 'Diseases, medications, family history, and safety screen.',
+            actionLabel: medicalComplete ? undefined : 'Complete Intake',
+            target: medicalComplete ? undefined : 'intake_medical_form' as FocusMode
         },
 
-        // Module 2: Psychographic Profile (Split)
         {
             title: 'Psychographic Profile',
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-            statusLabel: 'Pending',
-            statusColor: 'text-gray-700 bg-gray-50 border-gray-200',
+            statusLabel: psychComplete ? 'Complete' : 'Pending',
+            statusColor: psychComplete ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-gray-700 bg-gray-50 border-gray-200',
             iconBg: 'bg-pink-100 text-pink-600',
-            detail: 'Mood (PHQ-9), Binge Eating (BES), and Attitudes (EAT-26).'
+            detail: 'Mood (PHQ-9), Binge Eating (BES), and Attitudes (EAT-26).',
+            actionLabel: psychComplete ? undefined : 'Complete Assessment',
+            target: psychComplete ? undefined : 'intake_psych_form' as FocusMode
         },
 
         // Module 3: Labs
@@ -163,11 +173,11 @@ const CareModulesGrid: React.FC<{ patient: Patient; onNavigate: (mode: FocusMode
         {
             title: 'Doctor Consults',
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
-            statusLabel: activeConsultAppointment ? 'Scheduled' : (['Ready for Consult', 'Follow-up Required'].includes(patient.status) ? 'Action Required' : 'Standard'),
-            statusColor: activeConsultAppointment ? 'text-green-700 bg-green-50 border-green-200' : (['Ready for Consult', 'Follow-up Required'].includes(patient.status) ? 'text-red-700 bg-red-50 border-red-200' : 'text-gray-700 bg-gray-50 border-gray-200'),
+            statusLabel: activeConsultAppointment ? 'Scheduled' : (['Ready for Consult', 'Follow-up Required'].includes(patient.status) ? 'Action Required' : ((patient.consultations?.length ?? 0) > 0 ? 'Up to Date' : 'Not Started')),
+            statusColor: activeConsultAppointment ? 'text-green-700 bg-green-50 border-green-200' : (['Ready for Consult', 'Follow-up Required'].includes(patient.status) ? 'text-red-700 bg-red-50 border-red-200' : ((patient.consultations?.length ?? 0) > 0 ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-700 bg-gray-50 border-gray-200')),
             iconBg: 'bg-green-100 text-green-600',
             detail: activeConsultAppointment
-                ? `Booked: ${activeConsultAppointment.context?.consultDateTime || activeConsultAppointment.date}`
+                ? `Booked: ${activeConsultAppointment.context?.consultDateTime || (activeConsultAppointment.time ? `${activeConsultAppointment.date} at ${activeConsultAppointment.time}` : activeConsultAppointment.date)}`
                 : 'Video visits with your care team.',
             dualAction: true,
             actions: [
@@ -243,10 +253,6 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         }
     }, [incomingCallFromNotification]);
 
-    // Profile Check
-    const [isDoctorInCall, setIsDoctorInCall] = useState(false);
-    const [showCallNotification, setShowCallNotification] = useState(false);
-
     useAndroidBackButton(useCallback(() => {
         if (isMenuOpen) {
             setIsMenuOpen(false);
@@ -262,34 +268,6 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         }
         return false;
     }, [isMenuOpen, focusMode, currentView]));
-
-    useEffect(() => {
-        const socket = getSocket();
-        socket.emit('join_room', patient.id);
-
-        socket.on('incoming_call', (data: any) => {
-            console.log('Incoming call from doctor:', data.doctorName);
-            setIsDoctorInCall(true);
-            setShowCallNotification(true);
-        });
-
-        socket.on('call_ended', () => {
-            setIsDoctorInCall(false);
-            setShowCallNotification(false);
-        });
-
-        const handleJoinTelehealth = () => {
-            setFocusMode('telehealth');
-            setShowCallNotification(false);
-        };
-        window.addEventListener('joinTelehealth', handleJoinTelehealth);
-
-        return () => {
-            socket.off('incoming_call');
-            socket.off('call_ended');
-            window.removeEventListener('joinTelehealth', handleJoinTelehealth);
-        };
-    }, [patient.id]);
 
     const profileStatus = useMemo(() => {
         const missing: string[] = [];
@@ -319,31 +297,33 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
         return undefined;
     }, [patient.timeline]);
 
-    // --- Socket listener for incoming calls ---
     useEffect(() => {
         const socket = getSocket();
 
-        // Ensure we are in the correct room
         socket.emit('join_room', patient.id);
 
         const handleIncomingCall = (data: { doctorName: string; doctorId: string; patientId: string } | undefined | null) => {
-            console.log("Receiving incoming call in UserDashboard:", data);
             if (data && String(data.patientId) === String(patient.id)) {
                 setIncomingCall(data);
             }
         };
 
-        const handleCallEnded = (data: any) => {
-            console.log("Call ended, clearing popup", data);
+        const handleCallEnded = () => {
             setIncomingCall(null);
+        };
+
+        const handleJoinTelehealth = () => {
+            setFocusMode('telehealth');
         };
 
         socket.on('incoming_call', handleIncomingCall);
         socket.on('call_ended', handleCallEnded);
+        window.addEventListener('joinTelehealth', handleJoinTelehealth);
 
         return () => {
             socket.off('incoming_call', handleIncomingCall);
             socket.off('call_ended', handleCallEnded);
+            window.removeEventListener('joinTelehealth', handleJoinTelehealth);
         };
     }, [patient.id]);
 
@@ -397,8 +377,24 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             title: 'Psychographic Profile Completed',
             description: 'Patient completed psychometric assessments (PHQ-9, BES, EAT-26).'
         };
-        // FIX: Ensure data is actually saved to the patient object
-        onUpdatePatient(patient.id, intakeEvent, { ...data });
+        const keyMap: Record<string, string> = {
+            'Mood': 'phq9',
+            'Eating Behaviors': 'bes',
+            'Daily Habits': 'eat26',
+        };
+        const psych: Record<string, string> = {};
+        Object.entries(data).forEach(([key, value]) => {
+            const parts = key.split('_');
+            const idx = parts.pop();
+            const phaseId = parts.join('_');
+            const mapped = keyMap[phaseId];
+            if (mapped) {
+                psych[`${mapped}_${idx}`] = value as string;
+            } else {
+                psych[key] = value as string;
+            }
+        });
+        onUpdatePatient(patient.id, intakeEvent, { psych });
         closeFocusMode();
     };
 

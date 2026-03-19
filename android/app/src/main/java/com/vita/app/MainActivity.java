@@ -5,13 +5,13 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
+import android.view.View;
 import android.webkit.WebView;
-import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
@@ -29,10 +29,20 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         WebView webView = this.bridge.getWebView();
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
-            int topInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-            v.setPadding(0, topInset, 0, 0);
-            return insets;
+
+        // Apply safe area padding on the parent CoordinatorLayout so the WebView
+        // is positioned below the status bar / display cutout.
+        // Must be on the PARENT — CoordinatorLayout doesn't dispatch insets to
+        // children that lack fitsSystemWindows or a Behavior.
+        View webViewParent = (View) webView.getParent();
+        ViewCompat.setOnApplyWindowInsetsListener(webViewParent, (v, insets) -> {
+            Insets safeArea = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+            );
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            int bottomPadding = Math.max(safeArea.bottom, ime.bottom);
+            v.setPadding(0, safeArea.top, 0, bottomPadding);
+            return WindowInsetsCompat.CONSUMED;
         });
 
         requestRuntimePermissions();

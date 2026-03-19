@@ -67,34 +67,36 @@ const DashboardModule: React.FC<{ title: string; icon: string; children: React.R
 // --- Tab Views (Now used as Section Components) ---
 
 export const MetabolicView: React.FC<{ patient: Patient }> = ({ patient }) => {
-    // 1. Get Real Lab Data from Tracking Collection
     const labData = patient.tracking?.labs || {};
 
-    // Helper to extract specific lab result or default
-    const getLab = (key: string, label: string, category: string, range: string) => {
+    const evaluateStatus = (val: number, low: number | null, high: number): string => {
+        if (low !== null && val < low) return 'Low';
+        if (val > high) return 'High';
+        return 'Normal';
+    };
+
+    const getLab = (key: string, label: string, category: string, range: string, low: number | null, high: number) => {
         const val = labData[key];
-        // Simple logic: if val exists, status based on key (demo logic for status, real logic for value)
-        let status = 'Pending';
-        if (val) status = 'Normal'; // Logic to determine High/Low would go here based on range
+        const numVal = val !== undefined && val !== null ? parseFloat(val) : NaN;
 
         return {
             category,
             name: label,
-            value: val ? `${val}` : '-',
+            value: val !== undefined && val !== null ? `${val}` : '-',
             range,
-            status: val ? status : 'Pending'
+            status: isNaN(numVal) ? 'Pending' : evaluateStatus(numVal, low, high)
         };
     };
 
     const labs = [
-        getLab('hba1c', 'HbA1c', 'Glycemic Control', '< 5.7%'),
-        getLab('fasting_insulin', 'Fasting Insulin', 'Glycemic Control', '< 25 uIU/mL'),
-        getLab('ldl', 'LDL Cholesterol', 'Lipid Panel', '< 100 mg/dL'),
-        getLab('apob', 'ApoB', 'Lipid Panel', '< 90 mg/dL'),
-        getLab('lpa', 'Lp(a)', 'Lipid Panel', '< 30 mg/dL'),
-        getLab('hscrp', 'hsCRP', 'Inflammation', '< 2.0 mg/L'),
-        getLab('tsh', 'TSH (Thyroid)', 'Organ Function', '0.4 - 4.0 mIU/L'),
-        getLab('alt', 'ALT (Liver)', 'Organ Function', '7-55 U/L'),
+        getLab('hba1c', 'HbA1c', 'Glycemic Control', '< 5.7%', null, 5.7),
+        getLab('fasting_insulin', 'Fasting Insulin', 'Glycemic Control', '< 25 uIU/mL', null, 25),
+        getLab('ldl', 'LDL Cholesterol', 'Lipid Panel', '< 100 mg/dL', null, 100),
+        getLab('apob', 'ApoB', 'Lipid Panel', '< 90 mg/dL', null, 90),
+        getLab('lpa', 'Lp(a)', 'Lipid Panel', '< 30 mg/dL', null, 30),
+        getLab('hscrp', 'hsCRP', 'Inflammation', '< 2.0 mg/L', null, 2.0),
+        getLab('tsh', 'TSH (Thyroid)', 'Organ Function', '0.4 - 4.0 mIU/L', 0.4, 4.0),
+        getLab('alt', 'ALT (Liver)', 'Organ Function', '7-55 U/L', 7, 55),
     ];
 
     // Filter out only available labs for top cards to avoid "Pending" clutter? 

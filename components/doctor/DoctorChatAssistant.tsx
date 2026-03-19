@@ -43,7 +43,7 @@ const DoctorChatAssistant: React.FC<DoctorChatAssistantProps> = ({ patient }) =>
             } else if (lowerMsg.includes('vital') || lowerMsg.includes('weight') || lowerMsg.includes('bmi')) {
                 const bmi = patient.vitals.find(v => v.label === 'BMI')?.value || 'N/A';
                 const weight = patient.vitals.find(v => v.label === 'Weight')?.value || 'N/A';
-                responseText = `**Vitals Analysis:**\n- **Weight:** ${weight} lbs\n- **BMI:** ${bmi}\n\nTrends indicate ${patient.vitals[0].trend === 'down' ? 'positive response to treatment' : 'stabilization'}.`;
+                responseText = `**Vitals Analysis:**\n- **Weight:** ${weight} kg\n- **BMI:** ${bmi}\n\nTrends indicate ${patient.vitals[0].trend === 'down' ? 'positive response to treatment' : 'stabilization'}.`;
             } else if (lowerMsg.includes('risk') || lowerMsg.includes('contraindication')) {
                 responseText = `**Risk Assessment:**\n- No absolute contraindications found.\n- Monitor for GI side effects given current dosage.\n- Psych screenings indicate ${patient.id === 1 ? 'low' : 'moderate'} risk factors.`;
             } else if (lowerMsg.includes('plan') || lowerMsg.includes('dosage') || lowerMsg.includes('rx')) {

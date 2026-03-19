@@ -159,13 +159,19 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     const initRun = useRef(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const socketRef = useRef<any>(null); // NEW: Socket reference
+    const inputRef = useRef<HTMLInputElement>(null);
+    const socketRef = useRef<any>(null);
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     useEffect(() => { scrollToBottom(); }, [messages, isTyping]);
 
-    const keyboardHeight = useKeyboardHeight();
-    useEffect(() => { setTimeout(scrollToBottom, 100); }, [keyboardHeight]);
+    const { height: keyboardHeight, isKeyboardOpen } = useKeyboardHeight();
+    useEffect(() => {
+        if (isKeyboardOpen) {
+            const delays = [100, 300, 500];
+            delays.forEach(d => setTimeout(scrollToBottom, d));
+        }
+    }, [keyboardHeight, isKeyboardOpen]);
 
     // --- Initialize Chat & Socket ---
     useEffect(() => {
@@ -787,7 +793,25 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
         // 7. Parent Update
         if (onUpdatePatient) {
-            if (type === 'vitals') onUpdatePatient(patient.id, null, { vitals: [{ label: 'Weight', value: data.current_weight, unit: 'kg', date: new Date().toLocaleDateString() }] });
+            if (type === 'vitals') {
+                const today = new Date().toLocaleDateString();
+                const weightKg = parseFloat(data.current_weight);
+                const heightFt = parseFloat(data.height_ft || '0');
+                const heightIn = parseFloat(data.height_in || '0');
+                const totalInches = (heightFt * 12) + heightIn;
+                const heightMeters = totalInches * 0.0254;
+
+                const vitalsList: { label: string; value: string; unit?: string; date: string }[] = [
+                    { label: 'Weight', value: data.current_weight, unit: 'kg', date: today }
+                ];
+
+                if (heightMeters > 0 && weightKg > 0) {
+                    const bmi = (weightKg / (heightMeters * heightMeters)).toFixed(1);
+                    vitalsList.push({ label: 'BMI', value: bmi, date: today });
+                }
+
+                onUpdatePatient(patient.id, null, { vitals: vitalsList });
+            }
             if (type === 'nutrition') onUpdatePatient(patient.id, null, { nutrition: data });
             if (type === 'profile') onUpdatePatient(patient.id, null, {
                 name: data.name,
@@ -1047,9 +1071,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             onUploadError={(err) => alert(err)}
                         />
                         <input
+                            ref={inputRef}
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            onFocus={() => setTimeout(scrollToBottom, 300)}
+                            onFocus={() => {
+                                [100, 300, 500].forEach(d => setTimeout(scrollToBottom, d));
+                            }}
                             placeholder={isListening ? "Listening..." : "Type or speak..."}
                             className="bg-transparent border-none outline-none w-full text-sm font-medium text-gray-700 placeholder-gray-400 ml-2"
                         />

@@ -5,9 +5,8 @@ import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 import { notificationService } from './services/NotificationService';
 import { configService } from './services/ConfigService';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { StatusBar, Style } from '@capacitor/status-bar';
 
 // Lazy load all dashboard components for better performance
 const UserDashboard = lazy(() => import('./screens/UserDashboard'));
@@ -23,6 +22,7 @@ const App: React.FC = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isAndroid = Capacitor.getPlatform() === 'android';
   const [userType, setUserType] = useState<UserRole>(() => {
     return (localStorage.getItem('vita_user_type') as UserRole) || 'patient';
   });
@@ -87,6 +87,8 @@ const App: React.FC = () => {
       prescriptions: cloudData.prescriptions || [],
       vitals: cloudData.vitals?.list || [],
       weeklyLogs: cloudData.weeklyLogs?.entries || [],
+      psych: cloudData.psych || {},
+      medical: cloudData.medical || {},
       tracking: cloudData.tracking || { labs: { status: 'Pending' }, consultation: { status: 'Pending' }, shipment: { status: 'Pending' } },
       clinic: cloudData.clinic || {},
       reports: cloudData.reports || [],
@@ -246,10 +248,8 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log("🛠️ App Mounted");
 
-    // On Android, prevent content from rendering behind the system status bar
-    if (Capacitor.isNativePlatform()) {
-      StatusBar.setOverlaysWebView({ overlay: false });
-      StatusBar.setStyle({ style: Style.Light });
+    if (isAndroid) {
+      void SystemBars.setStyle({ style: SystemBarsStyle.Light });
     }
 
     configService.fetch();
@@ -317,7 +317,7 @@ const App: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [isAndroid]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -461,6 +461,14 @@ const App: React.FC = () => {
 
     if (updates.clinic) {
       savePatientToCloud('clinic', updatedPatient.clinic, updatedPatient.id);
+    }
+
+    if (updates.psych) {
+      savePatientToCloud('psych', updatedPatient.psych, updatedPatient.id);
+    }
+
+    if (updates.medical) {
+      savePatientToCloud('medical', updatedPatient.medical, updatedPatient.id);
     }
   };
 

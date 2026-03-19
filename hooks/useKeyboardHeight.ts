@@ -1,23 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 export const useKeyboardHeight = () => {
-    const [height, setHeight] = useState<string>('100%');
+    const [height, setHeight] = useState<string>('100dvh');
+    const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
-    useEffect(() => {
-        if (!Capacitor.isNativePlatform() || !window.visualViewport) return;
+    const update = useCallback(() => {
+        if (!Capacitor.isNativePlatform()) return;
 
-        const vv = window.visualViewport;
+        const viewportHeight = window.innerHeight;
+        const fullHeight = window.screen.height;
+        const keyboardVisible = fullHeight - viewportHeight > 150;
 
-        const onResize = () => {
-            setHeight(`${vv.height}px`);
-        };
-
-        onResize();
-        vv.addEventListener('resize', onResize);
-        return () => vv.removeEventListener('resize', onResize);
+        setIsKeyboardOpen(keyboardVisible);
+        setHeight(`${viewportHeight}px`);
     }, []);
 
-    return height;
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+
+        update();
+
+        window.addEventListener('resize', update);
+
+        const vv = window.visualViewport;
+        if (vv) {
+            vv.addEventListener('resize', update);
+        }
+
+        return () => {
+            window.removeEventListener('resize', update);
+            if (vv) {
+                vv.removeEventListener('resize', update);
+            }
+        };
+    }, [update]);
+
+    return { height, isKeyboardOpen };
 };
 
