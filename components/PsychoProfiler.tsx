@@ -267,6 +267,7 @@ const PsychoProfiler: React.FC<{ patient: Patient; onClose: () => void; onComple
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const session = GeminiProxyService.connectLive({
                     model: 'gemini-2.0-flash-exp',
+                    patientId: patient.id as string,
                     config: {
                         responseModalalities: [Modality.AUDIO],
                         tools: [{ functionDeclarations: [showVisualTool, setPhaseTool] }],

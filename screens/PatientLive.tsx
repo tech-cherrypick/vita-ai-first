@@ -241,6 +241,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     `;
 
                 const newChatSession = GeminiProxyService.createChat('gemini-2.0-flash', {
+                    patientId: patient.id as string,
                     systemInstruction: `You are the Vita AI Care Manager. You are guiding ${patient.name || 'the patient'} through the intake process.
 
                     ${contextString}

@@ -3,14 +3,15 @@ const path = require('path');
 const pdf = require('pdf-parse');
 const { GoogleGenAI } = require('@google/genai');
 const _ = require('lodash');
+const { admin } = require('../config/firebaseAdmin');
 
 class RagService {
     constructor() {
-        this.docsDir = path.join(__dirname, '..', '..', 'ragDocs');
         this.chunks = [];
         this.isInitialized = false;
         this.modelName = 'gemini-embedding-2-preview';
         this.genAI = null;
+        this.db = admin.firestore();
     }
 
     async initialize() {
@@ -29,43 +30,45 @@ class RagService {
             console.log(`✅ RAG Service initialized with ${this.chunks.length} chunks.`);
         } catch (error) {
             console.error('❌ Error initializing RAG Service:', error);
-            throw error;
+            // Don't throw here to allow app to start even if RAG fails
         }
+    }
+
+    async syncFromFirestore() {
+        console.log('🔄 Syncing RAG documents from Firestore...');
+        await this.loadDocuments();
+        console.log(`✅ RAG Sync complete. ${this.chunks.length} chunks now in memory.`);
     }
 
     async loadDocuments() {
-        const rootDir = path.resolve(__dirname, '../../');
-        const docsPath = path.join(rootDir, 'ragDocs');
-        
-        if (!fs.existsSync(docsPath)) {
-            console.warn(`⚠️ RAG docs directory not found: ${docsPath}`);
-            return;
-        }
-
-        const files = fs.readdirSync(docsPath).filter(f => f.toLowerCase().endsWith('.pdf'));
-        console.log(`📄 Found ${files.length} documents in ragDocs/`);
-        
-        for (const file of files) {
-            const filePath = path.join(docsPath, file);
-            try {
-                const dataBuffer = fs.readFileSync(filePath);
-                const data = await pdf(dataBuffer);
-                const text = data.text || '';
-                
-                if (text.trim().length > 0) {
-                    const fileChunks = this.chunkText(text, file);
-                    this.chunks.push(...fileChunks);
-                }
-            } catch (error) {
-                console.error(`❌ Error parsing ${file}:`, error.message);
+        try {
+            const snapshot = await this.db.collection('rag_documents').get();
+            if (snapshot.empty) {
+                console.log('📄 No RAG documents found in Firestore.');
+                this.chunks = [];
+                return;
             }
-        }
 
-        if (this.chunks.length > 0) {
-            console.log(`✅ Indexed ${this.chunks.length} chunks from ${files.length} documents.`);
-            await this.generateEmbeddings();
+            const allChunks = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.content) {
+                    const fileChunks = this.chunkText(data.content, data.name || doc.id);
+                    allChunks.push(...fileChunks);
+                }
+            });
+
+            this.chunks = allChunks;
+
+            if (this.chunks.length > 0) {
+                console.log(`✅ Loaded ${this.chunks.length} chunks from ${snapshot.size} Firestore documents.`);
+                await this.generateEmbeddings();
+            }
+        } catch (error) {
+            console.error('❌ Error loading RAG documents from Firestore:', error);
         }
     }
+
 
     chunkText(text, fileName) {
         // Simple chunking strategy: ~1000 characters with 200 character overlap

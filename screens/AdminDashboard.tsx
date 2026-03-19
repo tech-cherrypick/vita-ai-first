@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VitaLogo } from '../constants';
 import { auth } from '../firebase';
 import PatientMappingScreen from './admin/PatientMappingScreen';
+import RAGDocumentsTab from '../components/admin/RAGDocumentsTab';
 
 interface AssignedRole {
     email: string;
@@ -18,7 +19,7 @@ interface Lead {
 }
 
 const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
-    const [activeTab, setActiveTab] = useState<'roles' | 'leads' | 'patients'>('roles');
+    const [activeTab, setActiveTab] = useState<'roles' | 'leads' | 'patients' | 'rag'>('roles');
     const [roles, setRoles] = useState<AssignedRole[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [email, setEmail] = useState('');
@@ -60,7 +61,7 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
     useEffect(() => {
         if (activeTab === 'roles') {
             fetchRoles();
-        } else {
+        } else if (activeTab === 'leads') {
             fetchLeads();
         }
     }, [activeTab]);
@@ -137,6 +138,14 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
                     >
                         Patient Directory
                         {activeTab === 'patients' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-purple rounded-full" />}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('rag')}
+                        className={`pb-4 px-2 text-sm font-bold transition-all relative ${activeTab === 'rag' ? 'text-brand-purple' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                    >
+                        RAG Documents
+                        {activeTab === 'rag' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-purple rounded-full" />}
                     </button>
                 </div>
 
@@ -258,8 +267,10 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
                             </table>
                         </div>
                     </section>
-                ) : (
+                ) : activeTab === 'patients' ? (
                     <PatientMappingScreen />
+                ) : (
+                    <RAGDocumentsTab />
                 )}
             </main>
         </div>
@@ -267,3 +278,4 @@ const AdminDashboard: React.FC<{ onSignOut: () => void }> = ({ onSignOut }) => {
 };
 
 export default AdminDashboard;
+
