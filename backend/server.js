@@ -197,15 +197,36 @@ io.on('connection', (socket) => {
 
   // Gemini Live Proxy logic
   socket.on('geminiProxy_connect', async (config) => {
-    console.log(`📡 [GeminiProxy] Client request for connection:`, config.model);
+    const model = config.model || 'gemini-2.0-flash-exp';
+    const patientId = config.patientId; // Optional patient ID for personalized context
+    
+    console.log(`📡 [GeminiProxy] Client request for connection:`, model, patientId ? `for patient ${patientId}` : '');
+    
     try {
       const { GoogleGenAI } = require('@google/genai');
+      const { getPatientContext } = require('./controllers/geminiController');
       const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
+      let liveConfig = { ...config.config };
+
+      // Inject patient context into systemInstruction if available
+      if (patientId) {
+          const patientContext = await getPatientContext(patientId);
+          if (patientContext) {
+              const originalInstruction = liveConfig.systemInstruction?.parts?.[0]?.text || '';
+              liveConfig.systemInstruction = {
+                  parts: [{
+                      text: `${originalInstruction}\n\n${patientContext}`
+                  }]
+              };
+              console.log(`👤 [GeminiProxy] Personalized context injected for patient ${patientId}`);
+          }
+      }
+
       // Use the live client from @google/genai
       const liveClient = await genAI.live.connect({
-        model: config.model,
-        config: config.config,
+        model: model,
+        config: liveConfig,
         callbacks: {
           onopen: () => {
             console.log('✅ [GeminiProxy] Connected to Google Gemini');

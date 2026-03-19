@@ -1,9 +1,11 @@
 import { getSocket } from '../socket';
+import { auth } from '../firebase';
 
 export interface GeminiProxyConfig {
     model: string;
     config?: any;
     systemInstruction?: any;
+    patientId?: string;
 }
 
 export interface LiveSessionCallbacks {
@@ -55,10 +57,12 @@ class ChatSessionProxy {
     private history: any[] = [];
     private model: string;
     private config: any;
+    private patientId?: string;
 
     constructor(model: string, config: any) {
         this.model = model;
         this.config = config;
+        this.patientId = config.patientId;
     }
 
     async sendMessage(params: { message: any }): Promise<{ text: string; functionCalls?: any[] }> {
@@ -71,7 +75,8 @@ class ChatSessionProxy {
             contents: [...this.history, userContent],
             config: this.config?.generationConfig || this.config?.config || {},
             systemInstruction: this.config?.systemInstruction,
-            tools: this.config?.tools
+            tools: this.config?.tools,
+            patientId: this.patientId
         };
 
         const response = await GeminiProxyService.generateContent(payload);
@@ -100,16 +105,25 @@ class GeminiProxyService {
         config?: any;
         systemInstruction?: any;
         tools?: any[];
+        patientId?: string;
     }): Promise<{ text: string; functionCalls?: any[]; parts?: any[] }> {
+        const user = auth.currentUser;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        
+        if (user) {
+            const token = await user.getIdToken();
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${this.API_BASE_URL}/api/gemini/generate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Gemini Proxy Error');
+            const text = await response.text();
+            throw new Error(text || 'Gemini Proxy Error');
         }
 
         return await response.json();
