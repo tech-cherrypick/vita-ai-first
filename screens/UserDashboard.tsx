@@ -11,7 +11,7 @@ import MyProfileScreen from './dashboard/MyProfileScreen';
 import ReportsScreen from './dashboard/ReportsScreen';
 import PaymentsScreen from './dashboard/PaymentsScreen';
 import CareTeamScreen from './dashboard/CareTeamScreen';
-import HelpScreen from './dashboard/HelpScreen';
+
 import SettingsScreen from './dashboard/SettingsScreen';
 import PatientOverviewHero from '../components/dashboard/PatientOverviewHero';
 import ConsultationScheduler from '../components/dashboard/ConsultationScheduler';
@@ -27,7 +27,7 @@ import DigitalIntake from '../components/dashboard/DigitalIntake';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 
 
-export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'help' | 'live' | 'consultations' | 'settings';
+export type DashboardView = 'dashboard' | 'profile' | 'reports' | 'payments' | 'care_team' | 'live' | 'consultations' | 'settings';
 type FocusMode = 'none' | 'intake_medical_ai' | 'intake_medical_form' | 'intake_psych_ai' | 'intake_psych_form' | 'schedule_labs' | 'schedule_consult' | 'telehealth' | 'view_plan' | 'view_consultations';
 
 interface UserDashboardProps {
@@ -619,7 +619,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
             case 'reports': return <ReportsScreen patient={patient} />;
             case 'payments': return <PaymentsScreen patient={patient} />;
             case 'care_team': return <CareTeamScreen patient={patient} />;
-            case 'help': return <HelpScreen />;
+
             case 'settings': return <SettingsScreen />;
             case 'consultations': return (
                 <div className="animate-fade-in">
