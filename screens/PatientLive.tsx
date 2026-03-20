@@ -73,7 +73,7 @@ interface Message {
 }
 
 const triggerWidgetTool: FunctionDeclaration = {
-    name: 'triggerWidget',
+    name: 'trigger_widget',
     description: 'Triggers a specific UI widget for the user to interact with. Use this to collect structured data.',
     parameters: {
         type: Type.OBJECT,
@@ -249,14 +249,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
                     ${contextString}
 
-                    **TONE:** Professional, warm, efficient. Indian English nuance (use "Kindly", "Right then", "Please do the needful").
+                    **TONE:** Concise, Professional, Efficient. Use Indian English nuance (e.g., "Kindly", "Right then", "Please do the needful"). **NEVER** start every message with a greeting or a summary of the onboarding status. If the user is returning, just say "Welcome back" or get straight to the point. Skip the preamble.
 
                     **CRITICAL PROTOCOL - READ FIRST**:
                     1. **CHECK CONTEXT**: Before asking for ANY data, check 'Completed Steps' above. **NEVER** ask for a step that is already in 'Completed Steps'.
                     2. **NO LOOPS**: If the user just completed a step (e.g., Consultation), CONFIRM it ("Excellent, consultation updated") and then **STOP**. Do NOT automatically loop back to Step 1 (Vitals) or ask for things you already have.
                     3. **ONE-OFF UPDATES**: If the user asks to update a specific item (like "Change consultation"), do ONLY that. After the widget is processed, simply say "I've updated that for you. Is there anything else?" and WAIT.
-                    4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects.
-                    5. **PERSONALIZED ANSWERS**: You have access to the patient's full data in PATIENT_DATA above. Use it to answer personalized questions about their weight, BMI, medical history, prescriptions, labs, nutrition preferences, and progress. Always reference their actual data when answering.
+                    4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects. Stop re-introducing yourself and stay on the current topic.
+                    5. **BE CONCISE**: Avoid repeating "We have completed your intake" or similar boilerplate in every message. Once acknowledged, move on.
+                    6. **PERSONALIZED ANSWERS**: You have access to the patient's full data in PATIENT_DATA above. Use it to answer personalized questions about their weight, BMI, medical history, prescriptions, labs, nutrition preferences, and progress. Always reference their actual data when answering.
 
                     **INTAKE SEQUENCE (Only for MISSING items):**
                     1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
@@ -269,9 +270,12 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     8. **CONSULT**: Explain doctor review. Tool: 'consultation'.
 
                     **RULES**:
-                    - **EXPLAIN FIRST**: Always explain *why* we need data before asking.
-                    - **TRIGGER WIDGET**: Use the \`triggerWidget\` tool to show the form.
-                    - **WAIT**: After triggering a widget, stop generating.
+                    - **EXPLAIN FIRST**: Only explain *why* we need data if YOU are initiating the request. If the user *requests* to update something (e.g., "update my nutrition", "change profile"), YOU MUST call the 'trigger_widget' tool IMMEDIATELY. 
+                    - **NO TALKING ABOUT TOOLS**: DO NOT say "I can trigger...", "Triggering now...", or any variation. JUST CALL THE TOOL. The user will see the form automatically.
+                    - **TRIGGER WIDGET**: Use the \`trigger_widget\` tool to show the form.
+                    - **WAIT**: After triggering a widget, stop generating immediately. Do not add any text after the tool call.
+                    - **NO BOILERPLATE**: Never repeat the greeting "Hello [Name]! I hope you are doing well" or "Since we have completed your intake...". Use it once per session at most.
+                    - **CONCISE ACTION**: If the user asks for a widget, your response should be ONLY the tool call. If they ask a general question, answer concisely.
                     `,
                     tools: [{ functionDeclarations: [triggerWidgetTool] }],
                 });
@@ -291,9 +295,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                         if (!ignore) processResponse(res);
                     }
                 } else {
-                    // For existing users, we inform the AI about current state
-                    const res = await newChatSession.sendMessage({ message: `SYSTEM: Session Load. User is returning. Current progress is ${onboardingProgress}%. Check messages for context.` });
-                    // We don't necessarily need to process the response if we just want it to be ready
+                    // For existing users, we inform the AI about current state passively
+                    await newChatSession.sendMessage({ message: `SYSTEM: Session Load. User details synced. Check chat history for latest context. Welcome them briefly if they just arrived.` });
                 }
             } catch (e) {
                 console.error("Chat Init Error", e);
@@ -337,6 +340,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             ignore = true;
             if (socketRef.current) {
                 socketRef.current.off('receive_message');
+                socketRef.current.emit('leave_room', patient.id);
             }
         };
     }, [patient.id]);
@@ -454,7 +458,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                             if (parsed.tool_calls) {
                                 calls = parsed.tool_calls.map((tc: any) => ({ name: tc.function.name, args: tc.function.parameters }));
                             } else if (parsed.widget_type || parsed.widgetType) {
-                                calls = [{ name: 'triggerWidget', args: { widgetType: parsed.widget_type || parsed.widgetType } }];
+                                calls = [{ name: 'trigger_widget', args: { widgetType: parsed.widget_type || parsed.widgetType } }];
                             }
                         } catch (e) { /* ignore */ }
                     }
@@ -492,7 +496,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
 
         if (calls && calls.length > 0) {
             for (const call of calls) {
-                if (call.name === 'triggerWidget') {
+                if (call.name === 'trigger_widget' || call.name === 'triggerWidget') {
                     const wType = call.args.widgetType as WidgetType;
                     const pMap: Record<WidgetType, number> = {
                         vitals: 0,
@@ -556,7 +560,26 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
 
         try {
-            const res = await chatSession.sendMessage({ message: text });
+            let messageToAi = text;
+            const lowerText = text.toLowerCase();
+            const updateKeywords = ['update', 'change', 'fix', 'edit', 'refill', 're-fill', 'show me', 'trigger', 'open'];
+            
+            if (updateKeywords.some(kw => lowerText.includes(kw))) {
+                // Determine which widget they might want for the hint
+                let widgetHint = "";
+                if (lowerText.includes("profile") || lowerText.includes("detail") || lowerText.includes("address") || lowerText.includes("shipping")) widgetHint = "profile";
+                else if (lowerText.includes("nutrition") || lowerText.includes("diet") || lowerText.includes("meal")) widgetHint = "nutrition";
+                else if (lowerText.includes("vitals") || lowerText.includes("weight") || lowerText.includes("height") || lowerText.includes("blood pressure")) widgetHint = "vitals";
+                else if (lowerText.includes("medical") || lowerText.includes("health condition") || lowerText.includes("surgery")) widgetHint = "medical";
+                else if (lowerText.includes("psych") || lowerText.includes("bes") || lowerText.includes("eating")) widgetHint = "psych";
+                else if (lowerText.includes("labs") || lowerText.includes("blood test")) widgetHint = "labs";
+                else if (lowerText.includes("payment") || lowerText.includes("buy") || lowerText.includes("buy plan")) widgetHint = "payment";
+                else if (lowerText.includes("consult") || lowerText.includes("doctor") || lowerText.includes("book")) widgetHint = "consultation";
+
+                messageToAi = `SYSTEM: USER_UPDATE_REQUEST. ${widgetHint ? `Suggesting '${widgetHint}' widget.` : "Trigger appropriate widget."} DO NOT talk. JUST TRIGGER. User query: "${text}"`;
+            }
+
+            const res = await chatSession.sendMessage({ message: messageToAi });
             processResponse(res);
         } catch (err) {
             setIsTyping(false);
@@ -792,7 +815,21 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         // 6. Send confirmation to AI
         if (chatSession) {
             setIsTyping(true);
-            const statusText = `SYSTEM: Captured ${type} data ${detailsString}. Widget complete. Proceed to next step.`;
+            
+            // Smarter logic to detect if this was an requested update or initial flow
+            // 1. Check if patient was already deeply in onboarding
+            const isCompletedStage = type === 'consultation' || onboardingProgress >= 90 || patient.status === 'Ongoing Treatment' || patient.status === 'Monitoring Loop';
+            
+            // 2. Check if the user's last message was an explicit request to update/edit
+            const lastUserMsg = [...messages].reverse().find(m => m.sender === 'User' || m.sender?.toLowerCase() === 'user')?.text || "";
+            const isExplicitUpdateRequest = /update|edit|change|modify|fix|correct|refill|reset|provide again/i.test(lastUserMsg);
+
+            let actionText = "Proceed to next missing onboarding step if there is one.";
+            if (isCompletedStage || isExplicitUpdateRequest) {
+                actionText = "Acknowledge the update briefly and wait for the user's next question. DO NOT trigger the next widget unless the user specifically asks for it.";
+            }
+
+            const statusText = `SYSTEM: Captured ${type} data ${detailsString}. Widget complete. ${actionText}`;
             try {
                 const res = await chatSession.sendMessage({ message: statusText });
                 processResponse(res);
@@ -879,6 +916,8 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 name: data.name,
                 email: data.email,
                 phone: data.phone,
+                dob: data.dob,
+                gender: data.gender,
                 shippingAddress: data.shippingAddress
             });
             if (type === 'labs' || type === 'consultation') {
@@ -1691,6 +1730,8 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
         name: initialData.name || '',
         email: initialData.email || '',
         phone: initialData.phone || '',
+        dob: initialData.dob || '',
+        gender: initialData.gender || '',
         labAddress: {
             line1: initialData.shippingAddress?.line1 || '',
             city: initialData.shippingAddress?.city || '',
@@ -1727,10 +1768,20 @@ const ProfileWidget: React.FC<{ onSubmit: (d: any) => void, initialData: any }> 
     return (
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-xl w-full">
             <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tighter">Phase 6: Your Profile</h3>
-            <div className="space-y-4">
-                <input value={d.name} onChange={e => setD({ ...d, name: e.target.value })} placeholder="Full Name" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
-                <input value={d.email} onChange={e => setD({ ...d, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
-                <input value={d.phone} onChange={e => setD({ ...d, phone: e.target.value })} placeholder="Phone" className="w-full bg-gray-50 border rounded-xl p-3 text-sm focus:border-brand-purple outline-none" />
+            <div className="space-y-4 animate-fade-in">
+                <input value={d.name} onChange={e => setD({ ...d, name: e.target.value })} placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:border-brand-purple outline-none transition-colors" />
+                <div className="flex gap-3">
+                    <input type="date" value={d.dob} onChange={e => setD({ ...d, dob: e.target.value })} className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:border-brand-purple outline-none text-gray-700 transition-colors" />
+                    <select value={d.gender} onChange={e => setD({ ...d, gender: e.target.value })} className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:border-brand-purple outline-none text-gray-700 transition-colors">
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                        <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
+                </div>
+                <input value={d.email} onChange={e => setD({ ...d, email: e.target.value })} placeholder="Email" className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:border-brand-purple outline-none transition-colors" />
+                <input value={d.phone} onChange={e => setD({ ...d, phone: e.target.value })} placeholder="Phone Number" className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-sm focus:border-brand-purple outline-none transition-colors" />
 
                 <div className="pt-2">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Address for Lab Visit</p>

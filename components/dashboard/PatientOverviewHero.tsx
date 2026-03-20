@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Patient } from '../../constants';
+import { Patient, calculateAge } from '../../constants';
 
 interface PatientOverviewHeroProps {
     patient: Patient;
@@ -129,6 +129,8 @@ const JourneyProgressGraph: React.FC<{ start: number; current: number; goal: num
 };
 
 const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isProfileComplete, missingFields, onOpenChat }) => {
+    const computedAge = calculateAge(patient.dob, patient.age);
+
     // 1. Determine Weight Data from Logs vs Initial Vitals
     const hasLogs = patient.weeklyLogs && patient.weeklyLogs.length > 0;
     // Sort logs by week descending to get the latest
@@ -197,7 +199,9 @@ const PatientOverviewHero: React.FC<PatientOverviewHeroProps> = ({ patient, isPr
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-brand-text leading-tight">{patient.name}</h2>
-                            <p className="text-sm text-brand-text-light mt-1">{patient.age} years • {patient.goal}</p>
+                            <p className="text-sm text-brand-text-light mt-1 capitalize">
+                                {computedAge !== null ? `${computedAge} years` : 'Age Not Set'} {patient.gender && `• ${patient.gender}`} • {patient.goal}
+                            </p>
                             <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-brand-purple/10 text-brand-purple`}>
                                 {patient.status}
                             </span>

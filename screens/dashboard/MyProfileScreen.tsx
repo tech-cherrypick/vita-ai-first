@@ -19,18 +19,29 @@ const ProfileSection: React.FC<{ title: string; children: React.ReactNode }> = (
     </div>
 );
 
-const InfoRow: React.FC<{ label: string; value: string; isEditing?: boolean; onChange?: (val: string) => void }> = ({ label, value, isEditing, onChange }) => (
+const InfoRow: React.FC<{ label: string; value: string; isEditing?: boolean; onChange?: (val: string) => void; type?: string; options?: {label: string, value: string}[] }> = ({ label, value, isEditing, onChange, type = 'text', options }) => (
     <div>
         <p className="text-sm font-semibold text-brand-text-light mb-1">{label}</p>
         {isEditing && onChange ? (
-            <input
-                type="text"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition-all"
-            />
+            options ? (
+                <select
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none"
+                >
+                    <option value="">Select...</option>
+                    {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+            ) : (
+                <input
+                    type={type}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-purple focus:border-brand-purple outline-none transition-all"
+                />
+            )
         ) : (
-            <p className="text-brand-text font-medium">{value}</p>
+            <p className="text-brand-text font-medium">{value || 'Not Specified'}</p>
         )}
     </div>
 );
@@ -52,6 +63,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
     const [state, setState] = useState(patient.shippingAddress.state);
     const [zip, setZip] = useState(patient.shippingAddress.zip);
     const [dob, setDob] = useState(patient.dob || '');
+    const [gender, setGender] = useState(patient.gender || '');
     const [country, setCountry] = useState(patient.shippingAddress.country);
 
     // Sync state if patient prop updates from outside
@@ -65,6 +77,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
             setState(patient.shippingAddress.state);
             setZip(patient.shippingAddress.zip);
             setDob(patient.dob || '');
+            setGender(patient.gender || '');
             setCountry(patient.shippingAddress.country);
         }
     }, [patient, isEditing]);
@@ -75,6 +88,7 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
             email,
             phone,
             dob,
+            gender,
             shippingAddress: {
                 line1: addressLine1,
                 city,
@@ -111,6 +125,19 @@ const MyProfileScreen: React.FC<MyProfileScreenProps> = ({ patient, onUpdatePati
                         value={dob}
                         isEditing={isEditing}
                         onChange={setDob}
+                        type="date"
+                    />
+                    <InfoRow
+                        label="Gender"
+                        value={gender}
+                        isEditing={isEditing}
+                        onChange={setGender}
+                        options={[
+                            { label: 'Male', value: 'Male' },
+                            { label: 'Female', value: 'Female' },
+                            { label: 'Other', value: 'Other' },
+                            { label: 'Prefer not to say', value: 'Prefer not to say' }
+                        ]}
                     />
                 </ProfileSection>
 

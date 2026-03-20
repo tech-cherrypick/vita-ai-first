@@ -33,7 +33,10 @@ const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect, un
                                         )}
                                     </div>
                                     <div className="ml-4">
-                                        <div className="text-sm font-medium text-gray-900">{patient.name}</div>
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {patient.name}
+                                            {patient.gender && <span className="ml-2 text-xs text-gray-400 font-normal capitalize">({patient.gender})</span>}
+                                        </div>
                                         <div className="text-sm text-gray-500">{patient.email}</div>
                                     </div>
                                 </div>

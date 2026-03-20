@@ -333,27 +333,57 @@ export const PsychView: React.FC<{ patient: Patient }> = ({ patient }) => {
 };
 
 export const VitalsView: React.FC<{ patient: Patient }> = ({ patient }) => {
-    // Keep VitalsView as is, but ensure it handles empty states gracefully
-    // ... [Already implemented correctly in previous logic step, just re-affirming]
-
-    // Check list
-    let weight = 0;
-
-    if (Array.isArray(patient.vitals)) {
-        const wObj = patient.vitals.find(v => v.label === 'Weight');
-        if (wObj) weight = parseFloat(wObj.value);
+    if (!patient.vitals || patient.vitals.length === 0) {
+        return <div className="text-center p-6 bg-gray-50 rounded-xl text-gray-500 text-sm border border-dashed border-gray-200">No recent vitals recorded.</div>;
     }
 
+    const getVitalStatus = (vital: any) => {
+        if (vital.trend === 'up') return { label: 'UP', bg: 'bg-orange-100', text: 'text-orange-700', colorClass: 'bg-orange-500' };
+        if (vital.trend === 'down') return { label: 'DOWN', bg: 'bg-green-100', text: 'text-green-700', colorClass: 'bg-green-500' };
+        return { label: 'STABLE', bg: 'bg-gray-100', text: 'text-gray-700', colorClass: 'bg-blue-400' };
+    };
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
-            {/* If we have vitals list, show card for each */}
-            {patient.vitals?.slice(0, 3).map((v, i) => (
-                <MetricCard key={i} label={v.label} value={`${v.value} ${v.unit || ''}`} status="Normal" subtext={v.date} />
-            ))}
-            {/* If empty, show placeholder */}
-            {(!patient.vitals || patient.vitals.length === 0) && (
-                <div className="col-span-3 text-center p-4 bg-gray-50 rounded-xl text-gray-500 text-sm">No recent vitals recorded.</div>
-            )}
+        <div className="space-y-8 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {patient.vitals.map((vital, i) => {
+                    const statusObj = getVitalStatus(vital);
+                    // Determine a mock 'max' for the progress bar based on common vital types to show some visual progress similar to psych, or just a solid bar if not applicable.
+                    let score = parseFloat(vital.value) || 0;
+                    let max = score * 1.5; // fallback
+                    if (vital.label.toLowerCase().includes('weight')) max = 150; // kg approx max
+                    if (vital.label.toLowerCase().includes('bmi')) max = 40;
+                    if (vital.label.toLowerCase().includes('heart')) max = 120; // bpm
+                    if (vital.label.toLowerCase().includes('blood pressure')) {
+                        // "120/80"
+                        const parts = vital.value.split('/');
+                        score = parseFloat(parts[0]) || 0;
+                        max = 180;
+                    }
+                    if (max === 0) max = 100;
+
+                    return (
+                        <div key={i} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-bold text-gray-800 text-sm">{vital.label}</h4>
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${statusObj.bg} ${statusObj.text}`}>
+                                    {statusObj.label}
+                                </span>
+                            </div>
+                            <div className="flex items-end gap-2 mb-2">
+                                <span className="text-3xl font-extrabold text-gray-900">
+                                    {vital.value}
+                                </span>
+                                {vital.unit && <span className="text-sm text-gray-400 mb-1">{vital.unit}</span>}
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2.5 mt-2 relative overflow-hidden">
+                                <div className={`absolute top-0 left-0 h-full rounded-full ${statusObj.colorClass}`} style={{ width: `${Math.min((score / max) * 100, 100)}%` }}></div>
+                            </div>
+                            <span className="text-[10px] font-medium text-gray-400 mt-4 block">{vital.date}</span>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 };
