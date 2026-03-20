@@ -68,6 +68,15 @@ const generateContent = async (req, res) => {
             patientContext = await getPatientContext(targetPatientId);
         }
 
+        // Limit chat history to the last 5 messages (or fewer to start with a 'user' message)
+        if (contents.length > 5) {
+            let startIndex = contents.length - 5;
+            if (contents[startIndex].role === 'model') {
+                startIndex += 1;
+            }
+            contents = contents.slice(startIndex);
+        }
+
         // Retrieve relevant chunks if it's a user query
         const lastMessage = contents[contents.length - 1];
         if (lastMessage && lastMessage.role === 'user') {
