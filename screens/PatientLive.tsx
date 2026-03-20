@@ -141,10 +141,13 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     });
     const [scheduledLabDate, setScheduledLabDate] = useState<Date | null>(null);
     const [isOnboardingComplete, setIsOnboardingComplete] = useState(() => {
-        return ['Ongoing Treatment', 'Monitoring Loop', 'Awaiting Shipment'].includes(patient.status);
+        return ['OngoingTreatment', 'Monitoring Loop', 'Awaiting Shipment'].includes(patient.status);
     });
     const [patientSex, setPatientSex] = useState<string>(''); // Lifted state for conditional logic
     const [isLoading, setIsLoading] = useState(true); // NEW: Track initial loading state
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedMessages, setSelectedMessages] = useState<Set<number>>(new Set());
+    const [toastMessage, setToastMessage] = useState<string>('');
 
     // Chat State
     const [chatSession, setChatSession] = useState<any>(null);
@@ -659,6 +662,63 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
         }
     };
 
+    // --- Chat Deletion Handlers ---
+    const showToast = (msg: string) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(''), 3000);
+    };
+
+    const handleClearChat = () => {
+        if (!window.confirm("Are you sure you want to clear the entire chat? This cannot be undone.")) return;
+
+        const clearedMessage: Message = {
+            sender: 'Vita-AI',
+            role: CARE_MANAGER.role,
+            color: CARE_MANAGER.color,
+            text: "Your messages have been cleared.",
+            messageType: 'ai',
+            createdAt: new Date().toISOString()
+        };
+
+        setMessages([clearedMessage]);
+        saveToCloudBucket('chat_history', { messages: [clearedMessage] });
+        setIsSelectMode(false);
+        setSelectedMessages(new Set());
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedMessages.size === 0) return;
+        if (!window.confirm(`Delete ${selectedMessages.size} message(s)?`)) return;
+
+        setMessages(prev => {
+            const newMessages = prev.filter((_, idx) => !selectedMessages.has(idx));
+            saveToCloudBucket('chat_history', { messages: newMessages });
+            return newMessages;
+        });
+        setIsSelectMode(false);
+        setSelectedMessages(new Set());
+        showToast("Messages have been deleted");
+    };
+
+    const handleDeleteIndividual = (idx: number) => {
+        if (!window.confirm(`Delete this message?`)) return;
+        setMessages(prev => {
+            const newMessages = prev.filter((_, i) => i !== idx);
+            saveToCloudBucket('chat_history', { messages: newMessages });
+            return newMessages;
+        });
+        showToast("Message has been deleted");
+    };
+
+    const toggleMessageSelection = (idx: number) => {
+        setSelectedMessages(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
+    };
+
     // --- Widget Logic ---
 
     const handleWidgetSubmit = async (type: WidgetType, data: any, messageIndex: number) => {
@@ -879,24 +939,57 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                 currentView={'live' as any}
             />
 
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-fade-in">
+                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <span className="text-sm font-bold">{toastMessage}</span>
+                </div>
+            )}
+
             {/* Header */}
             <header className="bg-white border-b border-gray-100 p-6 flex justify-between items-center shrink-0 z-20 shadow-sm">
                 <div className="flex items-center gap-4">
                     <button onClick={() => setIsMenuOpen(true)} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
                     </button>
-                    <VitaLogo />
+                    {!isSelectMode ? <VitaLogo /> : (
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => { setIsSelectMode(false); setSelectedMessages(new Set()); }} className="text-gray-500 font-bold text-xs uppercase hover:text-gray-800 tracking-wider">Cancel</button>
+                            <span className="text-brand-purple font-black text-xs bg-brand-purple/10 px-2 py-1 rounded-md">{selectedMessages.size} Selected</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-sm font-bold text-gray-900">Vita-AI</p>
-                        <p className="text-[10px] font-bold text-brand-purple uppercase tracking-wider">AI Assistant</p>
-                    </div>
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shadow-sm border-2 border-white">
-                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                    </div>
+                    {isSelectMode ? (
+                        <button onClick={handleDeleteSelected} disabled={selectedMessages.size === 0} className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Delete
+                        </button>
+                    ) : (
+                        <>
+                            <div className="relative group">
+                                <button className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-full transition-colors">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                                </button>
+                                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 origin-top-right">
+                                    <button onClick={() => setIsSelectMode(true)} className="w-full text-left px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-brand-purple flex items-center gap-2">
+                                        <svg className="w-4 h-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        Select Messages
+                                    </button>
+                                    <button onClick={handleClearChat} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50">
+                                        <svg className="w-4 h-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        Clear Chat
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-brand-purple to-purple-600 flex items-center justify-center shadow-sm border-2 border-white">
+                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </div>
+                        </>
+                    )}
                 </div>
             </header>
 
@@ -929,86 +1022,109 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                                 )}
 
                                 {/* Message */}
-                                <div className={`flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
-                                    {msg.sender === 'You' ? (
-                                        <img src={patient.photoURL || patient.imageUrl} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt="You" />
-                                    ) : msg.messageType === 'ai' ? (
-                                        <AIIcon />
-                                    ) : msg.avatar ? (
-                                        <img src={msg.avatar} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
-                                    ) : null}
-                                    <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
-                                        {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
-                                        {msg.messageType === 'careteam' && msg.sender !== 'You' && (
-                                            <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
-                                        )}
-                                        {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
-
-                                        {(msg.text || msg.attachment) && (
-                                            <div>
-                                                <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
-                                                    {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\[JOIN_CALL\]/g, '<button onclick="window.dispatchEvent(new Event(\'joinTelehealth\'))" class="mt-2 text-center w-full py-3 bg-brand-cyan text-cyan-900 font-black text-[10px] tracking-widest uppercase rounded-2xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 cursor-pointer relative z-50"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>Join Video Session</button>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />}
-                                                    {msg.attachment && (
-                                                        <ChatAttachment
-                                                            attachment={msg.attachment}
-                                                            isMine={msg.sender === 'You'}
-                                                        />
-                                                    )}
-                                                </div>
-                                                {(msg.createdAt || msg.timestamp) && (
-                                                    <span className={`text-[10px] text-gray-400 mt-1 block ${msg.sender === 'You' ? 'text-right' : 'text-left'}`}>
-                                                        {getDisplayTime(msg)}
-                                                    </span>
-                                                )}
+                                <div
+                                    className={`relative flex items-end sm:items-center gap-2 group ${isSelectMode ? 'cursor-pointer hover:bg-gray-100/50 p-2 rounded-2xl transition-colors' : ''}`}
+                                    onClick={isSelectMode ? () => toggleMessageSelection(idx) : undefined}
+                                >
+                                    {isSelectMode && (
+                                        <div className="flex items-center justify-center shrink-0 w-6">
+                                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${selectedMessages.has(idx) ? 'bg-brand-purple border-brand-purple' : 'border-gray-300 bg-white'}`}>
+                                                {selectedMessages.has(idx) && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
 
-                                        {msg.audioUrl && (
-                                            <div className="mt-2 bg-brand-purple text-white p-3 rounded-2xl rounded-tr-none flex items-center gap-3">
-                                                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" /></svg>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-bold uppercase tracking-wider opacity-80">Voice Note</span>
-                                                    <audio src={msg.audioUrl} controls className="h-6 w-32 opacity-80" />
-                                                </div>
-                                            </div>
-                                        )}
+                                    <div className={`w-full flex gap-3 sm:gap-4 ${msg.sender === 'You' ? 'flex-row-reverse' : ''} animate-fade-in`}>
+                                        {msg.sender === 'You' ? (
+                                            <img src={patient.photoURL || patient.imageUrl} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt="You" />
+                                        ) : msg.messageType === 'ai' ? (
+                                            <AIIcon />
+                                        ) : msg.avatar ? (
+                                            <img src={msg.avatar} referrerPolicy="no-referrer" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 shadow-md border-2 border-white" alt={msg.sender} />
+                                        ) : null}
+                                        <div className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%] relative`}>
 
-                                        {msg.widget && (
-                                            <div className="mt-3 w-full max-w-full">
-                                                {msg.widget.isComplete ? (
-                                                    <div className="bg-white border border-gray-100 p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-2 group relative">
-                                                        <button onClick={() => handleWidgetEdit(idx)} className="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-brand-purple transition-colors">Edit</button>
-                                                        <div className="flex items-center gap-3 pr-8">
-                                                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>
-                                                            <div><p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Captured</p><p className="text-xs sm:text-sm font-bold text-gray-800 capitalize">{msg.widget.type} Data</p></div>
-                                                        </div>
-                                                        {msg.widget.data && <div className="pl-11 text-xs text-gray-600 font-medium">Data saved to secure profile.</div>}
-                                                    </div>
-                                                ) : (
-                                                    <div className="animate-slide-in-up w-full overflow-x-hidden">
-                                                        {msg.widget.type === 'vitals' && <VitalsWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('vitals', d, idx)} />}
-                                                        {msg.widget.type === 'medical' && <MedicalOnboardingWidget initialData={msg.widget.data} patientSex={patientSex} onSubmit={(d) => handleWidgetSubmit('medical', d, idx)} />}
-                                                        {msg.widget.type === 'nutrition' && <NutritionWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('nutrition', d, idx)} />}
-                                                        {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
-                                                        {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
-                                                        {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
-                                                        {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} patient={patient} initialData={msg.widget.data} />}
-                                                        {msg.widget.type === 'consultation' && (
-                                                            <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
-                                                                <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 8: Doctor Consultation</h3>
-                                                                <ConsultationScheduler
-                                                                    onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
-                                                                    minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
-                                                                    buttonText="Confirm Consultation"
-                                                                />
-                                                            </div>
+                                            {/* Individual Delete Button (Hover) */}
+                                            {!isSelectMode && (
+                                                <div className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-10 ${msg.sender === 'You' ? '-left-10' : '-right-10'}`}>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteIndividual(idx); }} className="p-1.5 bg-white border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full shadow-sm hover:scale-110 transition-all">
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Show sender name for CareTeam messages, "Vita-AI" for AI messages */}
+                                            {msg.messageType === 'careteam' && msg.sender !== 'You' && (
+                                                <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-cyan">{msg.sender}</span>
+                                            )}
+                                            {msg.messageType === 'ai' && msg.sender !== 'You' && <span className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-brand-purple">Vita-AI</span>}
+
+                                            {(msg.text || msg.attachment) && (
+                                                <div>
+                                                    <div className={`p-4 sm:p-5 rounded-3xl text-sm leading-relaxed shadow-sm border ${msg.sender === 'You' ? 'bg-brand-purple text-white rounded-tr-none border-brand-purple/20' : 'bg-white text-gray-800 rounded-tl-none border-gray-100'} ${msg.isConnecting ? 'border-dashed border-brand-cyan/40 bg-brand-cyan/5' : ''}`}>
+                                                        {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\[JOIN_CALL\]/g, '<button onclick="window.dispatchEvent(new Event(\'joinTelehealth\'))" class="mt-2 text-center w-full py-3 bg-brand-cyan text-cyan-900 font-black text-[10px] tracking-widest uppercase rounded-2xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 cursor-pointer relative z-50"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>Join Video Session</button>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />}
+                                                        {msg.attachment && (
+                                                            <ChatAttachment
+                                                                attachment={msg.attachment}
+                                                                isMine={msg.sender === 'You'}
+                                                            />
                                                         )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        )}
+                                                    {(msg.createdAt || msg.timestamp) && (
+                                                        <span className={`text-[10px] text-gray-400 mt-1 block ${msg.sender === 'You' ? 'text-right' : 'text-left'}`}>
+                                                            {getDisplayTime(msg)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {msg.audioUrl && (
+                                                <div className="mt-2 bg-brand-purple text-white p-3 rounded-2xl rounded-tr-none flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                                                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" /></svg>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold uppercase tracking-wider opacity-80">Voice Note</span>
+                                                        <audio src={msg.audioUrl} controls className="h-6 w-32 opacity-80" />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {msg.widget && (
+                                                <div className="mt-3 w-full max-w-full">
+                                                    {msg.widget.isComplete ? (
+                                                        <div className="bg-white border border-gray-100 p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-2 group relative">
+                                                            <button onClick={() => handleWidgetEdit(idx)} className="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-brand-purple transition-colors">Edit</button>
+                                                            <div className="flex items-center gap-3 pr-8">
+                                                                <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>
+                                                                <div><p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Captured</p><p className="text-xs sm:text-sm font-bold text-gray-800 capitalize">{msg.widget.type} Data</p></div>
+                                                            </div>
+                                                            {msg.widget.data && <div className="pl-11 text-xs text-gray-600 font-medium">Data saved to secure profile.</div>}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="animate-slide-in-up w-full overflow-x-hidden">
+                                                            {msg.widget.type === 'vitals' && <VitalsWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('vitals', d, idx)} />}
+                                                            {msg.widget.type === 'medical' && <MedicalOnboardingWidget initialData={msg.widget.data} patientSex={patientSex} onSubmit={(d) => handleWidgetSubmit('medical', d, idx)} />}
+                                                            {msg.widget.type === 'nutrition' && <NutritionWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('nutrition', d, idx)} />}
+                                                            {msg.widget.type === 'psych' && <PsychOnboardingWidget initialData={msg.widget.data} onSubmit={(d) => handleWidgetSubmit('psych', d, idx)} />}
+                                                            {msg.widget.type === 'labs' && <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full"><LabScheduler onSchedule={(d) => handleWidgetSubmit('labs', d, idx)} /></div>}
+                                                            {msg.widget.type === 'profile' && <ProfileWidget initialData={msg.widget.data || patient} onSubmit={(d) => handleWidgetSubmit('profile', d, idx)} />}
+                                                            {msg.widget.type === 'payment' && <PaymentWidget onSubmit={(d) => handleWidgetSubmit('payment', d, idx)} patient={patient} initialData={msg.widget.data} />}
+                                                            {msg.widget.type === 'consultation' && (
+                                                                <div className="bg-white p-4 sm:p-6 rounded-[32px] border border-gray-100 shadow-xl max-w-full">
+                                                                    <h3 className="text-lg font-black text-gray-900 mb-4 uppercase tracking-tighter">Phase 8: Doctor Consultation</h3>
+                                                                    <ConsultationScheduler
+                                                                        onSchedule={(d) => handleWidgetSubmit('consultation', d, idx)}
+                                                                        minDate={scheduledLabDate ? new Date(new Date(scheduledLabDate).setDate(scheduledLabDate.getDate() + 5)) : undefined}
+                                                                        buttonText="Confirm Consultation"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </React.Fragment>
@@ -1479,7 +1595,7 @@ const PsychOnboardingWidget: React.FC<{ onSubmit: (d: any) => void; initialData?
         "Have others noticed you moving or speaking so slowly that it was obvious? Or being so fidgety that you were moving around a lot more than usual?",
         "Have you had thoughts that you would be better off dead, or of hurting yourself in some way?"
     ];
-    
+
     const besQuestions = [
         { id: 1, options: ["I don't feel self-conscious about my weight or body size when I'm with others.", "I feel concerned about how I look to others, but it normally doesn't make me feel disappointed with myself.", "I do get self-conscious about my appearance and weight which makes me feel disappointed in myself.", "I feel very self-conscious about my weight and frequently, I feel like I'm just failing at everything."] },
         { id: 2, options: ["I don't have any difficulty eating slowly in the proper manner.", "Although I seem to devour foods, I don't end up feeling stuffed because of eating too much.", "At times, I tend to eat quickly and then, I feel uncomfortably full afterwards.", "I have the habit of bolting down my food, without really chewing it. When this happens I usually feel uncomfortably stuffed because I've eaten too much."] },
