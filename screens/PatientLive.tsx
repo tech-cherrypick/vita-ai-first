@@ -256,6 +256,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     2. **NO LOOPS**: If the user just completed a step (e.g., Consultation), CONFIRM it ("Excellent, consultation updated") and then **STOP**. Do NOT automatically loop back to Step 1 (Vitals) or ask for things you already have.
                     3. **ONE-OFF UPDATES**: If the user asks to update a specific item (like "Change consultation"), do ONLY that. After the widget is processed, simply say "I've updated that for you. Is there anything else?" and WAIT.
                     4. **INTAKE COMPLETE**: If 'Completed Steps' includes vitals, medical, labs, and consultation, you are now a **SUPPORT AGENT**. Do not run the intake protocol. Answer questions about shipping, diet, or side effects.
+                    5. **PERSONALIZED ANSWERS**: You have access to the patient's full data in PATIENT_DATA above. Use it to answer personalized questions about their weight, BMI, medical history, prescriptions, labs, nutrition preferences, and progress. Always reference their actual data when answering.
 
                     **INTAKE SEQUENCE (Only for MISSING items):**
                     1. **INTRO -> VITALS**: Explain BMI, Visceral Fat. Tool: 'vitals'.
@@ -871,7 +872,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
                     vitalsList.push({ label: 'BMI', value: bmi, date: today });
                 }
 
-                onUpdatePatient(patient.id, null, { vitals: vitalsList });
+                onUpdatePatient(patient.id, null, { vitals: vitalsList, age: parseInt(data.age) || 0 });
             }
             if (type === 'nutrition') onUpdatePatient(patient.id, null, { nutrition: data });
             if (type === 'profile') onUpdatePatient(patient.id, null, {
