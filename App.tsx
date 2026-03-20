@@ -421,6 +421,8 @@ const App: React.FC = () => {
       careTeam: updatedPatient.careTeam,
       goal: updatedPatient.goal,
       pathway: updatedPatient.pathway,
+      dob: updatedPatient.dob,
+      gender: updatedPatient.gender,
       // Removed currentPrescription to avoid duplication in profile; it now lives in 'clinic' subcollection
     }, updatedPatient.id);
 

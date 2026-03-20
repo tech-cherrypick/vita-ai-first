@@ -84,7 +84,7 @@ interface PatientScorecardProps {
 
 const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePatient }) => {
     // State to track which section is expanded
-    const [expandedSection, setExpandedSection] = useState<'metabolic' | 'psych' | 'safety' | null>(null);
+    const [expandedSection, setExpandedSection] = useState<'metabolic' | 'vitals' | 'psych' | 'safety' | null>(null);
     const [showLabUploader, setShowLabUploader] = useState(false);
 
     // Real Data Derivation
@@ -128,7 +128,7 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
     const hasContraindication = m.contra_mtc || m.contra_men2 || m.contra_pancreatitis || m.contra_suicide;
     const safetyRisk = hasContraindication ? 'High' : 'Low';
 
-    const toggleSection = (section: 'metabolic' | 'psych' | 'safety') => {
+    const toggleSection = (section: 'metabolic' | 'vitals' | 'psych' | 'safety') => {
         setExpandedSection(prev => prev === section ? null : section);
     };
 
@@ -168,9 +168,19 @@ const PatientScorecard: React.FC<PatientScorecardProps> = ({ patient, onUpdatePa
                     onUploadClick={() => setShowLabUploader(true)}
                 >
                     <div className="space-y-6">
-                        <VitalsView patient={patient} />
                         <MetabolicView patient={patient} />
                     </div>
+                </SectionCard>
+
+                <SectionCard
+                    title="Core Vitals"
+                    icon="❤️"
+                    summary={`Overall vital measurements are ${patient.vitals?.length ? 'recorded' : 'pending'}.`}
+                    isOpen={expandedSection === 'vitals'}
+                    onToggle={() => toggleSection('vitals')}
+                    riskLevel={isHighRiskBMI ? 'High' : (bmi > 25 ? 'Moderate' : 'Low')}
+                >
+                    <VitalsView patient={patient} />
                 </SectionCard>
 
                 <SectionCard

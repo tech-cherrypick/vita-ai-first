@@ -292,6 +292,7 @@ export interface Patient {
     id: string | number;
     name: string;
     age: number;
+    gender?: string;
     dob?: string;
     imageUrl: string;
     photoURL?: string;
@@ -456,11 +457,30 @@ export interface MessageThread {
     messages: Message[];
 }
 
+// --- Helper Functions ---
+export const calculateAge = (dobString?: string, fallbackAge?: number): number | null => {
+    if (dobString) {
+        const dobDate = new Date(dobString);
+        if (!isNaN(dobDate.getTime())) {
+            const today = new Date();
+            let computedAge = today.getFullYear() - dobDate.getFullYear();
+            const m = today.getMonth() - dobDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
+                computedAge--;
+            }
+            if (computedAge >= 0) return computedAge;
+        }
+    }
+    return (fallbackAge && fallbackAge > 0) ? fallbackAge : null;
+};
+
 // --- Factory for New Patients ---
 export const createNewPatient = (name: string, email: string, phone: string, id?: string | number, photoURL?: string): Patient => ({
     id: id || Date.now(),
     name: name || 'New Patient',
-    age: 0, // Placeholder
+    age: 0, 
+    dob: '',
+    gender: '',
     imageUrl: photoURL || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
     photoURL: photoURL || '',
     email: email,

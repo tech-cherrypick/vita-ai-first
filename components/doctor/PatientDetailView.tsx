@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Patient, TimelineEvent, GlobalChatMessage } from '../../constants';
+import { Patient, TimelineEvent, GlobalChatMessage, calculateAge } from '../../constants';
 import MedicalReports from './MedicalReports';
 import PatientProgressTracker from './PatientProgressTracker';
 import PatientScorecard from './PatientScorecard';
@@ -20,6 +20,7 @@ interface PatientDetailViewProps {
 }
 
 const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, chatHistory, onSendMessage, userName }) => {
+    const computedAge = calculateAge(patient.dob, patient.age);
     const [activeRightSection, setActiveRightSection] = React.useState<'messages' | 'reports' | 'progress' | 'consultations'>('messages');
 
     const rightMenuItems = [
@@ -45,7 +46,13 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{patient.name}</h1>
                         <p className="text-gray-500 font-medium flex items-center gap-2 mt-1">
-                            <span>{patient.age} years old</span>
+                            <span>{computedAge !== null ? `${computedAge} years old` : 'Age Not Set'}</span>
+                            {patient.gender && (
+                                <>
+                                    <span>•</span>
+                                    <span className="capitalize">{patient.gender}</span>
+                                </>
+                            )}
                             <span>•</span>
                             <span className="text-brand-purple">Goal: {patient.goal}</span>
                         </p>
