@@ -186,9 +186,10 @@ const App: React.FC = () => {
         // Need to ensure Structure matches Patient Interface.
         // Be safe: merge with createNewPatient defaults just in case.
         const mappedPatients = patientsList.map((p: any) => ({
-          ...createNewPatient(p.name || 'Unknown', p.email || '', ''),
-          ...p, // Override with backend data
-          id: p.id || Date.now(), // Ensure ID
+          ...createNewPatient(p.name || 'Unknown', p.email || '', '', undefined, p.photoURL || ''),
+          ...p,
+          id: p.id || Date.now(),
+          imageUrl: p.photoURL || p.imageUrl || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png',
         }));
 
         setPatients(mappedPatients);

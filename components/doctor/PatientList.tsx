@@ -27,7 +27,13 @@ const PatientList: React.FC<PatientListProps> = ({ patients, onPatientSelect, un
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                     <div className="relative flex-shrink-0 h-10 w-10">
-                                        <img className="h-10 w-10 rounded-full object-cover" src={patient.imageUrl} referrerPolicy="no-referrer" alt={patient.name} />
+                                        {patient.imageUrl && patient.photoURL ? (
+                                            <img className="h-10 w-10 rounded-full object-cover" src={patient.imageUrl} referrerPolicy="no-referrer" alt={patient.name} />
+                                        ) : (
+                                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600">
+                                                {patient.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                            </div>
+                                        )}
                                         {(unreadCounts[String(patient.id)] || 0) > 0 && (
                                             <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
                                         )}
