@@ -20,7 +20,7 @@ import MedicalProfiler from '../components/MedicalProfiler';
 import PsychoProfiler from '../components/PsychoProfiler';
 import PatientLive from './PatientLive';
 import TreatmentPlanPanel from '../components/dashboard/TreatmentPlanPanel';
-import { getSocket } from '../socket';
+import { getSocket, joinRoom } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
 import ConsultationDetailsTab from '../components/dashboard/ConsultationDetailsTab';
 import DigitalIntake from '../components/dashboard/DigitalIntake';
@@ -300,7 +300,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onSignOut, patient, onUpd
     useEffect(() => {
         const socket = getSocket();
 
-        socket.emit('join_room', patient.id);
+        joinRoom(patient.id);
 
         const handleIncomingCall = (data: { doctorName: string; doctorId: string; patientId: string } | undefined | null) => {
             if (data && String(data.patientId) === String(patient.id)) {

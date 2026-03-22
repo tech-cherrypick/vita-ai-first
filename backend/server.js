@@ -31,7 +31,7 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"]
   },
-  transports: ['websocket', 'polling'],
+  transports: ['polling', 'websocket'],
   allowUpgrades: true,
   pingInterval: 25000,
   pingTimeout: 60000,
@@ -40,12 +40,17 @@ const io = new Server(server, {
 
 // Socket.io Logic
 io.on('connection', (socket) => {
-  console.log('⚡ User connected:', socket.id);
+  console.log(`⚡ User connected: ${socket.id} via ${socket.conn.transport.name}`);
+
+  socket.conn.on('upgrade', () => {
+    console.log(`⬆️ ${socket.id} upgraded to ${socket.conn.transport.name}`);
+  });
 
   socket.on('join_room', (patientUid) => {
     const roomName = `room_${patientUid}`;
     socket.join(roomName);
-    console.log(`👤 User joined room: ${roomName}`);
+    const roomSize = io.sockets.adapter.rooms.get(roomName)?.size || 0;
+    console.log(`👤 ${socket.id} joined room: ${roomName} (${roomSize} members)`);
   });
 
   socket.on('join_call_room', (data) => {

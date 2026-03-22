@@ -46,14 +46,15 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
     };
 
     const getDisplayTime = (msg: GlobalChatMessage) => {
-        if (msg.createdAt) {
-            const date = new Date(msg.createdAt);
+        const raw = msg.createdAt || msg.timestamp;
+        if (raw) {
+            const date = new Date(raw);
             if (!isNaN(date.getTime())) {
                 return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
             }
+            return raw;
         }
-        // Fallback for legacy messages with just time string
-        return msg.timestamp || '';
+        return '';
     };
 
     const patientMessages = chatHistory

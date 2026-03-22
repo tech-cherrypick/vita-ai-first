@@ -10,7 +10,7 @@ import SideMenu from '../components/dashboard/SideMenu';
 import PaymentComponent from '../components/dashboard/PaymentComponent';
 import FileUploadButton from '../components/messaging/FileUploadButton';
 import ChatAttachment from '../components/messaging/ChatAttachment';
-import { getSocket } from '../socket';
+import { getSocket, joinRoom } from '../socket';
 import { ChatAttachment as ChatAttachmentType } from '../constants';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 
@@ -110,13 +110,15 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
     };
 
     const getDisplayTime = (msg: Message) => {
-        if (msg.createdAt) {
-            const date = new Date(msg.createdAt);
+        const raw = msg.createdAt || msg.timestamp;
+        if (raw) {
+            const date = new Date(raw);
             if (!isNaN(date.getTime())) {
                 return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
             }
+            return raw;
         }
-        return msg.timestamp || '';
+        return '';
     };
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -310,8 +312,7 @@ const PatientLive: React.FC<PatientLiveProps> = ({ patient, onNavigate, onUpdate
             const socket = getSocket();
             socketRef.current = socket;
 
-            // Join patient room
-            socket.emit('join_room', patient.id);
+            joinRoom(patient.id);
 
             // Listen for CareTeam messages (but ignore our own messages)
             socket.on('receive_message', (message: any) => {

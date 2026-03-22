@@ -5,7 +5,7 @@ import PatientList from '../components/doctor/PatientList';
 import PatientDetailView from '../components/doctor/PatientDetailView';
 import { Patient, TimelineEvent, GlobalChatMessage } from '../constants';
 import DoctorScheduleScreen from './doctor/DoctorScheduleScreen';
-import { getSocket } from '../socket';
+import { getSocket, joinRoom } from '../socket';
 import ConsultationCall from '../components/dashboard/ConsultationCall';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
@@ -80,7 +80,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onSignOut, allPatient
     useEffect(() => {
         // 1. Join rooms for all assigned patients
         allPatients.forEach(p => {
-            socket.emit('join_room', p.id);
+            joinRoom(p.id);
         });
 
         // 2. Fetch History for all patients

@@ -20,13 +20,13 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
 
     // Group messages by patient and sort by activity
     const threads = allPatients.map(patient => {
-        const messages = chatHistory.filter(m => String(m.patientId) === String(patient.id)).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const messages = chatHistory.filter(m => String(m.patientId) === String(patient.id)).sort((a, b) => new Date(a.createdAt || a.timestamp).getTime() - new Date(b.createdAt || b.timestamp).getTime());
         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
         return {
             patient,
             messages,
             lastMessage,
-            lastMessageTime: lastMessage ? new Date(lastMessage.timestamp).getTime() : 0
+            lastMessageTime: lastMessage ? new Date(lastMessage.createdAt || lastMessage.timestamp).getTime() : 0
         };
     }).sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
@@ -93,7 +93,7 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
                                             </div>
                                         </div>
                                         <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                                            {thread.lastMessage ? new Date(thread.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            {thread.lastMessage ? new Date(thread.lastMessage.createdAt || thread.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                         </span>
                                     </div>
                                 </button>
@@ -145,7 +145,7 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
                                                 {msg.sender !== 'careCoordinator' && msg.sender !== 'patient' && msg.sender !== 'system' && <p className="text-[10px] font-bold opacity-70 mb-1 uppercase">{msg.role || msg.senderName}</p>}
                                                 <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
                                                 <p className={`text-[10px] mt-1 text-right opacity-60`}>
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
                                         </div>

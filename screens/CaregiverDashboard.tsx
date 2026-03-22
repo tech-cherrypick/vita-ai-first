@@ -6,7 +6,7 @@ import CareCoordinatorTriageScreen from './caregiver/CaregiverTriageScreen';
 import CareCoordinatorScheduleScreen from './caregiver/CaregiverScheduleScreen';
 import CareCoordinatorPatientDetailView from '../components/caregiver/CaregiverPatientDetailView';
 import PatientList from '../components/doctor/PatientList';
-import { getSocket } from '../socket';
+import { getSocket, joinRoom } from '../socket';
 import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
 import SettingsScreen from './dashboard/SettingsScreen';
@@ -54,7 +54,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     useEffect(() => {
         // 1. Join rooms for all assigned patients
         allPatients.forEach(p => {
-            socket.emit('join_room', p.id);
+            joinRoom(p.id);
         });
 
         // 2. Fetch History for all patients
