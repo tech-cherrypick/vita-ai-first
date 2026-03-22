@@ -13,6 +13,7 @@ interface PatientMessagePanelProps {
     userRole: 'doctor' | 'careCoordinator';
     patientName: string;
     patientImageUrl: string;
+    isSocketConnected?: boolean;
 }
 
 const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
@@ -22,7 +23,8 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
     userName,
     userRole,
     patientName,
-    patientImageUrl
+    patientImageUrl,
+    isSocketConnected = true
 }) => {
     const [inputValue, setInputValue] = useState('');
     const [attachment, setAttachment] = useState<ChatAttachmentType | null>(null);
@@ -116,6 +118,13 @@ const PatientMessagePanel: React.FC<PatientMessagePanelProps> = ({
                     <p className="text-xs text-gray-500">{patientName}</p>
                 </div>
             </div>
+
+            {!isSocketConnected && (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200 text-amber-700 text-xs font-semibold">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                    Connecting...
+                </div>
+            )}
 
             {/* Messages */}
             <div className="h-[400px] overflow-y-auto p-4 bg-white flex flex-col gap-3">

@@ -11,6 +11,7 @@ import { useAndroidBackButton } from '../hooks/useAndroidBackButton';
 import { auth } from '../firebase';
 import SettingsScreen from './dashboard/SettingsScreen';
 import { messageTrackingService } from '../services/MessageTrackingService';
+import { useSocketConnected } from '../hooks/useSocketConnected';
 
 interface CareCoordinatorDashboardProps {
     onSignOut: () => void;
@@ -29,6 +30,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     const [globalChatHistory, setGlobalChatHistory] = useState<GlobalChatMessage[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const socket = getSocket();
+    const isSocketConnected = useSocketConnected();
 
     useEffect(() => {
         if (initialSelectedPatientId) {
@@ -85,8 +87,22 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
         };
         fetchAllHistory();
 
-        // 3. Listen for messages
+        const currentUserId = auth.currentUser?.uid;
         const handleMessage = (msg: GlobalChatMessage) => {
+            const isOwnMessage = (msg as any).senderId === currentUserId;
+            if (isOwnMessage) {
+                setGlobalChatHistory(prev => {
+                    const hasTempVersion = prev.some(m =>
+                        String(m.id).startsWith('temp_') &&
+                        m.text === msg.text &&
+                        String(m.patientId) === String(msg.patientId)
+                    );
+                    if (hasTempVersion) return prev;
+                    if (prev.some(m => m.id === msg.id)) return prev;
+                    return [...prev, msg];
+                });
+                return;
+            }
             setGlobalChatHistory(prev => {
                 if (prev.some(m => m.id === msg.id)) return prev;
                 return [...prev, msg];
@@ -209,6 +225,15 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
     };
 
     const handleSendChatMessage = (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => {
+        const tempId = `temp_${Date.now()}_${Math.random()}`;
+        const optimisticMessage: GlobalChatMessage = {
+            ...msg,
+            id: tempId,
+            timestamp: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+        };
+        setGlobalChatHistory(prev => [...prev, optimisticMessage]);
+
         const messageData = {
             ...msg,
             patientUid: msg.patientId,
@@ -242,6 +267,7 @@ const CareCoordinatorDashboard: React.FC<CareCoordinatorDashboardProps> = ({ onS
                 chatHistory={globalChatHistory}
                 onSendMessage={handleSendChatMessage}
                 userName={userName}
+                isSocketConnected={isSocketConnected}
             />;
         }
 

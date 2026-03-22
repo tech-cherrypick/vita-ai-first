@@ -18,9 +18,10 @@ interface CareCoordinatorPatientDetailViewProps {
     chatHistory: GlobalChatMessage[];
     onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
     userName: string;
+    isSocketConnected?: boolean;
 }
 
-const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailViewProps> = ({ patient, tasks, onBack, onUpdatePatient, onCompleteTask, chatHistory, onSendMessage, userName }) => {
+const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailViewProps> = ({ patient, tasks, onBack, onUpdatePatient, onCompleteTask, chatHistory, onSendMessage, userName, isSocketConnected }) => {
     const [activeSection, setActiveSection] = React.useState<'overview' | 'history' | 'reports' | 'address' | 'consultation_details'>('overview');
 
     const menuItems = [
@@ -91,6 +92,7 @@ const CareCoordinatorPatientDetailView: React.FC<CareCoordinatorPatientDetailVie
                         userRole="careCoordinator"
                         patientName={patient.name}
                         patientImageUrl={patient.imageUrl}
+                        isSocketConnected={isSocketConnected}
                     />
                 </div>
 

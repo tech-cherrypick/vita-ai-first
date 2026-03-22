@@ -7,10 +7,16 @@ class SocketService {
 
     public static getInstance(): Socket {
         if (!SocketService.instance) {
-            SocketService.instance = io(SOCKET_URL);
+            SocketService.instance = io(SOCKET_URL, {
+                transports: ['websocket'],
+                upgrade: false,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 1000,
+                timeout: 20000,
+            });
 
             SocketService.instance.on('connect', () => {
-                console.log('✅ Connected to WebSocket server');
+                console.log('✅ Connected to WebSocket server via', SocketService.instance?.io?.engine?.transport?.name);
             });
 
             SocketService.instance.on('connect_error', (error) => {

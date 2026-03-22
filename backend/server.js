@@ -28,9 +28,13 @@ const db = admin.firestore();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust as needed for production
+    origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  transports: ['websocket', 'polling'],
+  allowUpgrades: true,
+  pingInterval: 25000,
+  pingTimeout: 60000,
 });
 
 
@@ -116,7 +120,8 @@ io.on('connection', (socket) => {
       const broadcastData = {
         ...messageData,
         id: msgRef.id,
-        timestamp: new Date().toISOString() // Fallback string for real-time
+        senderId: data.senderId || null,
+        timestamp: new Date().toISOString()
       };
 
       io.to(`room_${patientUid}`).emit('receive_message', broadcastData);

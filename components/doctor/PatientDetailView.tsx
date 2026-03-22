@@ -17,9 +17,10 @@ interface PatientDetailViewProps {
     chatHistory: GlobalChatMessage[];
     onSendMessage: (msg: Omit<GlobalChatMessage, 'id' | 'timestamp'>) => void;
     userName: string;
+    isSocketConnected?: boolean;
 }
 
-const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, chatHistory, onSendMessage, userName }) => {
+const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, onUpdatePatient, chatHistory, onSendMessage, userName, isSocketConnected }) => {
     const computedAge = calculateAge(patient.dob, patient.age);
     const [activeRightSection, setActiveRightSection] = React.useState<'messages' | 'reports' | 'progress' | 'consultations'>('messages');
 
@@ -116,6 +117,7 @@ const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patient, onBack, 
                                 userRole="doctor"
                                 patientName={patient.name}
                                 patientImageUrl={patient.imageUrl}
+                                isSocketConnected={isSocketConnected}
                             />
                         )}
                         {activeRightSection === 'reports' && (

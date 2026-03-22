@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { GlobalChatMessage, Patient } from '../../constants';
 import { auth } from '../../firebase';
+import { useSocketConnected } from '../../hooks/useSocketConnected';
 
 interface CareCoordinatorMessagesScreenProps {
     chatHistory: GlobalChatMessage[];
@@ -15,6 +16,7 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
     const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
     const [isMobileThreadVisible, setIsMobileThreadVisible] = useState(false);
     const [inputValue, setInputValue] = useState('');
+    const isSocketConnected = useSocketConnected();
 
     // Group messages by patient and sort by activity
     const threads = allPatients.map(patient => {
@@ -120,6 +122,12 @@ const CareCoordinatorMessagesScreen: React.FC<CareCoordinatorMessagesScreenProps
                                     Escalate
                                 </button>
                             </header>
+                            {!isSocketConnected && (
+                                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200 text-amber-700 text-xs font-semibold">
+                                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                                    Connecting...
+                                </div>
+                            )}
                             <div className="flex-1 p-6 overflow-y-auto bg-white flex flex-col gap-3">
                                 {activeThread.messages.map((msg) => {
                                     const isMine = msg.sender === 'careCoordinator';
